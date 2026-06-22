@@ -77,3 +77,5 @@ Prefer this sequence:
 For the extracted narrative pattern, read `references/harp_tech_share_pattern.md` before writing a substantial deck or architecture document.
 
 For a direct HARP-tech-share-style writing scaffold with slide-by-slide fill-in templates and reusable HTML section snippets, read `references/harp_tech_share_writing_template.md`.
+
+For a directly reusable standalone HTML deck template, copy or adapt `assets/templates/harp_tech_share_template.html`.

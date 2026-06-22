@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>[System] Tech Share</title>
+  <style>
+    :root {
+      --ink: #111827;
+      --muted: #526071;
+      --line: #d9e0ea;
+      --panel: #f7f9fc;
+      --blue: #1d4ed8;
+      --green: #047857;
+      --purple: #6d28d9;
+      --red: #b91c1c;
+      --orange: #c2410c;
+      --shadow: 0 20px 60px rgba(15, 23, 42, 0.12);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #e8edf4;
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    body { overflow: hidden; }
+    .deck { height: 100vh; width: 100vw; display: grid; place-items: center; padding: 14px; }
+    .slide {
+      display: none;
+      width: min(1680px, 100%);
+      height: min(940px, calc(100vh - 28px));
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      padding: 42px 48px;
+      position: relative;
+      overflow: hidden;
+    }
+    .slide.active { display: block; }
+    .eyebrow { color: var(--blue); font-size: 15px; font-weight: 700; margin-bottom: 14px; }
+    h1, h2 { margin: 0; letter-spacing: 0; }
+    h1 { font-size: 58px; line-height: 1.04; max-width: 960px; }
+    h2 { font-size: 38px; line-height: 1.12; max-width: 1100px; }
+    p { font-size: 21px; line-height: 1.42; color: var(--muted); margin: 18px 0 0; max-width: 980px; }
+    .subtitle { font-size: 25px; color: #334155; max-width: 980px; }
+    .footer {
+      position: absolute;
+      left: 48px;
+      right: 48px;
+      bottom: 28px;
+      display: flex;
+      justify-content: space-between;
+      color: #64748b;
+      font-size: 13px;
+    }
+    .pillrow { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+    .pill { border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; color: #334155; background: #f8fafc; font-size: 15px; }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 32px; }
+    .card { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 20px; min-height: 132px; }
+    .card h3 { margin: 0 0 10px; font-size: 21px; }
+    .card p, .card li { font-size: 16px; line-height: 1.35; margin: 0; color: var(--muted); }
+    .thesis {
+      border-left: 5px solid var(--green);
+      padding: 18px 22px;
+      margin-top: 24px;
+      background: #f0fdf4;
+      color: #1f2937;
+      font-size: 22px;
+      line-height: 1.38;
+      max-width: 1080px;
+    }
+    .agenda { counter-reset: item; margin-top: 34px; padding-left: 0; }
+    .agenda li {
+      list-style: none;
+      position: relative;
+      padding-left: 52px;
+      margin: 18px 0;
+      font-size: 23px;
+      line-height: 1.42;
+      color: #263241;
+    }
+    .agenda li::before {
+      counter-increment: item;
+      content: counter(item);
+      position: absolute;
+      left: 0;
+      top: -2px;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      background: var(--blue);
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .stage-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 30px; }
+    .stage-card { border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; padding: 15px 13px; min-height: 168px; }
+    .stage-card b { display: block; font-size: 25px; color: var(--blue); margin-bottom: 8px; }
+    .stage-card strong { display: block; font-size: 17px; color: var(--ink); margin-bottom: 8px; line-height: 1.18; }
+    .stage-card span { display: block; font-size: 13px; color: var(--muted); line-height: 1.3; }
+    .table { border-collapse: collapse; margin-top: 28px; width: 100%; font-size: 17px; }
+    .table th, .table td { border-bottom: 1px solid var(--line); padding: 13px 12px; text-align: left; vertical-align: top; }
+    .table th { color: #334155; background: #f8fafc; }
+    .case-layout { display: grid; grid-template-columns: 1.18fr 0.82fr; gap: 24px; align-items: start; margin-top: 24px; }
+    .case-figure { width: 100%; height: 555px; object-fit: contain; border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 6px; }
+    .case-side { display: grid; gap: 14px; }
+    .statline { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
+    .statbox { border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; padding: 13px; }
+    .statbox b { display: block; color: var(--ink); font-size: 23px; margin-bottom: 3px; }
+    .statbox span { color: var(--muted); font-size: 13px; line-height: 1.25; }
+    .source-note { color: #64748b; font-size: 13px; line-height: 1.35; margin-top: 12px; }
+    .visual { border: 1px solid var(--line); border-radius: 8px; background: #fff; height: 560px; padding: 10px; margin-top: 22px; }
+    .visual svg { width: 100%; height: 100%; display: block; }
+    .navhint { position: fixed; right: 22px; bottom: 14px; color: #64748b; font-size: 12px; }
+    @media print {
+      body { overflow: visible; background: white; }
+      .deck { display: block; padding: 0; height: auto; }
+      .slide { display: block !important; page-break-after: always; width: 100vw; height: 100vh; box-shadow: none; border: 0; }
+      .navhint { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="deck">
+    <section class="slide active">
+      <div class="eyebrow">[Tech Share] · [Date]</div>
+      <h1>[System]: a [control plane] for [bounded long-loop work]</h1>
+      <p class="subtitle">How [system] turns [messy workflow] into a bounded, auditable, reviewable loop.</p>
+      <div class="pillrow">
+        <span class="pill">[runtime property]</span>
+        <span class="pill">[agent property]</span>
+        <span class="pill">[audit property]</span>
+        <span class="pill">[extensibility property]</span>
+      </div>
+      <div class="footer"><span>[project / repo]</span><span class="slide-num"></span></div>
+    </section>
+
+    <section class="slide">
+      <div class="eyebrow">Warm-Up · [History Lens]</div>
+      <h2>从 [old mode]，到 [new responsibility]</h2>
+      <p>[System] 不是孤立出现的工程玩具。它更像是 [field/workflow] 走到 [stage] 以后，一个自然冒出来的问题：[question]？</p>
+      <div class="stage-strip">
+        <div class="stage-card"><b>1</b><strong>[Stage 1]</strong><span>[manual baseline]</span></div>
+        <div class="stage-card"><b>2</b><strong>[Stage 2]</strong><span>[tool-assisted step]</span></div>
+        <div class="stage-card"><b>3</b><strong>[Stage 3]</strong><span>[trustworthy short step]</span></div>
+        <div class="stage-card"><b>4</b><strong>[Stage 4]</strong><span>[harnessed workflow]</span></div>
+        <div class="stage-card"><b>5</b><strong>[Stage 5]</strong><span>[aspirational endpoint and boundary]</span></div>
+      </div>
+      <div class="thesis">我的判断：[realistic thesis]，而不是 [overclaim]。[cost/boundary reason].</div>
+      <div class="footer"><span>[why this matters]</span><span class="slide-num"></span></div>
+    </section>
+
+    <section class="slide">
+      <div class="eyebrow">Talk Route</div>
+      <h2>从 [historical pressure]，走到 [system mechanism]</h2>
+      <ol class="agenda">
+        <li>为什么 [trusted short step] 自然导向 [harness/control plane]</li>
+        <li>[System] 能承载哪些长循环任务</li>
+        <li>[Topology], tick, reviewer, gate, audit 如何拼成一个循环</li>
+        <li>[Self-evolve / failures] 暴露的长循环失败模式</li>
+        <li>外部 [benchmarks/peer systems] 分别在问什么能力问题</li>
+        <li>案例证据、诚实边界、roadmap，以及 QA 前的 runtime 讨论</li>
+      </ol>
+      <div class="footer"><span>Narrative route</span><span class="slide-num"></span></div>
+    </section>
+
+    <section class="slide">
+      <div class="eyebrow">[Project] Highlight</div>
+      <h2>[System] is a [correct category], not a [misleading category]</h2>
+      <div class="cards">
+        <div class="card"><h3>Reads state</h3><p>[what state it reads]</p></div>
+        <div class="card"><h3>Delegates bounded work</h3><p>[who plans, who executes, how bounded]</p></div>
+        <div class="card"><h3>Enforces contracts</h3><p>[review/gate/scope/rollback/commit]</p></div>
+      </div>
+      <p>[System] watches, prompts, launches, reviews, persists, and asks humans for missing authority or information when the loop cannot honestly continue.</p>
+      <div class="footer"><span>Control-plane mental model</span><span class="slide-num"></span></div>
+    </section>
+
+    <section class="slide">
+      <div class="eyebrow">System Map</div>
+      <h2>Coarse architecture</h2>
+      <div class="visual" role="img" aria-label="System architecture map">
+        <svg viewBox="0 0 1120 560" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1120" height="560" fill="#fff"/>
+          <defs>
+            <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+              <polygon points="0 0,10 5,0 10" fill="#475569"/>
+            </marker>
+          </defs>
+          <rect x="50" y="70" width="220" height="80" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="2"/>
+          <text x="160" y="106" font-size="18" font-weight="700" text-anchor="middle" fill="#1e3a8a">[Engine]</text>
+          <text x="160" y="130" font-size="13" text-anchor="middle" fill="#475569">templates, prompts, skills</text>
+          <rect x="450" y="70" width="240" height="80" rx="8" fill="#ecfdf5" stroke="#047857" stroke-width="2"/>
+          <text x="570" y="106" font-size="18" font-weight="700" text-anchor="middle" fill="#065f46">[Workspace]</text>
+          <text x="570" y="130" font-size="13" text-anchor="middle" fill="#475569">state, plans, queue, memory</text>
+          <rect x="850" y="70" width="220" height="80" rx="8" fill="#fff7ed" stroke="#c2410c" stroke-width="2"/>
+          <text x="960" y="106" font-size="18" font-weight="700" text-anchor="middle" fill="#9a3412">[Target]</text>
+          <text x="960" y="130" font-size="13" text-anchor="middle" fill="#475569">code, jobs, artifacts</text>
+          <path d="M270 110 H450" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+          <path d="M690 110 H850" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+          <rect x="190" y="245" width="260" height="90" rx="8" fill="#f5f3ff" stroke="#6d28d9" stroke-width="2"/>
+          <text x="320" y="282" font-size="18" font-weight="700" text-anchor="middle" fill="#5b21b6">Role router</text>
+          <text x="320" y="307" font-size="13" text-anchor="middle" fill="#475569">planner, executor, reviewers</text>
+          <rect x="530" y="245" width="260" height="90" rx="8" fill="#f8fafc" stroke="#64748b" stroke-width="2"/>
+          <text x="660" y="282" font-size="18" font-weight="700" text-anchor="middle" fill="#334155">Runtime ledgers</text>
+          <text x="660" y="307" font-size="13" text-anchor="middle" fill="#475569">queue, gates, completion fact</text>
+          <path d="M570 150 V245" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+          <path d="M450 290 H530" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+          <path d="M790 290 C880 285 920 230 950 150" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+          <rect x="260" y="425" width="260" height="78" rx="8" fill="#fee2e2" stroke="#b91c1c" stroke-width="2"/>
+          <text x="390" y="457" font-size="17" font-weight="700" text-anchor="middle" fill="#991b1b">Verification stack</text>
+          <text x="390" y="480" font-size="13" text-anchor="middle" fill="#475569">artifact, review, scope, truth</text>
+          <rect x="610" y="425" width="260" height="78" rx="8" fill="#dcfce7" stroke="#15803d" stroke-width="2"/>
+          <text x="740" y="457" font-size="17" font-weight="700" text-anchor="middle" fill="#166534">Terminal decision</text>
+          <text x="740" y="480" font-size="13" text-anchor="middle" fill="#475569">stop, continue, replan, ask human</text>
+          <path d="M660 335 V425" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+          <path d="M520 464 H610" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+        </svg>
+      </div>
+      <p class="source-note">Speaker note: emphasize separation between where the harness lives, where live state lives, and where target artifacts are produced.</p>
+      <div class="footer"><span>Architecture</span><span class="slide-num"></span></div>
+    </section>
+
+    <section class="slide">
+      <div class="eyebrow">Case Evidence</div>
+      <h2>[System] [did concrete thing] across [hard condition]</h2>
+      <div class="case-layout">
+        <img class="case-figure" alt="[figure description]" src="[relative/path/to/figure.png]">
+        <div class="case-side">
+          <div class="card"><h3>Case introduction</h3><p>[task, setup, why it matters]</p></div>
+          <div class="card"><h3>Why it is shareable</h3><p>[generalizable design lesson]</p></div>
+          <div class="card"><h3>Correction / honest gap</h3><p>[what failed, what was corrected, or what remains missing]</p></div>
+          <div class="statline">
+            <div class="statbox"><b>[metric]</b><span>[meaning]</span></div>
+            <div class="statbox"><b>[delta]</b><span>[meaning]</span></div>
+            <div class="statbox"><b>[path]</b><span>[evidence]</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="footer"><span>Evidence: [exact path / commit / output bundle]</span><span class="slide-num"></span></div>
+    </section>
+  </main>
+  <div class="navhint">Use ← / →</div>
+  <script>
+    const slides = Array.from(document.querySelectorAll(".slide"));
+    let idx = 0;
+    function show(n) {
+      idx = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach((slide, i) => slide.classList.toggle("active", i === idx));
+      document.querySelectorAll(".slide-num").forEach((el) => {
+        el.textContent = `${idx + 1} / ${slides.length}`;
+      });
+    }
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowRight" || event.key === "PageDown") show(idx + 1);
+      if (event.key === "ArrowLeft" || event.key === "PageUp") show(idx - 1);
+    });
+    show(0);
+  </script>
+</body>
+</html>
