@@ -68,6 +68,15 @@
       "skills": [
         "./skills/workspace-hygiene"
       ]
+    },
+    {
+      "name": "repo-structure-auditor",
+      "description": "Read-only repository structure auditor with two-layer detection, scoring, and remediation plans",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/repo-structure-auditor"
+      ]
     }
   ]
 }
