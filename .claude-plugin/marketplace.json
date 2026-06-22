@@ -59,6 +59,15 @@
       "skills": [
         "./skills/resource-aware-queue-scheduler"
       ]
+    },
+    {
+      "name": "workspace-hygiene",
+      "description": "Safely audit, organize, archive, and clean cluttered AI-collaboration workspaces",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/workspace-hygiene"
+      ]
     }
   ]
 }

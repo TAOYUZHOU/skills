@@ -1,0 +1,4 @@
+interface:
+  display_name: "Workspace Hygiene"
+  short_description: "Audit clutter, stale artifacts, and cleanup candidates safely."
+  default_prompt: "Audit this workspace for cleanup candidates and produce a safe, reviewable cleanup report."
