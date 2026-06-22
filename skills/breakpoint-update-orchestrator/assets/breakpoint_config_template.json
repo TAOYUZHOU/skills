@@ -1,0 +1,21 @@
+{
+  "worker_patterns": [
+    "train_hydrolysis_multitask",
+    "train_foundation_multitask"
+  ],
+  "launcher_patterns": [
+    "run_v19_strict_science_matrix_parallel"
+  ],
+  "mode": "freeze-launchers",
+  "block_file": "/tmp/example.NO_NEW_JOBS",
+  "status_jsonl": "/tmp/example_breakpoint_update.status.jsonl",
+  "poll_sec": 30,
+  "timeout_sec": 0,
+  "reason": "external update requires a safe breakpoint",
+  "on_ready_commands": [
+    "cd /path/to/workspace && codex exec \"apply pending update and restart queue\""
+  ],
+  "restart_commands": [],
+  "remove_block_on_success": false,
+  "terminate_frozen_launchers_on_success": false
+}

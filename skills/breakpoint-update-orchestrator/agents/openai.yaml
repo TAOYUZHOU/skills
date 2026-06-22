@@ -1,0 +1,3 @@
+display_name: Breakpoint Update Orchestrator
+short_description: Safely pause long-running queues at valid breakpoints, apply updates, and restart work.
+default_prompt: Decide whether this update should stop immediately, drain active jobs, or wait for a batch boundary, then generate and run a safe breakpoint guard.

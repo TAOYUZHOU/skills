@@ -70,6 +70,15 @@
       ]
     },
     {
+      "name": "breakpoint-update-orchestrator",
+      "description": "Safely choose update breakpoints, drain active jobs, trigger local update agents, and restart queues",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/breakpoint-update-orchestrator"
+      ]
+    },
+    {
       "name": "repo-structure-auditor",
       "description": "Read-only repository structure auditor with two-layer detection, scoring, and remediation plans",
       "source": "./",
