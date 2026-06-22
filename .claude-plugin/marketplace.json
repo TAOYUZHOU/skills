@@ -50,6 +50,15 @@
       "skills": [
         "./skills/claude-api"
       ]
+    },
+    {
+      "name": "resource-aware-queue-scheduler",
+      "description": "Profile and adaptively schedule local CPU/GPU job queues under resource limits",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/resource-aware-queue-scheduler"
+      ]
     }
   ]
 }

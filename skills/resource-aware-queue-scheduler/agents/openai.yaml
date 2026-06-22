@@ -1,0 +1,4 @@
+display_name: Resource-Aware Queue Scheduler
+short_description: Profile and adaptively run CPU/GPU job queues under resource limits.
+default_prompt: Profile this job queue, solve a safe parallel schedule, and run it adaptively under the requested CPU/GPU limits.
+

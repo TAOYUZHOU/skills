@@ -1,0 +1,20 @@
+{
+  "created_at_utc": "2026-06-22T00:00:00Z",
+  "jobs": [
+    {
+      "job_id": "example_group_seed42",
+      "group": "example_group",
+      "cmd": [
+        "python",
+        "train.py",
+        "--epochs",
+        "120",
+        "--out-dir",
+        "/tmp/example_group_seed42"
+      ],
+      "out_dir": "/tmp/example_group_seed42",
+      "done_file": "run_config.json"
+    }
+  ]
+}
+
