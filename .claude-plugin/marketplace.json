@@ -86,6 +86,15 @@
       "skills": [
         "./skills/repo-structure-auditor"
       ]
+    },
+    {
+      "name": "technical-narrative-deck",
+      "description": "Turn dense engineering work into human-readable technical shares, architecture truth sources, postmortems, and system narrative decks",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/technical-narrative-deck"
+      ]
     }
   ]
 }
