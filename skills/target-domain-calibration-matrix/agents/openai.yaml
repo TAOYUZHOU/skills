@@ -1,0 +1,3 @@
+display_name: Target-Domain Calibration Matrix
+short_description: Design leakage-safe target-domain calibration and domain-transfer experiment matrices.
+default_prompt: Design a target-domain calibration matrix, generate leakage-safe splits, queue jobs, and success criteria for the requested domain-transfer experiment.

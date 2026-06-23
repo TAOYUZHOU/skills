@@ -61,6 +61,15 @@
       ]
     },
     {
+      "name": "target-domain-calibration-matrix",
+      "description": "Design leakage-safe target-domain calibration and domain-transfer experiment matrices",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/target-domain-calibration-matrix"
+      ]
+    },
+    {
       "name": "workspace-hygiene",
       "description": "Safely audit, organize, archive, and clean cluttered AI-collaboration workspaces",
       "source": "./",

@@ -1,0 +1,21 @@
+{
+  "architectures": [
+    {
+      "name": "scratch_atom_pooling",
+      "family": "scratch",
+      "description": "Top robust scratch architecture from the prior locked benchmark.",
+      "command_args": {
+        "model": "template_atom_pooling"
+      }
+    },
+    {
+      "name": "chemprop_query_attention_min",
+      "family": "foundation",
+      "description": "Top target-domain robust Chemprop finetune architecture.",
+      "command_args": {
+        "backend": "chemprop",
+        "fusion": "query_attention_min"
+      }
+    }
+  ]
+}

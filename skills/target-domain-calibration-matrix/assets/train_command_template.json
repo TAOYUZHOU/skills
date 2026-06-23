@@ -1,0 +1,15 @@
+{
+  "cmd": [
+    "python",
+    "train.py",
+    "--split-csv",
+    "{split_csv}",
+    "--out-dir",
+    "{out_dir}",
+    "--seed",
+    "{seed}",
+    "--architecture",
+    "{architecture}"
+  ],
+  "done_file": "run_config.json"
+}
