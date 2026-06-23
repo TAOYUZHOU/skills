@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{TITLE}}</title>
+  <style>
+    :root {
+      --ink: #18212b;
+      --muted: #5b6673;
+      --line: #d8dee6;
+      --accent: #2364aa;
+      --danger: #b23a48;
+      --ok: #287d63;
+      --paper: #ffffff;
+      --wash: #f5f7fa;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--wash);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.65;
+      letter-spacing: 0;
+    }
+    .page {
+      width: min(1180px, calc(100vw - 40px));
+      margin: 0 auto;
+      padding: 34px 0 60px;
+    }
+    header, section {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    header {
+      padding: 30px 34px;
+      margin-bottom: 22px;
+    }
+    section {
+      padding: 24px 28px;
+      margin: 18px 0;
+      break-inside: avoid;
+    }
+    h1 { margin: 0 0 10px; font-size: 30px; line-height: 1.25; }
+    h2 { margin: 0 0 12px; font-size: 22px; }
+    h3 { margin: 22px 0 8px; font-size: 17px; }
+    p { margin: 8px 0 14px; }
+    .sub { color: var(--muted); margin: 0; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 14px;
+      background: #fbfcfe;
+    }
+    .metric .k { color: var(--muted); font-size: 12px; text-transform: uppercase; }
+    .metric .v { font-size: 22px; font-weight: 700; margin-top: 4px; }
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: #f1f6fd;
+      padding: 12px 14px;
+      margin: 14px 0;
+    }
+    .warn { border-left-color: var(--danger); background: #fff6f6; }
+    .ok { border-left-color: var(--ok); background: #f2faf7; }
+    .figgrid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      align-items: start;
+    }
+    figure { margin: 10px 0 18px; break-inside: avoid; }
+    img {
+      width: 100%;
+      height: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+    }
+    figcaption { color: var(--muted); font-size: 13px; margin-top: 6px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 18px;
+      font-size: 13px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 9px;
+      vertical-align: top;
+      text-align: left;
+    }
+    th { background: #eef2f6; }
+    code {
+      background: #eef2f6;
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    ul { margin: 8px 0 14px 22px; padding: 0; }
+    li { margin: 6px 0; }
+    .footer { color: var(--muted); font-size: 12px; margin-top: 18px; }
+    @media print {
+      body { background: white; }
+      .page { width: 100%; padding: 0; }
+      header, section { border-color: #cfd6df; }
+    }
+    @media (max-width: 860px) {
+      .grid, .figgrid { grid-template-columns: 1fr; }
+      header, section { padding: 20px; }
+      .page { width: min(100vw - 22px, 1180px); }
+    }
+  </style>
+</head>
+<body>
+<main class="page">
+  <header>
+    <h1>{{TITLE}}</h1>
+    <p class="sub">{{SUBTITLE}}</p>
+    <div class="grid">
+      {{CARDS}}
+    </div>
+  </header>
+  {{SECTIONS}}
+  <section>
+    <h2>来源与复现</h2>
+    {{SOURCES}}
+  </section>
+</main>
+</body>
+</html>

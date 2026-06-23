@@ -70,6 +70,15 @@
       ]
     },
     {
+      "name": "academic-experiment-work-report",
+      "description": "Build rigorous Chinese Markdown/HTML/PDF reports for scientific experiment matrices",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/academic-experiment-work-report"
+      ]
+    },
+    {
       "name": "workspace-hygiene",
       "description": "Safely audit, organize, archive, and clean cluttered AI-collaboration workspaces",
       "source": "./",
