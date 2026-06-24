@@ -1,0 +1,3 @@
+display_name: Academic Experiment Work Report
+short_description: Build rigorous Chinese Markdown/HTML/PDF reports with scientific model data diagnostics and split-domain evidence.
+default_prompt: Turn these experiment results into a rigorous Chinese work report. First incorporate scientific model data diagnostics when predictions and metadata are available, then write split-domain metrics, figures, caveats, and next steps.

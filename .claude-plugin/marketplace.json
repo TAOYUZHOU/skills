@@ -71,11 +71,20 @@
     },
     {
       "name": "academic-experiment-work-report",
-      "description": "Build rigorous Chinese Markdown/HTML/PDF reports for scientific experiment matrices",
+      "description": "Build rigorous Chinese Markdown/HTML/PDF reports for scientific experiment matrices with scientific model data diagnostics",
       "source": "./",
       "strict": false,
       "skills": [
         "./skills/academic-experiment-work-report"
+      ]
+    },
+    {
+      "name": "scientific-model-data-diagnostics",
+      "description": "Diagnose scientific model results through target, context, domain, novelty, and residual structure",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/scientific-model-data-diagnostics"
       ]
     },
     {

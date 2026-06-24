@@ -1,6 +1,6 @@
 ---
 name: academic-experiment-work-report
-description: Use when turning ML, chemistry, bioinformatics, or other scientific experiment matrices into a high-quality Chinese work report, especially when results need Markdown, HTML, or PDF deliverables with figures, split-domain metrics, domain-aware diagnostics, data-cleaning provenance, queue/progress status, caveats, and next-step plans.
+description: Use when turning ML, chemistry, bioinformatics, or other scientific experiment matrices into a high-quality Chinese work report, especially when results need Markdown, HTML, or PDF deliverables with figures, split-domain metrics, scientific model data diagnostics, data-cleaning provenance, queue/progress status, caveats, and next-step plans. For ML/scientific model reports, first use scientific-model-data-diagnostics when prediction and metadata artifacts are available.
 metadata:
   short-description: Build rigorous Chinese Markdown/HTML/PDF reports for scientific experiment matrices
 ---
@@ -15,9 +15,24 @@ The report must separate evidence from interpretation.
 
 - State the evidence scope near the top: completed jobs, seeds, splits, model families, and pending matrix cells.
 - Permanently split evaluation domains when the task has domain splits. Do not let mixed test metrics be the main conclusion.
+- For ML/scientific model reports, run or incorporate `scientific-model-data-diagnostics` before writing final conclusions whenever prediction and metadata artifacts are available.
 - Put the main answers first, then figures, then detailed tables, diagnostics, data cleaning, progress, caveats, and next-step plan.
 - Use static PNG figures and relative paths in Markdown/HTML so the report can be archived and exported.
 - Name missing experiments plainly. Do not describe pending work as completed.
+
+## Mandatory Scientific Model Data Diagnostics Gate
+
+For ML, chemistry, bioinformatics, materials, reinforcement learning, or domain-transfer reports, the report is incomplete unless it either includes `scientific-model-data-diagnostics` output or explicitly states why diagnostics could not be run.
+
+Minimum required diagnostic content:
+
+- Metric reliability by split/domain: n, R2/MAE/RMSE for regression; positive count, positive rate, confusion matrix/F1 for classification; return/reward and action/environment coverage for RL or policy tasks.
+- Residual bias and largest residual patterns.
+- Data-generating context strata when present, such as protocol, environment, source, instrument/simulator, cohort/site, measurement setting, action context, or missingness.
+- Representation/novelty strata when present, such as cluster/family, nearest-neighbor distance, embedding distance, retrieval/similarity score, mechanism group, density, or extrapolation distance.
+- A plain-language interpretation of whether model ranking is robust, fragile, or mostly explained by data/split structure.
+
+If diagnostics reveal that a headline metric is fragile, the report must downgrade the claim and make the data issue visible in the conclusion section.
 
 ## Required Sections
 
@@ -36,6 +51,7 @@ The report must separate evidence from interpretation.
 6. **Domain-Aware Diagnostics**
    - For OOD/domain failures, stratify by available source/domain fields.
    - Prefer source, scaffold/cluster novelty, fingerprint similarity quantile, template family, label range, pH/protocol, size bins, and residual direction.
+   - For ML reports, this section should be populated from `scientific-model-data-diagnostics` outputs when possible.
 7. **数据清洗策略**
    - Source manifest and hashes when available.
    - Canonicalization/deduplication.

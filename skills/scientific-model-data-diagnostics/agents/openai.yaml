@@ -1,0 +1,3 @@
+display_name: Scientific Model Data Diagnostics
+short_description: Diagnose scientific model results through target, context, domain, novelty, and residual structure.
+default_prompt: Diagnose these scientific modeling results before reporting: split metrics by domain and data-generating context, inspect target/reward support and residuals, flag fragile metrics, and produce diagnostic tables and figures.
