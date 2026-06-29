@@ -1,0 +1,23 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "local-llm": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Local llama-server",
+      "options": {
+        "baseURL": "http://127.0.0.1:8080/v1"
+      },
+      "models": {
+        "qwythos-q4": {
+          "name": "Qwythos-9B Q4_K_M (100k ctx)",
+          "options": {
+            "temperature": 0.6,
+            "topP": 0.95
+          }
+        }
+      }
+    }
+  },
+  "model": "local-llm/qwythos-q4",
+  "small_model": "local-llm/qwythos-q4"
+}

@@ -122,6 +122,15 @@
       "skills": [
         "./skills/technical-narrative-deck"
       ]
+    },
+    {
+      "name": "opencode-local-agent",
+      "description": "Deploy local GGUF llama-server (single slot, q8 KV, flash-attn) and wire OpenCode as a coding agent via OpenAI-compatible API",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/opencode-local-agent"
+      ]
     }
   ]
 }
