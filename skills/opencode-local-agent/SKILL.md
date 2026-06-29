@@ -79,11 +79,15 @@ cmake --build "$LLAMA_CPP_ROOT/build" -j"$(nproc)" --target llama-server
 
 ### Download GGUF
 
+Use **v3+** weights (2026-06-28 onward). Older GGUFs had a broken chat template that loops in agent harnesses — redownload if unsure:
+
 ```bash
 hf download empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF \
   --include "Qwythos-9B-Claude-Mythos-5-1M-Q4_K_M.gguf" \
   --local-dir "$WORK_DIR/.cache/local-models/qwythos-9b-q4"
 ```
+
+**GGUF embedded template:** the `.gguf` file stores a Jinja chat template in metadata (`tokenizer.chat_template`). llama-server reads it automatically — **do not** pass `--chat-template` or `--chat-template-file` for Qwythos unless debugging. Qwythos v3 embeds the Qwen3.5 tool-calling template (native `<tool_call><function=…>` format).
 
 ```bash
 export GGUF_PATH="$WORK_DIR/.cache/local-models/qwythos-9b-q4/Qwythos-9B-Claude-Mythos-5-1M-Q4_K_M.gguf"
@@ -106,7 +110,8 @@ bash scripts/start_llama_server.sh
 | `--cache-type-k/v` | `q8_0` | halve KV vs f16 |
 | `--flash-attn` | `on` | long-context memory + speed |
 | `-ngl` | `99` | full GPU offload |
-| `--chat-template` | `chatml` | Qwen/Qwythos compatible |
+| chat template | *(none — GGUF embedded Qwen3.5 v3)* | native tool calling + reasoning; **never** use plain `chatml` |
+| `--reasoning-preserve` | `on` | keep `` blocks across multi-turn agent loops |
 
 ```bash
 PROFILE=dev bash scripts/start_llama_server.sh   # 8k smoke
@@ -195,6 +200,7 @@ npm i -g opencode-ai
 | `LLAMA_SERVER` | `llama-server` | llama.cpp server binary |
 | `LLM_PORT` | `8080` | API port |
 | `PROFILE` | `longctx` | `longctx` or `dev` |
+| `REASONING_PRESERVE` | `on` | pass `--reasoning-preserve` to llama-server (`off` to disable) |
 | `LLM_BASE_URL` | `http://127.0.0.1:8080/v1` | OpenCode provider URL |
 
 Reference deployment: `/root/autodl-tmp/taoyuzhou/qwythos-local/`.

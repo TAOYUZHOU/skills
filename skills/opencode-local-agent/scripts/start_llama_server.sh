@@ -48,6 +48,7 @@ fi
 
 NGL="${NGL:-99}"
 FLASH_ATTN="${FLASH_ATTN:-on}"
+REASONING_PRESERVE="${REASONING_PRESERVE:-on}"
 
 export GGUF_PATH LLAMA_SERVER LLM_HOST LLM_PORT PROFILE CTX PARALLEL CACHE_TYPE_K CACHE_TYPE_V NGL FLASH_ATTN
 
@@ -88,6 +89,7 @@ Path(os.environ["STATE"]).write_text(
 PY
 
 echo "Starting llama-server profile=$PROFILE ctx=$CTX parallel=$PARALLEL kv=$CACHE_TYPE_K/$CACHE_TYPE_V"
+echo "Template: GGUF embedded (Qwen3.5 v3) reasoning-preserve=$REASONING_PRESERVE"
 echo "API: http://127.0.0.1:$LLM_PORT/v1"
 
 exec "$LLAMA_SERVER" \
@@ -100,4 +102,4 @@ exec "$LLAMA_SERVER" \
   --flash-attn "$FLASH_ATTN" \
   --cache-type-k "$CACHE_TYPE_K" \
   --cache-type-v "$CACHE_TYPE_V" \
-  --chat-template chatml
+  $([[ "$REASONING_PRESERVE" == "on" ]] && echo --reasoning-preserve)

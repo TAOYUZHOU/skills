@@ -41,7 +41,8 @@ Optional web chat (not OpenCode): `chat_server.py` proxy on `:8788` → `:8080`.
 --cache-type-k q8_0 \
 --cache-type-v q8_0 \
 -ngl 99 \
---chat-template chatml
+--reasoning-preserve
+# chat template: use GGUF embedded Qwen3.5 v3 — do NOT pass --chat-template chatml
 ```
 
 ### Why single slot?
