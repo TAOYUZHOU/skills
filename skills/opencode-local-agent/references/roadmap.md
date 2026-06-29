@@ -137,6 +137,7 @@ Suggested prompt: Read `README.md` and list three key commands.
 
 ## Future skill enhancements (not required for v1)
 
+- [ ] **Upstream issue 待提:** `opencode run` hangs without TTY — draft in [upstream_issue_opencode_headless_tty.md](./upstream_issue_opencode_headless_tty.md); file at https://github.com/anomalyco/opencode/issues when ready
 - [ ] vLLM backend switch in `start_llm_backend.sh`
 - [ ] systemd unit template for persistent serve
 - [ ] AutoDL port-mapping helper
@@ -170,3 +171,16 @@ Keep main HARP agent on cloud model; local model only for **mechanical checks** 
 | `WORK_DIR/.cursor/skills/opencode-local-agent/` | Runtime copy after `init_workspace.sh` |
 
 Domain placement: `experiment_on_silicon` because GPU serve + local inference; personal skills repo has no domain folders.
+
+## Upstream — OpenCode headless TTY hang
+
+**Status:** 待提 (draft ready, not filed)
+
+| Item | Detail |
+|------|--------|
+| Repo | [anomalyco/opencode](https://github.com/anomalyco/opencode) (MIT) |
+| Symptom | `opencode run` blocks after `init` when stdout is not a TTY |
+| Workaround | `script -q -c 'opencode run ...' /dev/null` — see `verify_opencode_agent.sh` |
+| Issue draft | [upstream_issue_opencode_headless_tty.md](./upstream_issue_opencode_headless_tty.md) |
+
+After upstream fixes, simplify `verify_opencode_agent.sh` to call bare `opencode run` and drop the `script` wrapper.
