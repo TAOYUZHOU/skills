@@ -135,6 +135,21 @@ Suggested prompt: Read `README.md` and list three key commands.
 | Security | No public 8080 without tunnel; fine-grained tokens for Hub only |
 | Quality | `temperature=0.6, top_p=0.95, top_k=20` |
 
+## Phase 6 — Multimodal (optional)
+
+**Exit criteria:** `verify_vision_api.sh` exits 0; web UI shows vision enabled.
+
+See [multimodal.md](./multimodal.md) for download, `--mmproj`, API shape, and `:8788` web chat.
+
+Quick path:
+
+```bash
+bash scripts/download_mmproj.sh
+# restart llama-server (see Phase 1)
+bash scripts/verify_vision_api.sh
+# qwythos-local: nohup bash start_chat_ui.sh → :8788 with 🖼 upload
+```
+
 ## Future skill enhancements (not required for v1)
 
 - [ ] **Upstream issue 待提:** `opencode run` hangs without TTY — draft in [upstream_issue_opencode_headless_tty.md](./upstream_issue_opencode_headless_tty.md); file at https://github.com/anomalyco/opencode/issues when ready

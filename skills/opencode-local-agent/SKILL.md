@@ -53,8 +53,9 @@ Below uses `scripts/` — substitute the HARP prefix when running inside a seede
 | **3** | OpenCode config | `setup_opencode_config.sh` writes project `opencode.json` |
 | **4** | Agent validation | `verify_opencode_agent.sh` exits 0 (headless-safe) |
 | **5** | Remote access (optional) | AutoDL maps **8080** or SSH tunnel; OpenCode `baseURL` updated |
+| **6** | Vision (optional) | mmproj downloaded; `/props` → `modalities.vision=true`; web UI 🖼 works |
 
-Full narrative: [references/roadmap.md](references/roadmap.md)
+Full narrative: [references/roadmap.md](references/roadmap.md) · Multimodal: [references/multimodal.md](references/multimodal.md)
 
 ## Audit (HARP workspaces only)
 
@@ -125,6 +126,35 @@ bash scripts/verify_llm_api.sh
 2. `CACHE_TYPE_K=q4_0 CACHE_TYPE_V=q4_0`
 3. `CTX=65536`
 4. vLLM backend (see roadmap)
+
+## Multimodal (vision / image input)
+
+Qwythos is multimodal on **Qwen3.5-9B vision tower**, but **text-only agent deploy is the default**. Vision needs a second file (`mmproj`) and `--mmproj` on llama-server.
+
+**Full guide:** [references/multimodal.md](references/multimodal.md)
+
+```bash
+# 1) Download vision projector (~0.9 GiB)
+bash scripts/download_mmproj.sh
+
+# 2) Restart server (auto-picks mmproj beside text GGUF)
+nohup bash scripts/start_llama_server.sh >> "$WORK_DIR/.state/llama_server.log" 2>&1 &
+
+# 3) Verify
+bash scripts/verify_vision_api.sh
+# curl -s http://127.0.0.1:8080/props | jq .modalities   → vision: true
+```
+
+**Web chat with image upload:** reference UI at `qwythos-local/` (`:8788`, proxies `/v1/*`). UI reads `/api/props` and enables 🖼 when `vision=true`.
+
+**API:** OpenAI vision shape — `messages[].content` as `[{type:text},{type:image_url}]` with base64 or URL.
+
+**Limits:** SFT was text-only; vision inherits base Qwen3.5 behavior. OpenCode agent path stays text+tools unless you add vision client-side. Audio/video not in web UI.
+
+| Variable | Meaning |
+|----------|---------|
+| `MMPROJ` | Path to `mmproj-*.gguf` (auto-detected if unset) |
+| `MODELS_DIR` | Download target for `download_mmproj.sh` |
 
 ## Phase 2 — Sampling defaults
 
@@ -201,6 +231,8 @@ npm i -g opencode-ai
 | `LLM_PORT` | `8080` | API port |
 | `PROFILE` | `longctx` | `longctx` or `dev` |
 | `REASONING_PRESERVE` | `on` | pass `--reasoning-preserve` to llama-server (`off` to disable) |
+| `MMPROJ` | auto | Path to vision projector GGUF; auto-detected next to text GGUF |
+| `MODELS_DIR` | `.cache/...` | Target dir for `download_mmproj.sh` |
 | `LLM_BASE_URL` | `http://127.0.0.1:8080/v1` | OpenCode provider URL |
 
 Reference deployment: `/root/autodl-tmp/taoyuzhou/qwythos-local/`.

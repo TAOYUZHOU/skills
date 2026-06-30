@@ -6,6 +6,7 @@ SKILL_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK_DIR="${WORK_DIR:-$(pwd)}"
 
 GGUF_PATH="${GGUF_PATH:-}"
+MMPROJ="${MMPROJ:-}"
 LLAMA_SERVER="${LLAMA_SERVER:-}"
 LLM_HOST="${LLM_HOST:-0.0.0.0}"
 LLM_PORT="${LLM_PORT:-8080}"
@@ -17,6 +18,18 @@ if [[ -z "$GGUF_PATH" ]]; then
     "$WORK_DIR/../qwythos-local/models/Qwythos-9B-Claude-Mythos-5-1M-Q4_K_M.gguf"; do
     if [[ -f "$candidate" ]]; then
       GGUF_PATH="$candidate"
+      break
+    fi
+  done
+fi
+
+if [[ -z "$MMPROJ" && -n "${GGUF_PATH:-}" ]]; then
+  gguf_dir="$(dirname "$GGUF_PATH")"
+  for candidate in \
+    "$gguf_dir/mmproj-Qwythos-9B-Claude-Mythos-5-1M-F16.gguf" \
+    "$WORK_DIR/../qwythos-local/models/mmproj-Qwythos-9B-Claude-Mythos-5-1M-F16.gguf"; do
+    if [[ -f "$candidate" ]]; then
+      MMPROJ="$candidate"
       break
     fi
   done
@@ -50,7 +63,7 @@ NGL="${NGL:-99}"
 FLASH_ATTN="${FLASH_ATTN:-on}"
 REASONING_PRESERVE="${REASONING_PRESERVE:-on}"
 
-export GGUF_PATH LLAMA_SERVER LLM_HOST LLM_PORT PROFILE CTX PARALLEL CACHE_TYPE_K CACHE_TYPE_V NGL FLASH_ATTN
+export GGUF_PATH MMPROJ LLAMA_SERVER LLM_HOST LLM_PORT PROFILE CTX PARALLEL CACHE_TYPE_K CACHE_TYPE_V NGL FLASH_ATTN REASONING_PRESERVE
 
 if [[ ! -f "${GGUF_PATH:-/nonexistent}" ]]; then
   echo "GGUF_PATH not found. Set GGUF_PATH or download via hf-hub skill." >&2
@@ -64,22 +77,26 @@ fi
 
 STATE="$WORK_DIR/.state/opencode_local_agent.json"
 mkdir -p "$(dirname "$STATE")"
-export STATE CTX PARALLEL CACHE_TYPE_K CACHE_TYPE_V FLASH_ATTN LLM_PORT PROFILE GGUF_PATH
+export STATE CTX PARALLEL CACHE_TYPE_K CACHE_TYPE_V FLASH_ATTN LLM_PORT PROFILE GGUF_PATH MMPROJ REASONING_PRESERVE
 python3 - <<'PY'
 import json, os
 from pathlib import Path
 port = os.environ.get("LLM_PORT", "8080")
+mmproj = os.environ.get("MMPROJ", "")
 Path(os.environ["STATE"]).write_text(
     json.dumps(
         {
             "profile": os.environ.get("PROFILE", "longctx"),
             "gguf_path": os.environ.get("GGUF_PATH", ""),
+            "mmproj_path": mmproj if mmproj and Path(mmproj).is_file() else None,
+            "vision_enabled": bool(mmproj and Path(mmproj).is_file()),
             "llm_base_url": f"http://127.0.0.1:{port}/v1",
             "n_ctx": int(os.environ.get("CTX", "102400")),
             "parallel": int(os.environ.get("PARALLEL", "1")),
             "cache_type_k": os.environ.get("CACHE_TYPE_K", "q8_0"),
             "cache_type_v": os.environ.get("CACHE_TYPE_V", "q8_0"),
             "flash_attn": os.environ.get("FLASH_ATTN", "on"),
+            "reasoning_preserve": os.environ.get("REASONING_PRESERVE", "on"),
         },
         indent=2,
     )
@@ -90,10 +107,21 @@ PY
 
 echo "Starting llama-server profile=$PROFILE ctx=$CTX parallel=$PARALLEL kv=$CACHE_TYPE_K/$CACHE_TYPE_V"
 echo "Template: GGUF embedded (Qwen3.5 v3) reasoning-preserve=$REASONING_PRESERVE"
+if [[ -f "${MMPROJ:-/nonexistent}" ]]; then
+  echo "Vision:    enabled ($MMPROJ)"
+else
+  echo "Vision:    disabled — bash scripts/download_mmproj.sh then restart"
+fi
 echo "API: http://127.0.0.1:$LLM_PORT/v1"
+
+MMPROJ_ARGS=()
+if [[ -f "${MMPROJ:-/nonexistent}" ]]; then
+  MMPROJ_ARGS=(--mmproj "$MMPROJ")
+fi
 
 exec "$LLAMA_SERVER" \
   -m "$GGUF_PATH" \
+  "${MMPROJ_ARGS[@]}" \
   --host "$LLM_HOST" \
   --port "$LLM_PORT" \
   -c "$CTX" \
