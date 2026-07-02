@@ -1,0 +1,3 @@
+display_name: Delivery Alignment Iteration
+short_description: Keep requested intent, implementation diff, verification evidence, and final claims traceable.
+default_prompt: Turn this request into a traceable iteration contract, implement only against the accepted deliverables, verify the evidence, and report any mismatch before final handoff.
