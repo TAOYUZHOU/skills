@@ -21,6 +21,7 @@ This reference defines a compact contract for preventing delivery mismatch.
 3. Did any fallback replace a requested deliverable without explicit approval?
 4. Did any machine/runtime issue get mixed into a domain/scientific blocker?
 5. Did the implementation update all truth-source docs that the design changed?
+6. Did the iteration try subtraction first before adding a new role, state file, hook, schema, fallback, or repair lane?
 
 ## Minimal Markdown Template
 
@@ -45,4 +46,3 @@ risks:
 
 final_claims_allowed:
 ```
-

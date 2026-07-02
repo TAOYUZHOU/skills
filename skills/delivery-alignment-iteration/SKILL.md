@@ -57,6 +57,7 @@ final_claims_allowed:
 
 - Treat the user request and current truth-source docs as constraints, not inspiration.
 - A fallback is not a delivery unless the contract explicitly accepts it.
+- Apply Occam's razor before adding machinery: first try deletion, convergence, merge, downgrade, or deprecation of existing complex paths. Add a role, state file, hook, schema, fallback, or repair lane only when subtraction cannot satisfy the acceptance criteria, and explain why existing mechanisms were insufficient.
 - A plan is not a fix; say "plan written" when only a plan was written.
 - Runtime protocol failures, environment failures, and scientific blockers must remain distinct.
 - If the implementation changes the design, update the design doc and explain the consequence.
@@ -65,4 +66,3 @@ final_claims_allowed:
 ## When To Read References
 
 Read `references/iteration_contract_schema.md` when creating a durable contract, reviewing a mismatch, or adapting the schema for a repository.
-
