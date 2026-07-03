@@ -131,6 +131,15 @@
       "skills": [
         "./skills/opencode-local-agent"
       ]
+    },
+    {
+      "name": "rsync-remote-sync",
+      "description": "Pull or push files and directories between local and remote servers via rsync over SSH",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/rsync-remote-sync"
+      ]
     }
   ]
 }
