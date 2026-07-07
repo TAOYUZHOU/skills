@@ -14,13 +14,14 @@ Use this skill to prevent implementation drift. The core output is a traceable c
 3. Write deliverables and non-goals. If a requested deliverable is impossible or unsafe, state that before substituting anything.
 4. Implement in small bounded changes. Do not silently replace the requested artifact with an adjacent artifact.
 5. Maintain a traceability matrix: each acceptance criterion must map to changed files and verification evidence.
-6. Run the contract checker when a contract file exists:
+6. For architecture or role-boundary changes, add an atomic agent sandbox check — not only unit tests with mocks. Spin up the smallest real slice (one role, one directive, one handoff hop), invoke a real provider when feasible, and record raw output plus deterministic post-checks. Unit tests prove function behavior; sandboxes prove the design works end-to-end at a boundary.
+7. Run the contract checker when a contract file exists:
 
 ```bash
 python3 scripts/check_delivery_contract.py --contract /path/to/iteration_contract.yaml --root /path/to/repo
 ```
 
-7. In the final response, only claim completed work that has evidence. Clearly separate completed, partial, blocked, and unverified items.
+8. In the final response, only claim completed work that has evidence. Clearly separate completed, partial, blocked, and unverified items.
 
 ## Required Contract Fields
 
@@ -62,6 +63,36 @@ final_claims_allowed:
 - Runtime protocol failures, environment failures, and scientific blockers must remain distinct.
 - If the implementation changes the design, update the design doc and explain the consequence.
 - If tests cannot run, record why and what evidence remains.
+
+## Atomic Agent Sandbox Verification
+
+Use this when the iteration touches agent roles, provider backends, prompt context, queue handoffs, structured directives, or cross-role message paths.
+
+Goal: catch "tests green but architecture wrong" before a full workspace run.
+
+Minimum sandbox shape:
+
+```yaml
+sandbox:
+  scope: "one role or one handoff hop"
+  fixture: "minimal workspace dir or tmp_path with only required .state files"
+  invoke: "real provider when API/key available; otherwise dry-run prompt + deterministic scorer"
+  assert:
+    - "structured directive parses"
+    - "downstream runtime fact matches expected shape"
+    - "no cross-item prompt/output bleed under concurrency when relevant"
+  record:
+    - "prompt path"
+    - "raw output path"
+    - "pass/fail rubric scores"
+```
+
+Rules:
+
+- Prefer an existing repo script when one already exists (for HARP: `scripts/evaluate_agent_boundary_from_history.py` with `--run-llm` for release/model/prompt changes).
+- A sandbox may stay dry-run when tokens are unavailable, but the contract must say `run_llm: false` and must not claim the boundary was validated with a live model.
+- Do not substitute a full AIRS/benchmark run for a missing atomic sandbox when the change is localized to one boundary.
+- Add or extend a sandbox when subtracting over-engineered machinery, not only when adding new machinery.
 
 ## When To Read References
 

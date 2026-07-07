@@ -14,6 +14,10 @@ This reference defines a compact contract for preventing delivery mismatch.
 - `risks`: Residual risks, assumptions, or known gaps.
 - `final_claims_allowed`: Claims the agent may make if verification passes.
 
+Optional but recommended for agent/architecture iterations:
+
+- `sandbox`: Atomic real-or-dry-run boundary check (role, fixture, invoke command, assertions, artifact paths).
+
 ## Recommended Review Questions
 
 1. Does every acceptance criterion map to at least one deliverable?
@@ -22,6 +26,7 @@ This reference defines a compact contract for preventing delivery mismatch.
 4. Did any machine/runtime issue get mixed into a domain/scientific blocker?
 5. Did the implementation update all truth-source docs that the design changed?
 6. Did the iteration try subtraction first before adding a new role, state file, hook, schema, fallback, or repair lane?
+7. For role/provider/handoff changes, is there an atomic sandbox (real or explicitly dry-run) that validates the boundary, not just mocked unit tests?
 
 ## Minimal Markdown Template
 
