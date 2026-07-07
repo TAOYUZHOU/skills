@@ -140,6 +140,15 @@
       "skills": [
         "./skills/rsync-remote-sync"
       ]
+    },
+    {
+      "name": "static-html-report-serve",
+      "description": "Expose static HTML report directories on AutoDL port 6006 for public/Feishu links",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/static-html-report-serve"
+      ]
     }
   ]
 }

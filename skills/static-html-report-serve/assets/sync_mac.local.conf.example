@@ -1,0 +1,7 @@
+# Copy to report/sync_mac.local.conf (gitignored). Mac must accept inbound SSH.
+
+MAC_USER=taoyuzhou
+MAC_HOST=192.168.x.x
+MAC_PORT=22
+MAC_DEST=~/Documents/report/retro-engine/
+MAC_IDENTITY=~/.ssh/id_ed25519
