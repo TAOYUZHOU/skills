@@ -60,6 +60,8 @@ Copy the printed `https://u*.seetacloud.com:8443/...` link into Feishu.
 | Script | Purpose |
 |--------|---------|
 | `scripts/serve_html_report.sh` | start / stop / status; prints public URL |
+| `scripts/check_slide_density.py` | Playwright gate: visual fill ratio on key slides |
+| `assets/html-slide-clarity-checklist.md` | Layout + completeness checklist before publish |
 | `assets/sync_mac.local.conf.example` | Mac push target template |
 | `assets/feishu_link_snippet.md` | Copy-paste template for Feishu |
 
@@ -124,6 +126,7 @@ Then `--dir report/publish`.
 - For Mac sync: prefer pull script on Mac unless `sync_mac.local.conf` exists with reachable `MAC_HOST`.
 - Do not commit `sync_mac.local.conf` or pid/log files.
 - **HTML slides:** design at **1920×1080** fixed canvas + JS `scale(min(vw/1920,vh/1080))`. Do **not** size slide content with raw `vw`/`vh` — browser full-screen will shrink content and expand whitespace vs IDE preview.
+- **Clarity / density:** before sharing URLs, run `scripts/check_slide_density.py` on the HTML. Flowcharts and diagrams must use `.slide.dense` + `.svg-wrap.flowchart` (or `.img-wrap.hero`) so the primary visual fills ≥52% of slide height. See `assets/html-slide-clarity-checklist.md`. If content does not fit at readable size, **split slides** — never shrink diagrams to fit bullet lists.
 
 ## Related
 
