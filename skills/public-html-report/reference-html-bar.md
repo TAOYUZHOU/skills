@@ -1,5 +1,22 @@
 # HTML visual bar — starter patterns
 
+## Deck vs single-page
+
+| Artifact | Prefer | Notes |
+|----------|--------|-------|
+| Slide / tech-share / narrative deck | External **beautiful-html-templates** workflow ([reference-templates.md](reference-templates.md)) | Closed visual system per template |
+| Eval matrix, comparison writeup, dashboard, viewer shell | Patterns in **this file** | Align with skill `frontend-design` |
+
+You may borrow **one** template's cover typography/palette for a single-page hero.
+**Never** mix slide layouts or decorative systems from multiple templates.
+
+## Anti–AI-slop (align with `frontend-design`)
+
+- Commit to one aesthetic direction; execute with restraint or boldness — not bland defaults.
+- Avoid: Inter/Roboto/Arial-only stacks; purple-on-white gradients; pill chip rainbows; cookie-cutter card grids; flat `#f8fafc` + blue badges as the whole look.
+- Prefer distinctive display + body font pairing, CSS variables, atmospheric background (gradient / paper / tonal field), one accent family.
+- Match complexity to vision: maximalist needs craft; minimal needs precision spacing.
+
 ## CSS variables (pick one coherent palette)
 
 ```css
@@ -30,7 +47,7 @@ body {
 h1, h2 { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; }
 ```
 
-Light alternative: warm off-white field + ink charcoal + single accent (avoid purple-gradient cliché).
+Light alternative: warm off-white field + ink charcoal + single accent (still avoid purple-gradient cliché). Vary themes across projects — do not converge on one “house” look every time.
 
 ## Page skeleton
 
@@ -47,6 +64,8 @@ Light alternative: warm off-white field + ink charcoal + single accent (avoid pu
 </main>
 ```
 
+First viewport: brand + one headline + one short blurb + primary content cue only. Dense tables and full matrices go below the fold or behind nav.
+
 ## Empty state
 
 ```html
@@ -56,4 +75,11 @@ Light alternative: warm off-white field + ink charcoal + single accent (avoid pu
 </div>
 ```
 
-Do not show raw `/home/ubuntu/...` paths in the empty state.
+Do **not** show raw `/home/ubuntu/...`, `/root/autodl-tmp/...`, or other absolute host paths in the empty state or footnotes meant for readers. Failed / pending / no-data must be first-class UI copy.
+
+## Ship shape
+
+- Directory: `index.html`, `assets/*`, optional `data.json`
+- No secrets, tokens, or credential files in the tree
+- Mobile: readable; wide matrices get horizontal scroll strategy, not clipped overflow
+- Optional: 2–3 subtle transitions — not decorative noise

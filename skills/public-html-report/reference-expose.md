@@ -54,3 +54,24 @@ URL:    http://<PUBLIC_IP>/
 Auth:   <user> / (password out-of-band)
 Backend: nginx :80 → 127.0.0.1:<PORT>
 ```
+
+## AutoDL alternate (no fixed team IP)
+
+When the host is AutoDL (or similar) and nginx + public IP is unavailable, use skill
+**`static-html-report-serve`** (自定义服务 port **6006**, `AutoDLService6006URL`).
+
+```bash
+SKILL=/root/autodl-tmp/taoyuzhou/skills/skills/static-html-report-serve
+"$SKILL/scripts/serve_html_report.sh" \
+  --dir /path/to/publish_tree \
+  --entry index.html
+```
+
+**Tradeoffs (read before sharing):**
+
+- Typically **no HTTP Basic Auth** — anyone with the URL can read everything under `--dir`
+- Prefer a minimal `publish/` tree (HTML + needed assets only); never serve repo root
+- URL dies when the instance stops or is rebuilt; restart serve after reboot
+- Full risk table and Feishu notes live in that skill's `SKILL.md`
+
+Prefer the nginx + Basic Auth path above whenever a day-stable fixed IP is available.

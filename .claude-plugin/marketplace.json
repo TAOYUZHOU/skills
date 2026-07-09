@@ -149,6 +149,15 @@
       "skills": [
         "./skills/static-html-report-serve"
       ]
+    },
+    {
+      "name": "public-html-report",
+      "description": "Author beautiful static HTML (template decks or single-page reports) and publish with auth + day-stable public URL",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/public-html-report"
+      ]
     }
   ]
 }
