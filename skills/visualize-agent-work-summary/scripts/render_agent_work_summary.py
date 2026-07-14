@@ -224,7 +224,7 @@ def render_phase(phase: dict[str, Any]) -> str:
         </details>
       </div>
     </article>
-    """
+    """.strip()
 
 
 def render(payload: dict[str, Any], source_name: str) -> str:
