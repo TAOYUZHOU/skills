@@ -1,0 +1,4 @@
+interface:
+  display_name: "Visualize Agent Work"
+  short_description: "Turn agent evidence into an honest visual path report"
+  default_prompt: "Build a human-friendly, evidence-backed standalone HTML path report of the agent work, clearly separating completed, partial, pending, and failed outcomes."
