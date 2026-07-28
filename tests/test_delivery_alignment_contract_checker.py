@@ -882,3 +882,31 @@ def test_documented_v2_yaml_template_matches_checker() -> None:
         .replace("handoff: value", "handoff:\n  path: docs/harp_iteration_handoff.md")
     )
     assert checker.validate(template)["ok"]
+
+
+def test_tilde_fenced_markdown_example_cannot_satisfy_handoff() -> None:
+    keys = checker.HANDOFF_HEADINGS + checker.V2_HANDOFF_HEADINGS
+    metadata = (
+        "status: complete\nupdated_at_utc: value\n"
+        "iteration: value\ncontract: value"
+    )
+    headings = "\n".join(
+        f"## {key.replace('_', ' ')}\nevidence" for key in keys
+    )
+    result = checker.validate_handoff(
+        f"~~~markdown\n{metadata}\n{headings}\n~~~\n",
+        schema_version=2,
+    )
+    assert not result["ok"]
+
+
+def test_low_risk_cannot_bypass_active_svg_executable_content(
+    tmp_path: Path,
+) -> None:
+    base, candidate = _diff_repo(tmp_path, "docs/payload.svg")
+    result = checker.validate_diff_binding(
+        _bound_contract(base, candidate, "docs/payload.svg"), tmp_path
+    )
+    assert not result["ok"]
+    assert result["risk_conflict"]
+    assert result["high_risk_paths"] == ["docs/payload.svg"]

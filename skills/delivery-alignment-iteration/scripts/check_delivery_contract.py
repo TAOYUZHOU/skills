@@ -72,6 +72,7 @@ HIGH_RISK_SUFFIXES = {
     ".rs",
     ".sh",
     ".sql",
+    ".svg",
     ".ts",
     ".tsx",
 }
@@ -97,7 +98,6 @@ LOW_RISK_SUFFIXES = {
     ".md",
     ".pdf",
     ".png",
-    ".svg",
     ".txt",
     ".webp",
 }
@@ -224,7 +224,11 @@ def _semantic_scalar_nonempty(raw: str) -> bool:
 
 
 def _strip_fenced_blocks(text: str) -> str:
-    return re.sub(r"(?ms)^```[^\n]*\n.*?^```[ \t]*$", "", text)
+    return re.sub(
+        r"(?ms)^(?P<fence>`{3,}|~{3,})[^\n]*\n.*?^(?P=fence)[ \t]*$",
+        "",
+        text,
+    )
 
 
 def _strip_html_comments(text: str) -> str:
