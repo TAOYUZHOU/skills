@@ -4,8 +4,10 @@ This reference defines a compact contract for preventing delivery mismatch.
 
 ## Required Fields
 
-Use `schema_version: 2` for every new iteration contract. The checker continues
-to accept legacy version-1 contracts so historical evidence remains readable.
+Use strict YAML with `schema_version: 2` for every new iteration contract.
+Duplicate keys, YAML nulls, and YAML/Markdown hybrid syntax fail closed. The
+checker exposes a separate read-only compatibility API for historical
+version-1 Markdown; it cannot authorize promotion.
 
 - `intent`: The user's concrete desired outcome in one or two sentences.
 - `non_goals`: Explicit exclusions. Use this to prevent adjacent substitutions.

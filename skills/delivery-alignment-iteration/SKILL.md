@@ -49,7 +49,9 @@ python3 scripts/check_delivery_contract.py \
 
 ## Required Contract Fields
 
-Use YAML, Markdown, or another readable format, but include these fields:
+Use strict YAML for every schema-version-2 machine contract. Historical
+version-1 Markdown remains read-only; do not extend its permissive parser.
+Keep human narrative in the separate Markdown handoff. Include these fields:
 
 ```yaml
 schema_version: 2

@@ -50,7 +50,9 @@ def test_nested_contract_keys_do_not_satisfy_top_level_requirements() -> None:
     )
     result = checker.validate(nested)
     assert not result["ok"]
-    assert set(result["missing_keys"]) == set(checker.REQUIRED_KEYS)
+    assert set(result["missing_keys"]) == set(
+        checker.REQUIRED_KEYS + checker.V2_REQUIRED_KEYS
+    )
 
 
 def test_empty_adversarial_reason_is_rejected() -> None:
@@ -72,7 +74,9 @@ def test_empty_markdown_headings_do_not_satisfy_contract_fields() -> None:
     headings = "\n".join(f"# {key.replace('_', ' ')}" for key in checker.REQUIRED_KEYS)
     result = checker.validate(headings)
     assert not result["ok"]
-    assert set(result["empty_keys"]) == set(checker.REQUIRED_KEYS)
+    assert set(result["missing_keys"]) == set(
+        checker.REQUIRED_KEYS + checker.V2_REQUIRED_KEYS
+    )
 
 
 def test_handoff_headings_require_nonempty_evidence() -> None:
@@ -178,7 +182,7 @@ def test_quoted_empty_adversarial_reason_is_rejected() -> None:
 def test_duplicate_schema_versions_are_rejected() -> None:
     result = checker.validate("schema_version: 1\nschema_version: 2\n" + _legacy_contract())
     assert not result["ok"]
-    assert result["schema_version_error"] == "duplicate schema_version declarations"
+    assert result["schema_version_error"].startswith("invalid YAML")
 
 
 def test_leading_zero_schema_version_is_rejected() -> None:
@@ -587,8 +591,7 @@ def test_duplicate_adversarial_gate_keys_are_rejected() -> None:
     contract = _v2_contract() + "  risk: low\n  decision: skipped\n"
     result = checker.validate(contract)
     assert not result["ok"]
-    assert "duplicate adversarial_gate.risk" in result["adversarial_errors"]
-    assert "duplicate adversarial_gate.decision" in result["adversarial_errors"]
+    assert result["schema_version_error"].startswith("invalid YAML")
 
 
 def test_low_risk_cannot_bypass_executable_html(tmp_path: Path) -> None:
@@ -625,15 +628,15 @@ def test_html_entity_only_handoff_sections_are_empty() -> None:
     assert set(result["empty_headings"]) == set(keys)
 
 
-def test_fenced_schema_example_does_not_affect_contract_version() -> None:
+def test_fenced_schema_example_is_rejected_by_strict_v2_yaml() -> None:
     sandbox = "sandbox:\n" + "".join(
         f"  {key}: evidence\n" for key in checker.SANDBOX_REQUIRED_KEYS
     )
     contract = _v2_contract().replace("sandbox: live\n", sandbox)
     contract += "\n```yaml\nschema_version: 1\n```\n"
     result = checker.validate(contract)
-    assert result["ok"]
-    assert result["schema_version"] == 2
+    assert not result["ok"]
+    assert result["schema_version_error"].startswith("invalid YAML")
 
 
 def test_attack_manifest_must_match_agent_output() -> None:
@@ -725,3 +728,83 @@ def test_quoted_whitespace_sandbox_fields_are_rejected() -> None:
     assert set(result["sandbox_errors"]) == {
         f"empty sandbox.{key}" for key in checker.SANDBOX_REQUIRED_KEYS
     }
+
+
+def test_null_list_item_cannot_satisfy_adversarial_reason() -> None:
+    contract = _v2_contract(risk="low", decision="skipped").replace(
+        "  reason: executable change", "  reason:\n    -"
+    )
+    result = checker.validate(contract)
+    assert not result["ok"]
+    assert "empty adversarial_gate.reason" in result["adversarial_errors"]
+
+
+def test_yaml_tagged_null_cannot_satisfy_required_top_level_field() -> None:
+    contract = _v2_contract().replace("intent: value", "intent: !!null")
+    result = checker.validate(contract)
+    assert not result["ok"]
+    assert "intent" in result["empty_keys"]
+
+
+def test_yaml_tagged_empty_string_cannot_satisfy_adversarial_reason() -> None:
+    contract = _v2_contract(risk="low", decision="skipped").replace(
+        "  reason: executable change", '  reason: !!str ""'
+    )
+    result = checker.validate(contract)
+    assert not result["ok"]
+    assert "empty adversarial_gate.reason" in result["adversarial_errors"]
+
+
+def test_empty_markdown_links_do_not_fill_handoff_sections() -> None:
+    metadata = "\n".join(f"{key}: value" for key in checker.HANDOFF_METADATA)
+    keys = checker.HANDOFF_HEADINGS + checker.V2_HANDOFF_HEADINGS
+    headings = "\n".join(f"## {key.replace('_', ' ')}\n[]()" for key in keys)
+    result = checker.validate_handoff(metadata + "\n" + headings, schema_version=2)
+    assert not result["ok"]
+    assert set(result["empty_headings"]) == set(keys)
+
+
+def test_low_risk_cannot_bypass_executable_bit_only_diff(tmp_path: Path) -> None:
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, check=True)
+    target = tmp_path / "docs" / "runner.md"
+    target.parent.mkdir()
+    target.write_text("#!/bin/sh\necho bad\n", encoding="utf-8")
+    subprocess.run(["git", "add", "docs/runner.md"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=tmp_path, check=True)
+    base = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True).strip()
+    target.chmod(0o755)
+    subprocess.run(["git", "add", "docs/runner.md"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "candidate"], cwd=tmp_path, check=True)
+    candidate = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    result = checker.validate_diff_binding(
+        _bound_contract(base, candidate, "docs/runner.md"), tmp_path
+    )
+    assert not result["ok"]
+    assert result["risk_conflict"]
+    assert result["high_risk_paths"] == ["docs/runner.md"]
+
+
+def test_handoff_status_must_be_complete_partial_or_blocked() -> None:
+    metadata = (
+        "status: false\nupdated_at_utc: value\niteration: value\ncontract: value"
+    )
+    keys = checker.HANDOFF_HEADINGS + checker.V2_HANDOFF_HEADINGS
+    headings = "\n".join(
+        f"## {key.replace('_', ' ')}\nevidence" for key in keys
+    )
+    result = checker.validate_handoff(metadata + "\n" + headings, schema_version=2)
+    assert not result["ok"]
+    assert result["metadata_errors"]
+
+
+def test_markdown_headings_inside_yaml_literal_do_not_form_contract() -> None:
+    body = "\n".join(
+        f"  # {key.replace('_', ' ')}\n  evidence"
+        for key in checker.REQUIRED_KEYS + checker.V2_REQUIRED_KEYS
+    )
+    result = checker.validate("notes: |\n" + body)
+    assert not result["ok"]

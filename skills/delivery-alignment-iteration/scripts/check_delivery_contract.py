@@ -13,6 +13,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
 
 REQUIRED_KEYS = [
     "intent",
@@ -125,6 +126,31 @@ GATE_EVIDENCE_FILES = [
 ]
 
 
+class _UniqueKeyLoader(yaml.SafeLoader):
+    """Safe YAML loader that rejects duplicate mapping keys."""
+
+
+def _construct_unique_mapping(loader, node, deep=False):
+    mapping = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            raise yaml.constructor.ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                f"found duplicate key {key!r}",
+                key_node.start_mark,
+            )
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+_UniqueKeyLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _construct_unique_mapping,
+)
+
+
 def _read_contract(path: str) -> str:
     if path == "-":
         return sys.stdin.read()
@@ -235,7 +261,10 @@ def _semantic_body_nonempty(body: str) -> bool:
     cleaned = html.unescape(_strip_html_tags(
         re.sub(r"(?m)^[ \t]*#.*$", "", body)
     )).strip()
+    cleaned = re.sub(r"!\[\s*\]\(\s*\)|\[\s*\]\(\s*\)", "", cleaned).strip()
     if re.fullmatch(r"(?:-{3,}|\*{3,}|_{3,})", cleaned):
+        return False
+    if re.fullmatch(r"[-*+]", cleaned):
         return False
     if not _semantic_scalar_nonempty(cleaned):
         return False
@@ -399,14 +428,126 @@ def _validate(text: str, *, allow_legacy_read_only: bool) -> dict:
     }
 
 
+def _load_v2_mapping(text: str) -> tuple[dict | None, str]:
+    try:
+        data = yaml.load(text, Loader=_UniqueKeyLoader)
+    except yaml.YAMLError as exc:
+        return None, f"invalid YAML: {exc}"
+    if not isinstance(data, dict):
+        return None, "version-2 contract must be a YAML mapping"
+    return data, ""
+
+
+def _structured_nonempty(value) -> bool:
+    if value is None or value is False:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, (list, dict, tuple, set)):
+        return bool(value)
+    return True
+
+
 def validate(text: str) -> dict:
-    """Validate a current iteration contract.
+    """Validate the strict YAML schema used by every current iteration."""
 
-    Version-1 contracts remain readable only through the explicitly named
-    ``validate_legacy_read_only`` compatibility API; they cannot be promoted.
-    """
-
-    return _validate(text, allow_legacy_read_only=False)
+    data, parse_error = _load_v2_mapping(text)
+    if data is None:
+        return {
+            "ok": False,
+            "schema_version": 0,
+            "schema_version_error": parse_error,
+            "missing_keys": list(REQUIRED_KEYS + V2_REQUIRED_KEYS),
+            "empty_keys": [],
+            "adversarial_errors": [],
+            "sandbox_errors": [],
+            "required_keys": REQUIRED_KEYS + V2_REQUIRED_KEYS,
+        }
+    raw_version = re.findall(
+        r"(?m)^schema_version[ \t]*:[ \t]*([^\n#]*)",
+        text,
+    )
+    version = data.get("schema_version")
+    if len(raw_version) != 1 or raw_version[0].strip() != "2":
+        version_error = "invalid schema_version: expected literal integer 2"
+    elif type(version) is not int or version != 2:
+        version_error = "current validation requires integer schema_version: 2"
+    else:
+        version_error = ""
+    required = REQUIRED_KEYS + V2_REQUIRED_KEYS
+    missing = [key for key in required if key not in data]
+    empty_required = [
+        key
+        for key in required
+        if key in data and not _structured_nonempty(data[key])
+    ]
+    sandbox_errors: list[str] = []
+    sandbox = data.get("sandbox")
+    if "sandbox" in data:
+        if not isinstance(sandbox, dict):
+            sandbox_errors.extend(
+                f"missing sandbox.{key}" for key in SANDBOX_REQUIRED_KEYS
+            )
+        else:
+            for key in SANDBOX_REQUIRED_KEYS:
+                if key not in sandbox:
+                    sandbox_errors.append(f"missing sandbox.{key}")
+                elif not _structured_nonempty(sandbox[key]):
+                    sandbox_errors.append(f"empty sandbox.{key}")
+    adversarial_errors: list[str] = []
+    gate = data.get("adversarial_gate")
+    if "adversarial_gate" in data:
+        if not isinstance(gate, dict):
+            adversarial_errors.extend(
+                f"missing adversarial_gate.{key}"
+                for key in ADVERSARIAL_REQUIRED_KEYS
+            )
+            gate = {}
+        for key in ADVERSARIAL_REQUIRED_KEYS:
+            if key not in gate:
+                adversarial_errors.append(f"missing adversarial_gate.{key}")
+            elif not _structured_nonempty(gate[key]):
+                adversarial_errors.append(f"empty adversarial_gate.{key}")
+        risk = gate.get("risk")
+        decision = gate.get("decision")
+        reason = gate.get("reason")
+        if risk not in {"high", "low"}:
+            adversarial_errors.append("adversarial_gate.risk must be high or low")
+        if decision not in {"required", "skipped"}:
+            adversarial_errors.append(
+                "adversarial_gate.decision must be required or skipped"
+            )
+        if not isinstance(reason, str) or not reason.strip():
+            marker = "empty adversarial_gate.reason"
+            if marker not in adversarial_errors:
+                adversarial_errors.append(marker)
+        scope = gate.get("attack_scope")
+        if not (
+            isinstance(scope, list)
+            and scope
+            and all(isinstance(path, str) and path.strip() for path in scope)
+        ):
+            marker = "empty adversarial_gate.attack_scope"
+            if marker not in adversarial_errors:
+                adversarial_errors.append(marker)
+        if risk == "high" and decision != "required":
+            adversarial_errors.append("high-risk diff requires decision: required")
+        if risk == "low" and decision != "skipped":
+            adversarial_errors.append("low-risk diff must record decision: skipped")
+    return {
+        "ok": not version_error
+        and not missing
+        and not empty_required
+        and not adversarial_errors
+        and not sandbox_errors,
+        "schema_version": version if type(version) is int else 0,
+        "schema_version_error": version_error,
+        "missing_keys": missing,
+        "empty_keys": empty_required,
+        "adversarial_errors": adversarial_errors,
+        "sandbox_errors": sandbox_errors,
+        "required_keys": required,
+    }
 
 
 def validate_legacy_read_only(text: str) -> dict:
@@ -447,13 +588,21 @@ def validate_handoff(text: str, *, schema_version: int = 1) -> dict:
         for key in HANDOFF_METADATA
         if key not in missing_metadata and not _top_level_field_nonempty(text, key)
     ]
+    status = _scalar_value(text, "status").lower()
+    metadata_errors = []
+    if status not in {"complete", "partial", "blocked"}:
+        metadata_errors.append(
+            "status must be complete, partial, or blocked"
+        )
     return {
         "ok": not missing_metadata
         and not empty_metadata
+        and not metadata_errors
         and not missing_headings
         and not empty_headings,
         "missing_metadata": missing_metadata,
         "empty_metadata": empty_metadata,
+        "metadata_errors": metadata_errors,
         "missing_headings": missing_headings,
         "empty_headings": empty_headings,
         "required_metadata": HANDOFF_METADATA,
@@ -471,7 +620,9 @@ def validate_current_schema(result: dict) -> dict:
 
 
 def validate_handoff_binding(text: str, root: Path, supplied: Path) -> dict:
-    declared = _scalar_value(_top_level_block(text, "handoff"), "path")
+    data, _ = _load_v2_mapping(text)
+    handoff = data.get("handoff") if data else None
+    declared = handoff.get("path") if isinstance(handoff, dict) else ""
     if not declared:
         return {"ok": False, "error": "contract handoff.path is missing"}
     expected = (root.resolve() / declared).resolve()
@@ -553,8 +704,16 @@ def _host_attestation_ok(record: dict) -> bool:
 def validate_gate_evidence(text: str, root: Path) -> dict:
     import hashlib
 
-    block = _top_level_block(text, "adversarial_gate")
-    evidence_raw = _scalar_value(block, "evidence_dir")
+    data, _ = _load_v2_mapping(text)
+    gate_contract = data.get("adversarial_gate") if data else None
+    if not isinstance(gate_contract, dict):
+        return {
+            "ok": False,
+            "evidence_dir": "",
+            "missing_files": [],
+            "errors": ["adversarial_gate is not a mapping"],
+        }
+    evidence_raw = str(gate_contract.get("evidence_dir") or "")
     evidence_dir = (root / evidence_raw).resolve()
     result: dict = {
         "ok": False,
@@ -585,9 +744,9 @@ def validate_gate_evidence(text: str, root: Path) -> dict:
     except (OSError, json.JSONDecodeError) as exc:
         result["errors"].append(f"invalid evidence JSON: {exc}")
         return result
-    base = _scalar_value(block, "base")
-    candidate = _scalar_value(block, "candidate")
-    scope = _nested_list_values(block, "attack_scope")
+    base = str(gate_contract.get("base") or "")
+    candidate = str(gate_contract.get("candidate") or "")
+    scope = list(gate_contract.get("attack_scope") or [])
     try:
         literal_scope = [f":(literal){path}" for path in scope]
         diff = _git(root, "diff", base, candidate, "--", *literal_scope)
@@ -600,7 +759,7 @@ def validate_gate_evidence(text: str, root: Path) -> dict:
     manifest_attacks = manifest.get("attacks")
     current_output_attacks = manifest.get("current_output_attacks")
     receipt_usage = receipt.get("usage") or {}
-    risk = _scalar_value(block, "risk").lower()
+    risk = str(gate_contract.get("risk") or "").lower()
     receipt_checks = {
         "event": receipt.get("event") == "provider_turn_completed",
         "provider": receipt.get("provider") in {"codex", "cursor", "grok", "composer"},
@@ -656,11 +815,14 @@ def validate_gate_evidence(text: str, root: Path) -> dict:
 
 
 def validate_diff_binding(text: str, root: Path) -> dict:
-    block = _top_level_block(text, "adversarial_gate")
-    declared_risk = _scalar_value(block, "risk").lower()
-    base = _scalar_value(block, "base")
-    candidate = _scalar_value(block, "candidate")
-    declared_scope = set(_nested_list_values(block, "attack_scope"))
+    data, _ = _load_v2_mapping(text)
+    gate = data.get("adversarial_gate") if data else None
+    if not isinstance(gate, dict):
+        gate = {}
+    declared_risk = str(gate.get("risk") or "").lower()
+    base = str(gate.get("base") or "")
+    candidate = str(gate.get("candidate") or "")
+    declared_scope = set(gate.get("attack_scope") or [])
     result = {
         "ok": False,
         "base": base,
@@ -697,12 +859,24 @@ def validate_diff_binding(text: str, root: Path) -> dict:
             for line in _git(root, "diff", "--name-only", base_sha, candidate_sha, "--").splitlines()
             if line.strip()
         }
+        summary = _git(root, "diff", "--summary", base_sha, candidate_sha, "--")
     except RuntimeError as exc:
         result["error"] = str(exc)
         return result
     missing = sorted(changed - declared_scope)
     unexpected = sorted(declared_scope - changed)
-    high_risk_paths = sorted(path for path in changed if _path_is_high_risk(path))
+    executable_mode_paths = {
+        match.group(1)
+        for match in re.finditer(
+            r"(?m)^ mode change \d+ => 100755 (.+)$",
+            summary,
+        )
+    }
+    high_risk_paths = sorted(
+        path
+        for path in changed
+        if _path_is_high_risk(path) or path in executable_mode_paths
+    )
     risk_conflict = declared_risk == "low" and bool(high_risk_paths)
     result.update(
         {
@@ -714,6 +888,7 @@ def validate_diff_binding(text: str, root: Path) -> dict:
             "candidate_sha": candidate_sha,
             "changed_paths": sorted(changed),
             "high_risk_paths": high_risk_paths,
+            "executable_mode_paths": sorted(executable_mode_paths),
             "missing_from_attack_scope": missing,
             "unexpected_in_attack_scope": unexpected,
             "risk_conflict": risk_conflict,
