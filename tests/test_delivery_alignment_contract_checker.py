@@ -40,7 +40,8 @@ def _v2_contract(*, risk: str = "high", decision: str = "required") -> str:
 
 
 def test_legacy_contract_remains_readable() -> None:
-    assert checker.validate(_legacy_contract())["ok"]
+    assert checker.validate_legacy_read_only(_legacy_contract())["ok"]
+    assert not checker.validate(_legacy_contract())["ok"]
 
 
 def test_nested_contract_keys_do_not_satisfy_top_level_requirements() -> None:
@@ -118,7 +119,7 @@ def test_high_risk_contract_cannot_skip() -> None:
 
 def test_new_v1_contract_cannot_bypass_v2_rules() -> None:
     result = checker.validate(_legacy_contract())
-    assert result["ok"]
+    assert not result["ok"]
     current = checker.validate_current_schema(result)
     assert not current["ok"]
 
@@ -375,3 +376,138 @@ def test_scalar_live_sandbox_does_not_satisfy_completion_gate() -> None:
     assert set(result["sandbox_errors"]) == {
         f"missing sandbox.{key}" for key in checker.SANDBOX_REQUIRED_KEYS
     }
+
+
+def test_fully_nested_adversarial_gate_cannot_masquerade_as_direct_fields() -> None:
+    block = (
+        "adversarial_gate:\n"
+        "  wrapper:\n"
+        "    risk: high\n"
+        "    decision: required\n"
+        "    reason: nested excuse\n"
+        "    base: abc\n"
+        "    candidate: def\n"
+        "    attack_scope:\n"
+        "      - runtime.py\n"
+        "    evidence_dir: docs/evidence/test\n"
+    )
+    contract = _v2_contract().split("adversarial_gate:\n", 1)[0] + block
+    result = checker.validate(contract)
+    assert not result["ok"]
+    assert {
+        f"missing adversarial_gate.{key}" for key in checker.ADVERSARIAL_REQUIRED_KEYS
+    }.issubset(result["adversarial_errors"])
+
+
+def test_fully_nested_sandbox_fields_do_not_satisfy_direct_requirements() -> None:
+    nested = (
+        "sandbox:\n"
+        "  wrapper:\n"
+        "    scope: boundary\n"
+        "    fixture: case\n"
+        "    invoke: run\n"
+        "    assert: pass\n"
+        "    record: receipt\n"
+    )
+    contract = _v2_contract().replace("sandbox: live\n", nested)
+    result = checker.validate(contract)
+    assert not result["ok"]
+    assert set(result["sandbox_errors"]) == {
+        f"missing sandbox.{key}" for key in checker.SANDBOX_REQUIRED_KEYS
+    }
+
+
+def test_empty_collection_adversarial_reason_is_rejected() -> None:
+    contract = _v2_contract(risk="low", decision="skipped").replace(
+        "  reason: executable change", "  reason: []"
+    )
+    result = checker.validate(contract)
+    assert not result["ok"]
+    assert "empty adversarial_gate.reason" in result["adversarial_errors"]
+
+
+def test_low_risk_cannot_bypass_executable_package_json_change(tmp_path: Path) -> None:
+    base, candidate = _diff_repo(tmp_path, "package.json")
+    result = checker.validate_diff_binding(
+        _bound_contract(base, candidate, "package.json"), tmp_path
+    )
+    assert not result["ok"]
+    assert result["risk_conflict"]
+    assert result["high_risk_paths"] == ["package.json"]
+
+
+def test_empty_collection_handoff_heading_bodies_are_rejected() -> None:
+    metadata = "\n".join(f"{key}: value" for key in checker.HANDOFF_METADATA)
+    keys = checker.HANDOFF_HEADINGS + checker.V2_HANDOFF_HEADINGS
+    headings = "\n".join(f"## {key.replace('_', ' ')}\n[]" for key in keys)
+    result = checker.validate_handoff(metadata + "\n" + headings, schema_version=2)
+    assert not result["ok"]
+    assert set(result["empty_headings"]) == set(keys)
+
+
+def test_fields_inside_multiline_html_comment_do_not_form_contract() -> None:
+    commented = (
+        "schema_version: 2\n<!--\n"
+        + _legacy_contract()
+        + "\nsandbox:\n"
+        + "\n".join(f"  {key}: value" for key in checker.SANDBOX_REQUIRED_KEYS)
+        + "\nadversarial_gate:\n"
+        + "\n".join(f"  {key}: value" for key in checker.ADVERSARIAL_REQUIRED_KEYS)
+        + "\n-->\n"
+    )
+    result = checker.validate(commented)
+    assert not result["ok"]
+    assert set(result["missing_keys"]) == set(
+        checker.REQUIRED_KEYS + checker.V2_REQUIRED_KEYS
+    )
+
+
+def test_fabricated_empty_manifest_and_receipt_cannot_pass_gate(tmp_path: Path) -> None:
+    import hashlib
+    import json
+
+    base, candidate = _diff_repo(tmp_path, "runtime.py")
+    evidence = tmp_path / "docs" / "evidence" / "test"
+    evidence.mkdir(parents=True)
+    contract = _bound_contract(base, candidate, "runtime.py", risk="high")
+    contract = contract.replace(
+        "  evidence_dir: docs/evidence/test",
+        "  evidence_dir: docs/evidence/test",
+    )
+    (evidence / "prompt.md").write_text("prompt", encoding="utf-8")
+    (evidence / "final_agent_output.json").write_text(
+        '{"attacks":[]}', encoding="utf-8"
+    )
+    (evidence / "agent_attack_manifest.json").write_text(
+        '{"attacks":[]}', encoding="utf-8"
+    )
+    (evidence / "live_provider_receipt.json").write_text("{}", encoding="utf-8")
+    diff = subprocess.check_output(
+        ["git", "diff", base, candidate, "--", "runtime.py"],
+        cwd=tmp_path,
+        text=True,
+    )
+    output_sha = hashlib.sha256(
+        (evidence / "final_agent_output.json").read_bytes()
+    ).hexdigest()
+    gate = {
+        "base": base,
+        "candidate": candidate,
+        "diff_sha256": hashlib.sha256(diff.encode()).hexdigest(),
+        "raw_output_sha256": output_sha,
+        "provider_thread_id": "fabricated",
+        "generated_attack_count": 0,
+        "executed_attack_count": 1,
+        "escaped_attack_count": 0,
+        "deterministic_exit_code": 0,
+        "deterministic_command": "true",
+        "live_sandbox": {"status": "passed"},
+    }
+    (evidence / "gate_result.json").write_text(json.dumps(gate), encoding="utf-8")
+    result = checker.validate_gate_evidence(contract, tmp_path)
+    assert not result["ok"]
+    assert not result["checks"]["provider_receipt"]
+
+
+def test_default_validation_cannot_use_legacy_compatibility_to_skip_v2_rules() -> None:
+    assert not checker.validate(_legacy_contract())["ok"]

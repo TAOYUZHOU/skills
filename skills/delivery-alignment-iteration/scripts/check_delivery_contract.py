@@ -86,7 +86,6 @@ LOW_RISK_SUFFIXES = {
     ".html",
     ".jpeg",
     ".jpg",
-    ".json",
     ".md",
     ".pdf",
     ".png",
@@ -94,12 +93,19 @@ LOW_RISK_SUFFIXES = {
     ".txt",
     ".webp",
 }
+LOW_RISK_DATA_SUFFIXES = {".json"}
+HIGH_RISK_FILENAMES = {
+    "deno.json",
+    "deno.jsonc",
+    "package.json",
+    "pyproject.toml",
+}
 SANDBOX_REQUIRED_KEYS = ["scope", "fixture", "invoke", "assert", "record"]
 GATE_EVIDENCE_FILES = [
     "prompt.md",
     "final_agent_output.json",
     "agent_attack_manifest.json",
-    "live_provider_receipt.md",
+    "live_provider_receipt.json",
     "gate_result.json",
 ]
 
@@ -159,6 +165,8 @@ def _scalar_value(text: str, key: str) -> str:
 def _semantic_scalar_nonempty(raw: str) -> bool:
     value = _strip_html_comments(re.sub(r"(?m)^[ \t]*#.*$", "", raw)).strip()
     if value in {"", "''", '""', "~", "null", "Null", "NULL"}:
+        return False
+    if re.fullmatch(r"\[\s*\]|\{\s*\}", value):
         return False
     return True
 
@@ -268,8 +276,11 @@ def _nested_list_values(block: str, key: str) -> list[str]:
     ]
 
 
-def validate(text: str) -> dict:
+def _validate(text: str, *, allow_legacy_read_only: bool) -> dict:
+    text = _strip_html_comments(text)
     version, version_error = _schema_version(text)
+    if version == 1 and not allow_legacy_read_only:
+        version_error = version_error or "current validation requires schema_version: 2"
     required = REQUIRED_KEYS + (V2_REQUIRED_KEYS if version >= 2 else [])
     missing = [key for key in required if not _has_top_level_key(text, key)]
     empty_required = [
@@ -325,12 +336,29 @@ def validate(text: str) -> dict:
     }
 
 
+def validate(text: str) -> dict:
+    """Validate a current iteration contract.
+
+    Version-1 contracts remain readable only through the explicitly named
+    ``validate_legacy_read_only`` compatibility API; they cannot be promoted.
+    """
+
+    return _validate(text, allow_legacy_read_only=False)
+
+
+def validate_legacy_read_only(text: str) -> dict:
+    """Parse historical version-1 contracts without granting promotion."""
+
+    return _validate(text, allow_legacy_read_only=True)
+
+
 def _heading_present(text: str, key: str) -> bool:
     pattern = re.escape(key).replace("_", r"[\s_-]*")
     return bool(re.search(rf"(?im)^#+\s*{pattern}\s*$", text))
 
 
 def validate_handoff(text: str, *, schema_version: int = 1) -> dict:
+    text = _strip_html_comments(text)
     missing_metadata = [key for key in HANDOFF_METADATA if not _has_top_level_key(text, key)]
     required_headings = HANDOFF_HEADINGS + (
         V2_HANDOFF_HEADINGS if schema_version >= 2 else []
@@ -400,6 +428,8 @@ def _path_is_high_risk(path: str) -> bool:
     p = Path(path)
     parts = set(p.parts)
     lowered = p.name.lower()
+    if lowered in HIGH_RISK_FILENAMES:
+        return True
     if p.name == "SKILL.md":
         return True
     if parts & HIGH_RISK_PARTS:
@@ -408,6 +438,10 @@ def _path_is_high_risk(path: str) -> bool:
         return True
     if any(token in lowered for token in ("contract", "prompt", "schema", "workflow")):
         return True
+    if p.suffix.lower() in LOW_RISK_DATA_SUFFIXES:
+        # JSON is low risk only when it is plainly evidence/data. Root package
+        # metadata and runtime/config trees are handled above.
+        return False
     return p.suffix.lower() not in LOW_RISK_SUFFIXES
 
 
@@ -446,6 +480,9 @@ def validate_gate_evidence(text: str, root: Path) -> dict:
         final_output = json.loads(
             (evidence_dir / "final_agent_output.json").read_text(encoding="utf-8")
         )
+        receipt = json.loads(
+            (evidence_dir / "live_provider_receipt.json").read_text(encoding="utf-8")
+        )
     except (OSError, json.JSONDecodeError) as exc:
         result["errors"].append(f"invalid evidence JSON: {exc}")
         return result
@@ -458,15 +495,37 @@ def validate_gate_evidence(text: str, root: Path) -> dict:
         result["errors"].append(str(exc))
         return result
     expected_diff_sha = hashlib.sha256(diff.encode()).hexdigest()
+    prompt_sha = _sha256_file(evidence_dir / "prompt.md")
+    final_output_sha = _sha256_file(evidence_dir / "final_agent_output.json")
+    manifest_attacks = manifest.get("attacks")
+    receipt_usage = receipt.get("usage") or {}
+    receipt_checks = {
+        "event": receipt.get("event") == "provider_turn_completed",
+        "provider": receipt.get("provider") in {"codex", "cursor", "grok", "composer"},
+        "thread_id": receipt.get("thread_id") == gate.get("provider_thread_id"),
+        "base": receipt.get("base") == base,
+        "candidate": receipt.get("candidate") == candidate,
+        "diff_sha256": receipt.get("diff_sha256") == expected_diff_sha,
+        "prompt_sha256": receipt.get("prompt_sha256") == prompt_sha,
+        "final_output_sha256": receipt.get("final_output_sha256") == final_output_sha,
+        "returncode": receipt.get("returncode") == 0,
+        "started_at_utc": bool(str(receipt.get("started_at_utc") or "").strip()),
+        "completed_at_utc": bool(str(receipt.get("completed_at_utc") or "").strip()),
+        "input_tokens": int(receipt_usage.get("input_tokens") or 0) > 0,
+        "output_tokens": int(receipt_usage.get("output_tokens") or 0) > 0,
+        "command": "codex" in str(receipt.get("command") or "").lower(),
+    }
     checks = {
         "base": gate.get("base") == base,
         "candidate": gate.get("candidate") == candidate,
         "diff_sha256": gate.get("diff_sha256") == expected_diff_sha,
-        "raw_output_sha256": gate.get("raw_output_sha256")
-        == _sha256_file(evidence_dir / "final_agent_output.json"),
+        "raw_output_sha256": gate.get("raw_output_sha256") == final_output_sha,
         "provider_thread_id": bool(str(gate.get("provider_thread_id") or "").strip()),
+        "manifest_shape": isinstance(manifest_attacks, list),
+        "nonempty_executed_corpus": isinstance(manifest_attacks, list)
+        and len(manifest_attacks) > 0,
         "generated_attack_count": gate.get("generated_attack_count")
-        == len(manifest.get("attacks") or []),
+        == len(manifest_attacks or []),
         "executed_attack_count": int(gate.get("executed_attack_count") or -1)
         >= len(manifest.get("attacks") or []),
         "escaped_attack_count": gate.get("escaped_attack_count") == 0,
@@ -475,10 +534,12 @@ def validate_gate_evidence(text: str, root: Path) -> dict:
         "live_sandbox_status": (gate.get("live_sandbox") or {}).get("status") == "passed",
         "final_output_shape": isinstance(final_output, dict)
         and isinstance(final_output.get("attacks"), list),
+        "provider_receipt": all(receipt_checks.values()),
     }
     result.update(
         {
             "checks": checks,
+            "receipt_checks": receipt_checks,
             "diff_sha256": expected_diff_sha,
             "ok": all(checks.values()),
         }
