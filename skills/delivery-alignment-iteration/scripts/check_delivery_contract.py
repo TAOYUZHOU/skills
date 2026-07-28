@@ -285,6 +285,8 @@ def _semantic_body_nonempty(body: str) -> bool:
         re.sub(r"(?m)^[ \t]*#.*$", "", body)
     )).strip()
     cleaned = re.sub(r"!\[\s*\]\(\s*\)|\[\s*\]\(\s*\)", "", cleaned).strip()
+    if not re.search(r"\w", cleaned, flags=re.UNICODE):
+        return False
     if re.fullmatch(r"(?:-{3,}|\*{3,}|_{3,})", cleaned):
         return False
     if re.fullmatch(r"[-*+]", cleaned):
@@ -698,8 +700,12 @@ def _path_is_high_risk(path: str) -> bool:
         token in lowered
         for token in (
             "agent",
+            "access",
+            "auth",
             "contract",
+            "control",
             "instruction",
+            "permission",
             "policy",
             "prompt",
             "role",
@@ -941,11 +947,15 @@ def validate_diff_binding(text: str, root: Path) -> dict:
         )
     )
     symlink_paths = set()
+    gitlink_paths = set()
     for path in changed:
         for commit in (base_sha, candidate_sha):
             tree = _git(root, "ls-tree", commit, "--", path).strip()
             if tree.startswith("120000 "):
                 symlink_paths.add(path)
+                break
+            if tree.startswith("160000 "):
+                gitlink_paths.add(path)
                 break
     high_risk_paths = sorted(
         path
@@ -953,6 +963,7 @@ def validate_diff_binding(text: str, root: Path) -> dict:
         if _path_is_high_risk(path)
         or path in executable_mode_paths
         or path in symlink_paths
+        or path in gitlink_paths
     )
     risk_conflict = declared_risk == "low" and bool(high_risk_paths)
     result.update(
@@ -967,6 +978,7 @@ def validate_diff_binding(text: str, root: Path) -> dict:
             "high_risk_paths": high_risk_paths,
             "executable_mode_paths": sorted(executable_mode_paths),
             "symlink_paths": sorted(symlink_paths),
+            "gitlink_paths": sorted(gitlink_paths),
             "missing_from_attack_scope": missing,
             "unexpected_in_attack_scope": unexpected,
             "risk_conflict": risk_conflict,

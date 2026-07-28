@@ -985,3 +985,69 @@ def test_current_agent_attacks_must_be_in_cumulative_corpus() -> None:
     corpus_ids = {attack["id"] for attack in corpus}
     current_ids = {attack["id"] for attack in current}
     assert not current_ids.issubset(corpus_ids)
+
+
+def test_markdown_formatting_only_handoff_sections_are_empty() -> None:
+    keys = checker.HANDOFF_HEADINGS + checker.V2_HANDOFF_HEADINGS
+    metadata = (
+        "status: complete\nupdated_at_utc: value\n"
+        "iteration: value\ncontract: value"
+    )
+    headings = "\n".join(
+        f"## {key.replace('_', ' ')}\n** **" for key in keys
+    )
+    result = checker.validate_handoff(
+        metadata + "\n" + headings,
+        schema_version=2,
+    )
+    assert not result["ok"]
+
+
+def test_low_risk_cannot_bypass_authoritative_access_control_markdown(
+    tmp_path: Path,
+) -> None:
+    base, candidate = _diff_repo(tmp_path, "docs/access-control.md")
+    result = checker.validate_diff_binding(
+        _bound_contract(base, candidate, "docs/access-control.md"), tmp_path
+    )
+    assert not result["ok"]
+    assert result["risk_conflict"]
+    assert result["high_risk_paths"] == ["docs/access-control.md"]
+
+
+def test_low_risk_cannot_bypass_gitlink_mode(tmp_path: Path) -> None:
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, check=True)
+    (tmp_path / "README.md").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "add", "README.md"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=tmp_path, check=True)
+    base = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True).strip()
+    (tmp_path / "nested").write_text("nested\n", encoding="utf-8")
+    subprocess.run(["git", "add", "nested"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "nested"], cwd=tmp_path, check=True)
+    nested = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    subprocess.run(["git", "reset", "--hard", base], cwd=tmp_path, check=True)
+    subprocess.run(
+        [
+            "git",
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            f"160000,{nested},docs/vendor.md",
+        ],
+        cwd=tmp_path,
+        check=True,
+    )
+    subprocess.run(["git", "commit", "-qm", "gitlink"], cwd=tmp_path, check=True)
+    candidate = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    result = checker.validate_diff_binding(
+        _bound_contract(base, candidate, "docs/vendor.md"), tmp_path
+    )
+    assert not result["ok"]
+    assert result["risk_conflict"]
+    assert result["high_risk_paths"] == ["docs/vendor.md"]
