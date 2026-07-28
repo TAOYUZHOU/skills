@@ -154,3 +154,158 @@ def test_low_risk_declaration_cannot_skip_executable_diff(tmp_path: Path) -> Non
     assert not result["ok"]
     assert result["risk_conflict"]
     assert result["high_risk_paths"] == ["runtime.py"]
+
+
+def test_nested_reason_does_not_satisfy_direct_gate_reason() -> None:
+    contract = _v2_contract().replace(
+        "  reason: executable change", "  details:\n    reason: nested excuse"
+    )
+    result = checker.validate(contract)
+    assert not result["ok"]
+    assert "missing adversarial_gate.reason" in result["adversarial_errors"]
+
+
+def test_quoted_empty_adversarial_reason_is_rejected() -> None:
+    contract = _v2_contract(risk="low", decision="skipped").replace(
+        "  reason: executable change", '  reason: ""'
+    )
+    result = checker.validate(contract)
+    assert not result["ok"]
+    assert "empty adversarial_gate.reason" in result["adversarial_errors"]
+
+
+def test_duplicate_schema_versions_are_rejected() -> None:
+    result = checker.validate("schema_version: 1\nschema_version: 2\n" + _legacy_contract())
+    assert not result["ok"]
+    assert result["schema_version_error"] == "duplicate schema_version declarations"
+
+
+def test_leading_zero_schema_version_is_rejected() -> None:
+    result = checker.validate(_v2_contract().replace("schema_version: 2", "schema_version: 02"))
+    assert not result["ok"]
+    assert result["schema_version_error"].startswith("invalid schema_version")
+
+
+def test_headings_inside_fenced_example_do_not_form_contract() -> None:
+    body = "\n".join(
+        f"# {key.replace('_', ' ')}\nexample" for key in checker.REQUIRED_KEYS
+    )
+    result = checker.validate(f"```markdown\n{body}\n```\n")
+    assert not result["ok"]
+
+
+def test_handoff_metadata_must_be_nonempty() -> None:
+    metadata = "\n".join(f"{key}:" for key in checker.HANDOFF_METADATA)
+    headings = "\n".join(
+        f"## {key.replace('_', ' ')}\nevidence"
+        for key in checker.HANDOFF_HEADINGS + checker.V2_HANDOFF_HEADINGS
+    )
+    result = checker.validate_handoff(metadata + "\n" + headings, schema_version=2)
+    assert not result["ok"]
+    assert set(result["empty_metadata"]) == set(checker.HANDOFF_METADATA)
+
+
+def test_comment_only_handoff_evidence_is_empty() -> None:
+    metadata = "\n".join(f"{key}: value" for key in checker.HANDOFF_METADATA)
+    sections = []
+    for key in checker.HANDOFF_HEADINGS + checker.V2_HANDOFF_HEADINGS:
+        body = "<!-- TODO -->" if key == "adversarial_gate_evidence" else "evidence"
+        sections.append(f"## {key.replace('_', ' ')}\n{body}")
+    result = checker.validate_handoff(
+        metadata + "\n" + "\n".join(sections), schema_version=2
+    )
+    assert not result["ok"]
+    assert "adversarial_gate_evidence" in result["empty_headings"]
+
+
+def _diff_repo(tmp_path: Path, changed_path: str) -> tuple[str, str]:
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, check=True)
+    (tmp_path / "README.md").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "add", "README.md"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=tmp_path, check=True)
+    base = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True).strip()
+    target = tmp_path / changed_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("candidate\n", encoding="utf-8")
+    subprocess.run(["git", "add", changed_path], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "candidate"], cwd=tmp_path, check=True)
+    candidate = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    return base, candidate
+
+
+def _bound_contract(base: str, candidate: str, path: str, *, risk: str = "low") -> str:
+    decision = "skipped" if risk == "low" else "required"
+    contract = _v2_contract(risk=risk, decision=decision)
+    return (
+        contract.replace("  base: abc", f"  base: {base}")
+        .replace("  candidate: def", f"  candidate: {candidate}")
+        .replace("    - runtime.py", f"    - {path}")
+    )
+
+
+def test_low_risk_cannot_bypass_mjs_executable_diff(tmp_path: Path) -> None:
+    base, candidate = _diff_repo(tmp_path, "engine.mjs")
+    result = checker.validate_diff_binding(
+        _bound_contract(base, candidate, "engine.mjs"), tmp_path
+    )
+    assert not result["ok"]
+    assert result["high_risk_paths"] == ["engine.mjs"]
+
+
+def test_evidence_directory_does_not_exempt_executable_code(tmp_path: Path) -> None:
+    path = "docs/evidence/attack.py"
+    base, candidate = _diff_repo(tmp_path, path)
+    result = checker.validate_diff_binding(
+        _bound_contract(base, candidate, path), tmp_path
+    )
+    assert not result["ok"]
+    assert result["high_risk_paths"] == [path]
+
+
+def test_diff_binding_rejects_mutable_git_refs(tmp_path: Path) -> None:
+    base, candidate = _diff_repo(tmp_path, "runtime.py")
+    subprocess.run(["git", "branch", "audit-base", base], cwd=tmp_path, check=True)
+    subprocess.run(["git", "branch", "audit-candidate", candidate], cwd=tmp_path, check=True)
+    contract = _bound_contract(base, candidate, "runtime.py", risk="high")
+    contract = contract.replace(base, "audit-base").replace(candidate, "audit-candidate")
+    result = checker.validate_diff_binding(contract, tmp_path)
+    assert not result["ok"]
+    assert result["error"] == "base and candidate must be immutable commit hashes"
+
+
+def test_cli_defaults_cannot_disable_current_schema_gate(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    contract = tmp_path / "contract.md"
+    handoff = docs / "handoff.md"
+    contract.write_text(
+        _legacy_contract().replace("handoff: value", "handoff:\n  path: docs/handoff.md"),
+        encoding="utf-8",
+    )
+    metadata = "\n".join(f"{key}: value" for key in checker.HANDOFF_METADATA)
+    headings = "\n".join(
+        f"## {key.replace('_', ' ')}\nevidence" for key in checker.HANDOFF_HEADINGS
+    )
+    handoff.write_text(metadata + "\n" + headings, encoding="utf-8")
+    completed = subprocess.run(
+        [
+            "python3",
+            str(CHECKER),
+            "--contract",
+            str(contract),
+            "--handoff",
+            str(handoff),
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+        text=True,
+        stdout=subprocess.PIPE,
+        check=False,
+    )
+    assert completed.returncode == 2
+    assert '"current_schema"' in completed.stdout

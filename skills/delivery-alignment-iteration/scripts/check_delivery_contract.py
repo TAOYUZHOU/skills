@@ -25,8 +25,16 @@ REQUIRED_KEYS = [
 ]
 
 V2_REQUIRED_KEYS = ["sandbox", "adversarial_gate"]
-ADVERSARIAL_REQUIRED_KEYS = ["risk", "decision", "reason"]
-ADVERSARIAL_HIGH_RISK_KEYS = ["base", "candidate", "attack_scope", "evidence_dir"]
+ADVERSARIAL_REQUIRED_KEYS = [
+    "risk",
+    "decision",
+    "reason",
+    "base",
+    "candidate",
+    "attack_scope",
+    "evidence_dir",
+]
+ADVERSARIAL_HIGH_RISK_KEYS: list[str] = []
 HANDOFF_METADATA = ["status", "updated_at_utc", "iteration", "contract"]
 HANDOFF_HEADINGS = [
     "intent",
@@ -48,6 +56,10 @@ HIGH_RISK_SUFFIXES = {
     ".java",
     ".js",
     ".jsx",
+    ".cjs",
+    ".cts",
+    ".mjs",
+    ".mts",
     ".py",
     ".rs",
     ".sh",
@@ -93,15 +105,15 @@ def _has_top_level_key(text: str, key: str) -> bool:
 
 
 def _schema_version(text: str) -> tuple[int, str]:
-    match = re.search(r"(?m)^schema_version\s*:\s*([^\n#]*)", text)
-    if not match:
+    matches = re.findall(r"(?m)^schema_version[ \t]*:[ \t]*([^\n#]*)", text)
+    if not matches:
         return 1, ""
-    raw = match.group(1).strip()
-    if not re.fullmatch(r"\d+", raw):
+    if len(matches) != 1:
+        return 0, "duplicate schema_version declarations"
+    raw = matches[0].strip()
+    if raw not in {"1", "2"}:
         return 0, f"invalid schema_version: {raw or '(empty)'}"
     version = int(raw)
-    if version not in {1, 2}:
-        return version, f"unsupported schema_version: {version}"
     return version, ""
 
 
@@ -120,28 +132,73 @@ def _scalar_value(text: str, key: str) -> str:
     return match.group(1).strip().strip("'\"")
 
 
+def _semantic_scalar_nonempty(raw: str) -> bool:
+    value = raw.strip()
+    if value in {"", "''", '""', "~", "null", "Null", "NULL"}:
+        return False
+    return True
+
+
+def _strip_fenced_blocks(text: str) -> str:
+    return re.sub(r"(?ms)^```[^\n]*\n.*?^```[ \t]*$", "", text)
+
+
+def _strip_html_comments(text: str) -> str:
+    return re.sub(r"(?s)<!--.*?-->", "", text)
+
+
 def _top_level_field_nonempty(text: str, key: str) -> bool:
-    yaml_match = re.search(rf"(?m)^{re.escape(key)}\s*:\s*([^\n#]*)", text)
+    text = _strip_fenced_blocks(text)
+    yaml_match = re.search(
+        rf"(?m)^{re.escape(key)}[ \t]*:[ \t]*([^\n#]*)", text
+    )
     if yaml_match:
-        if yaml_match.group(1).strip():
+        if _semantic_scalar_nonempty(yaml_match.group(1)):
             return True
         tail = text[yaml_match.end() :]
-        block = re.split(r"(?m)^(?:[A-Za-z_][A-Za-z0-9_]*\s*:|#+\s+)", tail, maxsplit=1)[0]
-        return bool(block.strip())
+        block = re.split(
+            r"(?m)^(?:[A-Za-z_][A-Za-z0-9_]*[ \t]*:|#+[ \t]+)",
+            tail,
+            maxsplit=1,
+        )[0]
+        return bool(_strip_html_comments(block).strip())
     heading_key_pattern = re.escape(key).replace("_", r"[_\s-]*")
     heading = re.search(rf"(?im)^#+\s*{heading_key_pattern}\s*$", text)
     if not heading:
         return False
     tail = text[heading.end() :]
     body = re.split(r"(?m)^#+\s+", tail, maxsplit=1)[0]
-    return bool(body.strip())
+    return bool(_strip_html_comments(body).strip())
+
+
+def _direct_nested_match(block: str, key: str) -> re.Match[str] | None:
+    key_lines = list(
+        re.finditer(
+            r"(?m)^([ \t]*)([A-Za-z_][A-Za-z0-9_]*)[ \t]*:[ \t]*([^\n#]*)",
+            block,
+        )
+    )
+    if not key_lines:
+        return None
+    direct_indent = min(len(match.group(1).expandtabs(8)) for match in key_lines)
+    for match in key_lines:
+        if (
+            match.group(2) == key
+            and len(match.group(1).expandtabs(8)) == direct_indent
+        ):
+            return match
+    return None
+
+
+def _direct_nested_present(block: str, key: str) -> bool:
+    return _direct_nested_match(block, key) is not None
 
 
 def _nested_field_nonempty(block: str, key: str) -> bool:
-    match = re.search(rf"(?m)^[ \t]*{re.escape(key)}[ \t]*:[ \t]*([^\n#]*)", block)
-    if not match:
+    match = _direct_nested_match(block, key)
+    if match is None:
         return False
-    if match.group(1).strip():
+    if _semantic_scalar_nonempty(match.group(3)):
         return True
     tail = block[match.end() :]
     nested = re.split(
@@ -151,10 +208,10 @@ def _nested_field_nonempty(block: str, key: str) -> bool:
 
 
 def _nested_list_values(block: str, key: str) -> list[str]:
-    match = re.search(rf"(?m)^[ \t]*{re.escape(key)}[ \t]*:[ \t]*([^\n#]*)", block)
-    if not match:
+    match = _direct_nested_match(block, key)
+    if match is None:
         return []
-    inline = match.group(1).strip()
+    inline = match.group(3).strip()
     if inline.startswith("[") and inline.endswith("]"):
         return [
             part.strip().strip("'\"")
@@ -185,7 +242,7 @@ def validate(text: str) -> dict:
     if version >= 2 and "adversarial_gate" not in missing:
         block = _top_level_block(text, "adversarial_gate")
         for key in ADVERSARIAL_REQUIRED_KEYS:
-            if not _has_key(block, key):
+            if not _direct_nested_present(block, key):
                 adversarial_errors.append(f"missing adversarial_gate.{key}")
             elif not _nested_field_nonempty(block, key):
                 adversarial_errors.append(f"empty adversarial_gate.{key}")
@@ -199,7 +256,7 @@ def validate(text: str) -> dict:
             if decision != "required":
                 adversarial_errors.append("high-risk diff requires decision: required")
             for key in ADVERSARIAL_HIGH_RISK_KEYS:
-                if not _has_key(block, key):
+                if not _direct_nested_present(block, key):
                     adversarial_errors.append(f"missing adversarial_gate.{key}")
                 elif not _nested_field_nonempty(block, key):
                     adversarial_errors.append(f"empty adversarial_gate.{key}")
@@ -232,9 +289,18 @@ def validate_handoff(text: str, *, schema_version: int = 1) -> dict:
         for key in required_headings
         if key not in missing_headings and not _top_level_field_nonempty(text, key)
     ]
+    empty_metadata = [
+        key
+        for key in HANDOFF_METADATA
+        if key not in missing_metadata and not _top_level_field_nonempty(text, key)
+    ]
     return {
-        "ok": not missing_metadata and not missing_headings and not empty_headings,
+        "ok": not missing_metadata
+        and not empty_metadata
+        and not missing_headings
+        and not empty_headings,
         "missing_metadata": missing_metadata,
+        "empty_metadata": empty_metadata,
         "missing_headings": missing_headings,
         "empty_headings": empty_headings,
         "required_metadata": HANDOFF_METADATA,
@@ -282,14 +348,14 @@ def _path_is_high_risk(path: str) -> bool:
     p = Path(path)
     parts = set(p.parts)
     lowered = p.name.lower()
-    if len(p.parts) >= 2 and p.parts[0] == "docs" and p.parts[1] == "evidence":
-        return False
     if p.name == "SKILL.md":
         return True
     if parts & HIGH_RISK_PARTS:
         return True
     if p.suffix.lower() in HIGH_RISK_SUFFIXES:
         return True
+    if len(p.parts) >= 2 and p.parts[0] == "docs" and p.parts[1] == "evidence":
+        return False
     return any(token in lowered for token in ("contract", "prompt", "schema", "workflow"))
 
 
@@ -311,6 +377,10 @@ def validate_diff_binding(text: str, root: Path) -> dict:
     }
     if not base or not candidate:
         result["error"] = "base and candidate are required for diff binding"
+        return result
+    commit_pattern = re.compile(r"^[0-9a-fA-F]{40}$")
+    if not commit_pattern.fullmatch(base) or not commit_pattern.fullmatch(candidate):
+        result["error"] = "base and candidate must be immutable commit hashes"
         return result
     try:
         base_sha = _git(root, "rev-parse", f"{base}^{{commit}}").strip()
@@ -350,7 +420,12 @@ def main() -> int:
     parser.add_argument(
         "--require-current-schema",
         action="store_true",
-        help="Reject legacy contracts for a new/current iteration.",
+        help="Deprecated compatibility alias; current schema is required by default.",
+    )
+    parser.add_argument(
+        "--allow-legacy",
+        action="store_true",
+        help="Explicitly validate a historical schema-version-1 contract.",
     )
     parser.add_argument(
         "--check-diff",
@@ -362,7 +437,7 @@ def main() -> int:
 
     text = _read_contract(args.contract)
     result = validate(text)
-    if args.require_current_schema:
+    if not args.allow_legacy:
         current_schema = validate_current_schema(result)
         result["current_schema"] = current_schema
         result["ok"] = bool(result["ok"] and current_schema["ok"])
@@ -382,7 +457,7 @@ def main() -> int:
     handoff_result["ok"] = bool(handoff_result.get("ok") and binding["ok"])
     result["handoff"] = handoff_result
     result["ok"] = bool(result["ok"] and handoff_result.get("ok"))
-    if args.check_diff:
+    if int(result.get("schema_version") or 0) == 2:
         diff_result = validate_diff_binding(text, Path(args.root).resolve())
         result["diff_binding"] = diff_result
         result["ok"] = bool(result["ok"] and diff_result.get("ok"))

@@ -39,8 +39,7 @@ python3 scripts/check_delivery_contract.py \
   --contract /path/to/iteration_contract.yaml \
   --handoff /path/to/repo/docs/harp_iteration_handoff.md \
   --root /path/to/repo \
-  --require-current-schema \
-  --check-diff
+  --require-current-schema
 ```
 
 11. Before the final response, reconcile the handoff against the actual diff and
@@ -143,7 +142,8 @@ For every high-risk diff:
    executable artifacts, commands, exit codes, and escaped-attack count in the
    contract evidence directory and handoff.
 
-Low-risk diffs may set `decision: skipped`, but must preserve a concrete reason.
+Low-risk diffs may set `decision: skipped`, but must still bind immutable
+`base`, `candidate`, and complete `attack_scope`, and preserve a concrete reason.
 If an Agent finds no attacks, record the successful invocation and empty
 manifest; do not silently treat absence of output as success. The live atomic
 sandbox remains independently required for every iteration, so this gate cannot

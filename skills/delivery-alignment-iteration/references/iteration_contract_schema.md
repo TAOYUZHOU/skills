@@ -35,8 +35,8 @@ For `adversarial_gate`:
 - `risk: low` and `decision: skipped` are allowed for documentation, comments,
   static assets, or evidence-only changes only when the reason explains why no
   authoritative runtime behavior changes.
-- High-risk contracts also declare immutable `base` and `candidate` commits,
-  exact `attack_scope`, and `evidence_dir`.
+- Every current contract declares immutable `base` and `candidate` commits,
+  exact `attack_scope`, and `evidence_dir`, including low-risk skips.
   Before completion, the handoff records the real Agent invocation, raw output,
   attack manifest, deterministic commands/results, and zero escaped attacks.
 
