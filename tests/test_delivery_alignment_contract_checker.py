@@ -666,6 +666,62 @@ def test_provider_receipt_requires_out_of_repo_attestation(
         key.read_bytes(), payload, hashlib.sha256
     ).hexdigest()
     monkeypatch.setenv("DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE", str(key))
-    assert checker._receipt_attestation_ok(receipt)
+    assert checker._host_attestation_ok(receipt)
     receipt["thread_id"] = "fabricated"
-    assert not checker._receipt_attestation_ok(receipt)
+    assert not checker._host_attestation_ok(receipt)
+
+
+def test_quoted_whitespace_adversarial_reason_is_rejected() -> None:
+    contract = _v2_contract(risk="low", decision="skipped").replace(
+        "  reason: executable change", '  reason: "   "'
+    )
+    result = checker.validate(contract)
+    assert not result["ok"]
+    assert "empty adversarial_gate.reason" in result["adversarial_errors"]
+
+
+def test_yaml_scalars_cannot_fill_empty_markdown_handoff_sections() -> None:
+    keys = checker.HANDOFF_HEADINGS + checker.V2_HANDOFF_HEADINGS
+    metadata = "\n".join(f"{key}: value" for key in checker.HANDOFF_METADATA)
+    scalars = "\n".join(f"{key}: injected" for key in keys)
+    headings = "\n".join(f"## {key.replace('_', ' ')}" for key in keys)
+    result = checker.validate_handoff(
+        metadata + "\n" + scalars + "\n" + headings, schema_version=2
+    )
+    assert not result["ok"]
+    assert set(result["empty_headings"]) == set(keys)
+
+
+def test_low_risk_cannot_bypass_authoritative_json_runtime_config(
+    tmp_path: Path,
+) -> None:
+    base, candidate = _diff_repo(tmp_path, "config/routes.json")
+    result = checker.validate_diff_binding(
+        _bound_contract(base, candidate, "config/routes.json"), tmp_path
+    )
+    assert not result["ok"]
+    assert result["risk_conflict"]
+    assert result["high_risk_paths"] == ["config/routes.json"]
+
+
+def test_legacy_read_only_rejects_nested_required_contract_keys() -> None:
+    nested = "wrapper:\n" + "\n".join(
+        f"  {key}: value" for key in checker.REQUIRED_KEYS
+    )
+    result = checker.validate_legacy_read_only(nested)
+    assert not result["ok"]
+    assert set(result["missing_keys"]) == set(checker.REQUIRED_KEYS)
+
+
+def test_quoted_whitespace_sandbox_fields_are_rejected() -> None:
+    sandbox = "sandbox:\n" + "".join(
+        f'  {key}: "   "\n' for key in checker.SANDBOX_REQUIRED_KEYS
+    )
+    contract = _v2_contract(risk="low", decision="skipped").replace(
+        "sandbox: live\n", sandbox
+    )
+    result = checker.validate(contract)
+    assert not result["ok"]
+    assert set(result["sandbox_errors"]) == {
+        f"empty sandbox.{key}" for key in checker.SANDBOX_REQUIRED_KEYS
+    }

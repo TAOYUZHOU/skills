@@ -41,7 +41,9 @@ For `adversarial_gate`:
   attack manifest, deterministic commands/results, and zero escaped attacks.
   The provider receipt must carry a valid HMAC attestation from a key outside
   the candidate repository, supplied to the checker through
-  `DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE`.
+  `DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE`. The deterministic gate result requires
+  a separate attestation with the same host trust root. Low-risk skips may keep
+  the attack corpus empty, but still provide the live-sandbox evidence bundle.
 
 ## Recommended Review Questions
 

@@ -75,6 +75,7 @@ HIGH_RISK_PARTS = {
     ".github",
     "app",
     "bin",
+    "config",
     "harp",
     "lib",
     "runtime",
@@ -178,6 +179,12 @@ def _scalar_value(text: str, key: str) -> str:
 
 def _semantic_scalar_nonempty(raw: str) -> bool:
     value = _strip_html_comments(re.sub(r"(?m)^[ \t]*#.*$", "", raw)).strip()
+    if (
+        len(value) >= 2
+        and value[0] == value[-1]
+        and value[0] in {"'", '"'}
+    ):
+        value = value[1:-1].strip()
     if value in {"", "''", '""', "~", "null", "Null", "NULL"}:
         return False
     if re.fullmatch(r"\[\s*\]|\{\s*\}", value):
@@ -413,6 +420,16 @@ def _heading_present(text: str, key: str) -> bool:
     return bool(re.search(rf"(?im)^#+\s*{pattern}\s*$", text))
 
 
+def _heading_nonempty(text: str, key: str) -> bool:
+    pattern = re.escape(key).replace("_", r"[\s_-]*")
+    heading = re.search(rf"(?im)^#+\s*{pattern}\s*$", text)
+    if not heading:
+        return False
+    tail = text[heading.end() :]
+    body = re.split(r"(?m)^#+\s+", tail, maxsplit=1)[0]
+    return _semantic_body_nonempty(_strip_html_comments(body).strip())
+
+
 def validate_handoff(text: str, *, schema_version: int = 1) -> dict:
     text = _strip_html_comments(text)
     missing_metadata = [key for key in HANDOFF_METADATA if not _has_top_level_key(text, key)]
@@ -423,7 +440,7 @@ def validate_handoff(text: str, *, schema_version: int = 1) -> dict:
     empty_headings = [
         key
         for key in required_headings
-        if key not in missing_headings and not _top_level_field_nonempty(text, key)
+        if key not in missing_headings and not _heading_nonempty(text, key)
     ]
     empty_metadata = [
         key
@@ -507,7 +524,7 @@ def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _receipt_attestation_ok(receipt: dict) -> bool:
+def _host_attestation_ok(record: dict) -> bool:
     import hashlib
 
     key_raw = os.environ.get("DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE", "").strip()
@@ -520,10 +537,10 @@ def _receipt_attestation_ok(receipt: dict) -> bool:
         return False
     if len(key) < 32:
         return False
-    supplied = str(receipt.get("attestation_hmac_sha256") or "")
+    supplied = str(record.get("attestation_hmac_sha256") or "")
     payload = {
         key: value
-        for key, value in receipt.items()
+        for key, value in record.items()
         if key != "attestation_hmac_sha256"
     }
     canonical = json.dumps(
@@ -581,7 +598,9 @@ def validate_gate_evidence(text: str, root: Path) -> dict:
     prompt_sha = _sha256_file(evidence_dir / "prompt.md")
     final_output_sha = _sha256_file(evidence_dir / "final_agent_output.json")
     manifest_attacks = manifest.get("attacks")
+    current_output_attacks = manifest.get("current_output_attacks")
     receipt_usage = receipt.get("usage") or {}
+    risk = _scalar_value(block, "risk").lower()
     receipt_checks = {
         "event": receipt.get("event") == "provider_turn_completed",
         "provider": receipt.get("provider") in {"codex", "cursor", "grok", "composer"},
@@ -597,7 +616,7 @@ def validate_gate_evidence(text: str, root: Path) -> dict:
         "input_tokens": int(receipt_usage.get("input_tokens") or 0) > 0,
         "output_tokens": int(receipt_usage.get("output_tokens") or 0) > 0,
         "command": "codex" in str(receipt.get("command") or "").lower(),
-        "host_attestation": _receipt_attestation_ok(receipt),
+        "host_attestation": _host_attestation_ok(receipt),
     }
     checks = {
         "base": gate.get("base") == base,
@@ -606,8 +625,8 @@ def validate_gate_evidence(text: str, root: Path) -> dict:
         "raw_output_sha256": gate.get("raw_output_sha256") == final_output_sha,
         "provider_thread_id": bool(str(gate.get("provider_thread_id") or "").strip()),
         "manifest_shape": isinstance(manifest_attacks, list),
-        "nonempty_executed_corpus": isinstance(manifest_attacks, list)
-        and len(manifest_attacks) > 0,
+        "nonempty_executed_corpus": risk != "high"
+        or (isinstance(manifest_attacks, list) and len(manifest_attacks) > 0),
         "generated_attack_count": gate.get("generated_attack_count")
         == len(manifest_attacks or []),
         "executed_attack_count": int(gate.get("executed_attack_count") or -1)
@@ -618,8 +637,11 @@ def validate_gate_evidence(text: str, root: Path) -> dict:
         "live_sandbox_status": (gate.get("live_sandbox") or {}).get("status") == "passed",
         "final_output_shape": isinstance(final_output, dict)
         and isinstance(final_output.get("attacks"), list),
-        "manifest_matches_output": isinstance(final_output, dict)
-        and final_output.get("attacks") == manifest_attacks,
+        "final_output_fingerprint": final_output.get("change_fingerprint")
+        == expected_diff_sha,
+        "manifest_matches_output": isinstance(current_output_attacks, list)
+        and final_output.get("attacks") == current_output_attacks,
+        "gate_host_attestation": _host_attestation_ok(gate),
         "provider_receipt": all(receipt_checks.values()),
     }
     result.update(
@@ -745,10 +767,9 @@ def main() -> int:
         diff_result = validate_diff_binding(text, Path(args.root).resolve())
         result["diff_binding"] = diff_result
         result["ok"] = bool(result["ok"] and diff_result.get("ok"))
-        if _scalar_value(_top_level_block(text, "adversarial_gate"), "risk").lower() == "high":
-            gate_evidence = validate_gate_evidence(text, Path(args.root).resolve())
-            result["gate_evidence"] = gate_evidence
-            result["ok"] = bool(result["ok"] and gate_evidence.get("ok"))
+        gate_evidence = validate_gate_evidence(text, Path(args.root).resolve())
+        result["gate_evidence"] = gate_evidence
+        result["ok"] = bool(result["ok"] and gate_evidence.get("ok"))
     result["contract"] = args.contract
     result["root"] = str(Path(args.root).resolve())
 

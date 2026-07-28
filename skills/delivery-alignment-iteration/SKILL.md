@@ -146,7 +146,9 @@ For every high-risk diff:
    live-provider receipt with a host-controlled key outside the target
    repository and expose its path only to the trusted gate process through
    `DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE`; a candidate repository may not attest
-   its own provider invocation.
+   its own provider invocation. The trusted runner must attest both the provider
+   receipt and the deterministic gate result; signing only the Agent turn does
+   not prove that generated attacks were executed.
 
 Low-risk diffs may set `decision: skipped`, but must still bind immutable
 `base`, `candidate`, and complete `attack_scope`, and preserve a concrete reason.
