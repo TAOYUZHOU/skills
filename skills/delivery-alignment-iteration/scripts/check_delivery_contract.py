@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import html
+import hmac
 import json
+import os
 import re
 import subprocess
 import sys
@@ -53,6 +56,7 @@ HIGH_RISK_SUFFIXES = {
     ".cc",
     ".cpp",
     ".go",
+    ".html",
     ".java",
     ".js",
     ".jsx",
@@ -83,7 +87,6 @@ LOW_RISK_SUFFIXES = {
     ".bmp",
     ".csv",
     ".gif",
-    ".html",
     ".jpeg",
     ".jpg",
     ".md",
@@ -222,9 +225,11 @@ def _top_level_field_nonempty(text: str, key: str) -> bool:
 
 
 def _semantic_body_nonempty(body: str) -> bool:
-    cleaned = _strip_html_tags(
+    cleaned = html.unescape(_strip_html_tags(
         re.sub(r"(?m)^[ \t]*#.*$", "", body)
-    ).strip()
+    )).strip()
+    if re.fullmatch(r"(?:-{3,}|\*{3,}|_{3,})", cleaned):
+        return False
     if not _semantic_scalar_nonempty(cleaned):
         return False
     lines = [line for line in cleaned.splitlines() if line.strip()]
@@ -254,6 +259,24 @@ def _direct_nested_match(block: str, key: str) -> re.Match[str] | None:
         ):
             return match
     return None
+
+
+def _direct_nested_matches(block: str, key: str) -> list[re.Match[str]]:
+    key_lines = list(
+        re.finditer(
+            r"(?m)^([ \t]*)([A-Za-z_][A-Za-z0-9_]*)[ \t]*:[ \t]*([^\n#]*)",
+            block,
+        )
+    )
+    if not key_lines:
+        return []
+    direct_indent = min(len(match.group(1).expandtabs(8)) for match in key_lines)
+    return [
+        match
+        for match in key_lines
+        if match.group(2) == key
+        and len(match.group(1).expandtabs(8)) == direct_indent
+    ]
 
 
 def _direct_nested_present(block: str, key: str) -> bool:
@@ -296,7 +319,7 @@ def _nested_list_values(block: str, key: str) -> list[str]:
 
 
 def _validate(text: str, *, allow_legacy_read_only: bool) -> dict:
-    text = _strip_html_comments(text)
+    text = _strip_fenced_blocks(_strip_html_comments(text))
     version, version_error = _schema_version(text)
     if version == 1 and not allow_legacy_read_only:
         version_error = version_error or "current validation requires schema_version: 2"
@@ -312,15 +335,21 @@ def _validate(text: str, *, allow_legacy_read_only: bool) -> dict:
     if version >= 2 and "sandbox" not in missing:
         block = _top_level_block(text, "sandbox")
         for key in SANDBOX_REQUIRED_KEYS:
-            if not _direct_nested_present(block, key):
+            matches = _direct_nested_matches(block, key)
+            if not matches:
                 sandbox_errors.append(f"missing sandbox.{key}")
+            elif len(matches) > 1:
+                sandbox_errors.append(f"duplicate sandbox.{key}")
             elif not _nested_field_nonempty(block, key):
                 sandbox_errors.append(f"empty sandbox.{key}")
     if version >= 2 and "adversarial_gate" not in missing:
         block = _top_level_block(text, "adversarial_gate")
         for key in ADVERSARIAL_REQUIRED_KEYS:
-            if not _direct_nested_present(block, key):
+            matches = _direct_nested_matches(block, key)
+            if not matches:
                 adversarial_errors.append(f"missing adversarial_gate.{key}")
+            elif len(matches) > 1:
+                adversarial_errors.append(f"duplicate adversarial_gate.{key}")
             elif not _nested_field_nonempty(block, key):
                 adversarial_errors.append(f"empty adversarial_gate.{key}")
         risk = _scalar_value(block, "risk").lower()
@@ -329,6 +358,14 @@ def _validate(text: str, *, allow_legacy_read_only: bool) -> dict:
             adversarial_errors.append("adversarial_gate.risk must be high or low")
         if decision not in {"required", "skipped"}:
             adversarial_errors.append("adversarial_gate.decision must be required or skipped")
+        reason_match = _direct_nested_match(block, "reason")
+        if reason_match is not None:
+            reason_scalar = reason_match.group(3).strip().strip("'\"")
+            if re.fullmatch(
+                r"(?i:true|false|yes|no|on|off|[-+]?(?:\d+(?:\.\d*)?|\.\d+))",
+                reason_scalar,
+            ):
+                adversarial_errors.append("empty adversarial_gate.reason")
         if risk == "high":
             if decision != "required":
                 adversarial_errors.append("high-risk diff requires decision: required")
@@ -470,6 +507,32 @@ def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _receipt_attestation_ok(receipt: dict) -> bool:
+    import hashlib
+
+    key_raw = os.environ.get("DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE", "").strip()
+    if not key_raw:
+        return False
+    key_path = Path(key_raw).expanduser()
+    try:
+        key = key_path.read_bytes()
+    except OSError:
+        return False
+    if len(key) < 32:
+        return False
+    supplied = str(receipt.get("attestation_hmac_sha256") or "")
+    payload = {
+        key: value
+        for key, value in receipt.items()
+        if key != "attestation_hmac_sha256"
+    }
+    canonical = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
+    expected = hmac.new(key, canonical, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(supplied, expected)
+
+
 def validate_gate_evidence(text: str, root: Path) -> dict:
     import hashlib
 
@@ -534,6 +597,7 @@ def validate_gate_evidence(text: str, root: Path) -> dict:
         "input_tokens": int(receipt_usage.get("input_tokens") or 0) > 0,
         "output_tokens": int(receipt_usage.get("output_tokens") or 0) > 0,
         "command": "codex" in str(receipt.get("command") or "").lower(),
+        "host_attestation": _receipt_attestation_ok(receipt),
     }
     checks = {
         "base": gate.get("base") == base,
@@ -554,6 +618,8 @@ def validate_gate_evidence(text: str, root: Path) -> dict:
         "live_sandbox_status": (gate.get("live_sandbox") or {}).get("status") == "passed",
         "final_output_shape": isinstance(final_output, dict)
         and isinstance(final_output.get("attacks"), list),
+        "manifest_matches_output": isinstance(final_output, dict)
+        and final_output.get("attacks") == manifest_attacks,
         "provider_receipt": all(receipt_checks.values()),
     }
     result.update(

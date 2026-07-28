@@ -142,7 +142,11 @@ For every high-risk diff:
 7. Record the diff fingerprint, prompt, raw output, parsed attack manifest,
    executable artifacts, commands, exit codes, and escaped-attack count in the
    contract evidence directory and handoff. The checker must validate the
-   evidence receipt against the pinned diff and require zero escapes.
+   evidence receipt against the pinned diff and require zero escapes. Sign the
+   live-provider receipt with a host-controlled key outside the target
+   repository and expose its path only to the trusted gate process through
+   `DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE`; a candidate repository may not attest
+   its own provider invocation.
 
 Low-risk diffs may set `decision: skipped`, but must still bind immutable
 `base`, `candidate`, and complete `attack_scope`, and preserve a concrete reason.

@@ -572,3 +572,100 @@ def test_diff_binding_rejects_candidate_ancestor_of_base(tmp_path: Path) -> None
     result = checker.validate_diff_binding(contract, tmp_path)
     assert not result["ok"]
     assert result["error"] == "candidate must descend from base"
+
+
+def test_boolean_false_is_not_an_adversarial_reason() -> None:
+    contract = _v2_contract(risk="low", decision="skipped").replace(
+        "  reason: executable change", "  reason: false"
+    )
+    result = checker.validate(contract)
+    assert not result["ok"]
+    assert "empty adversarial_gate.reason" in result["adversarial_errors"]
+
+
+def test_duplicate_adversarial_gate_keys_are_rejected() -> None:
+    contract = _v2_contract() + "  risk: low\n  decision: skipped\n"
+    result = checker.validate(contract)
+    assert not result["ok"]
+    assert "duplicate adversarial_gate.risk" in result["adversarial_errors"]
+    assert "duplicate adversarial_gate.decision" in result["adversarial_errors"]
+
+
+def test_low_risk_cannot_bypass_executable_html(tmp_path: Path) -> None:
+    base, candidate = _diff_repo(tmp_path, "docs/payload.html")
+    result = checker.validate_diff_binding(
+        _bound_contract(base, candidate, "docs/payload.html"), tmp_path
+    )
+    assert not result["ok"]
+    assert result["risk_conflict"]
+    assert result["high_risk_paths"] == ["docs/payload.html"]
+
+
+def test_horizontal_rule_only_handoff_section_is_empty() -> None:
+    metadata = "\n".join(f"{key}: value" for key in checker.HANDOFF_METADATA)
+    keys = checker.HANDOFF_HEADINGS + checker.V2_HANDOFF_HEADINGS
+    sections = [
+        f"## {key.replace('_', ' ')}\n"
+        + ("---" if key == "adversarial_gate_evidence" else "evidence")
+        for key in keys
+    ]
+    result = checker.validate_handoff(
+        metadata + "\n" + "\n".join(sections), schema_version=2
+    )
+    assert not result["ok"]
+    assert "adversarial_gate_evidence" in result["empty_headings"]
+
+
+def test_html_entity_only_handoff_sections_are_empty() -> None:
+    metadata = "\n".join(f"{key}: value" for key in checker.HANDOFF_METADATA)
+    keys = checker.HANDOFF_HEADINGS + checker.V2_HANDOFF_HEADINGS
+    headings = "\n".join(f"## {key.replace('_', ' ')}\n&nbsp;" for key in keys)
+    result = checker.validate_handoff(metadata + "\n" + headings, schema_version=2)
+    assert not result["ok"]
+    assert set(result["empty_headings"]) == set(keys)
+
+
+def test_fenced_schema_example_does_not_affect_contract_version() -> None:
+    sandbox = "sandbox:\n" + "".join(
+        f"  {key}: evidence\n" for key in checker.SANDBOX_REQUIRED_KEYS
+    )
+    contract = _v2_contract().replace("sandbox: live\n", sandbox)
+    contract += "\n```yaml\nschema_version: 1\n```\n"
+    result = checker.validate(contract)
+    assert result["ok"]
+    assert result["schema_version"] == 2
+
+
+def test_attack_manifest_must_match_agent_output() -> None:
+    final_output = {"attacks": []}
+    manifest_attacks = [{"id": "invented"}]
+    assert not (
+        isinstance(final_output, dict)
+        and final_output.get("attacks") == manifest_attacks
+    )
+
+
+def test_provider_receipt_requires_out_of_repo_attestation(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import hashlib
+    import hmac
+    import json
+
+    key = tmp_path / "receipt.key"
+    key.write_bytes(b"k" * 32)
+    receipt = {
+        "event": "provider_turn_completed",
+        "provider": "codex",
+        "thread_id": "thread",
+    }
+    payload = json.dumps(
+        receipt, sort_keys=True, separators=(",", ":")
+    ).encode()
+    receipt["attestation_hmac_sha256"] = hmac.new(
+        key.read_bytes(), payload, hashlib.sha256
+    ).hexdigest()
+    monkeypatch.setenv("DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE", str(key))
+    assert checker._receipt_attestation_ok(receipt)
+    receipt["thread_id"] = "fabricated"
+    assert not checker._receipt_attestation_ok(receipt)

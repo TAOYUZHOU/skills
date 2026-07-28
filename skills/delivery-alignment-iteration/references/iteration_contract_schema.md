@@ -39,6 +39,9 @@ For `adversarial_gate`:
   exact `attack_scope`, and `evidence_dir`, including low-risk skips.
   Before completion, the handoff records the real Agent invocation, raw output,
   attack manifest, deterministic commands/results, and zero escaped attacks.
+  The provider receipt must carry a valid HMAC attestation from a key outside
+  the candidate repository, supplied to the checker through
+  `DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE`.
 
 ## Recommended Review Questions
 
