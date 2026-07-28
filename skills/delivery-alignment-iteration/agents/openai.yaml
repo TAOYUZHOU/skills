@@ -1,3 +1,4 @@
-display_name: Delivery Alignment Iteration
-short_description: Keep requested intent, implementation diff, verification evidence, and final claims traceable.
-default_prompt: Turn this request into a traceable iteration contract, implement only against the accepted deliverables, verify the evidence, and report any mismatch before final handoff.
+interface:
+  display_name: "Delivery Alignment Iteration"
+  short_description: "Align delivery, handoff, and adversarial evidence"
+  default_prompt: "Use $delivery-alignment-iteration to maintain a traceable contract and docs handoff SSOT, apply the risk-triggered diff-directed adversarial Agent gate, and verify this iteration."
