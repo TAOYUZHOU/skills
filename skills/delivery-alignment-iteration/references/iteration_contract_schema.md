@@ -46,6 +46,9 @@ For `adversarial_gate`:
   `DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE`. The deterministic gate result requires
   a separate attestation with the same host trust root. Low-risk skips may keep
   the attack corpus empty, but still provide the live-sandbox evidence bundle.
+  `current_output_attacks` must exactly match the latest Agent output, and every
+  current attack ID must appear in the cumulative `attacks` regression corpus.
+  Historical corpus entries may come from earlier exact candidates.
 
 ## Recommended Review Questions
 

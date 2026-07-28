@@ -910,3 +910,78 @@ def test_low_risk_cannot_bypass_active_svg_executable_content(
     assert not result["ok"]
     assert result["risk_conflict"]
     assert result["high_risk_paths"] == ["docs/payload.svg"]
+
+
+def test_commonmark_indented_fence_cannot_satisfy_handoff() -> None:
+    keys = checker.HANDOFF_HEADINGS + checker.V2_HANDOFF_HEADINGS
+    metadata = (
+        "status: complete\nupdated_at_utc: value\n"
+        "iteration: value\ncontract: value"
+    )
+    headings = "\n".join(
+        f"## {key.replace('_', ' ')}\nevidence" for key in keys
+    )
+    result = checker.validate_handoff(
+        f" ```markdown\n{metadata}\n{headings}\n ````\n",
+        schema_version=2,
+    )
+    assert not result["ok"]
+
+
+def test_longer_commonmark_closing_fence_cannot_satisfy_handoff() -> None:
+    keys = checker.HANDOFF_HEADINGS + checker.V2_HANDOFF_HEADINGS
+    metadata = (
+        "status: complete\nupdated_at_utc: value\n"
+        "iteration: value\ncontract: value"
+    )
+    headings = "\n".join(
+        f"## {key.replace('_', ' ')}\nevidence" for key in keys
+    )
+    result = checker.validate_handoff(
+        f"```markdown\n{metadata}\n{headings}\n````\n",
+        schema_version=2,
+    )
+    assert not result["ok"]
+
+
+def test_low_risk_cannot_bypass_symlink_diff(tmp_path: Path) -> None:
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, check=True)
+    (tmp_path / "README.md").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "add", "README.md"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=tmp_path, check=True)
+    base = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True).strip()
+    (tmp_path / "link.md").symlink_to("runtime.py")
+    subprocess.run(["git", "add", "link.md"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "candidate"], cwd=tmp_path, check=True)
+    candidate = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    result = checker.validate_diff_binding(
+        _bound_contract(base, candidate, "link.md"), tmp_path
+    )
+    assert not result["ok"]
+    assert result["risk_conflict"]
+    assert result["high_risk_paths"] == ["link.md"]
+
+
+def test_handoff_binding_rejects_path_outside_repository_docs(
+    tmp_path: Path,
+) -> None:
+    external = tmp_path.parent / "external-handoff.md"
+    contract = _v2_contract().replace(
+        "handoff: value",
+        "handoff:\n  path: ../external-handoff.md",
+    )
+    result = checker.validate_handoff_binding(contract, tmp_path, external)
+    assert not result["ok"]
+    assert not result["contained_in_docs"]
+
+
+def test_current_agent_attacks_must_be_in_cumulative_corpus() -> None:
+    corpus = [{"id": "historical"}]
+    current = [{"id": "new_escape"}]
+    corpus_ids = {attack["id"] for attack in corpus}
+    current_ids = {attack["id"] for attack in current}
+    assert not current_ids.issubset(corpus_ids)

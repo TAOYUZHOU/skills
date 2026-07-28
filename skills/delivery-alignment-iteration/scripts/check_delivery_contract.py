@@ -224,11 +224,27 @@ def _semantic_scalar_nonempty(raw: str) -> bool:
 
 
 def _strip_fenced_blocks(text: str) -> str:
-    return re.sub(
-        r"(?ms)^(?P<fence>`{3,}|~{3,})[^\n]*\n.*?^(?P=fence)[ \t]*$",
-        "",
-        text,
-    )
+    kept: list[str] = []
+    fence_char = ""
+    fence_length = 0
+    for line in text.splitlines(keepends=True):
+        if not fence_char:
+            opening = re.match(r"^[ ]{0,3}(`{3,}|~{3,})", line)
+            if opening:
+                fence = opening.group(1)
+                fence_char = fence[0]
+                fence_length = len(fence)
+                continue
+            kept.append(line)
+            continue
+        closing = re.match(
+            rf"^[ ]{{0,3}}{re.escape(fence_char)}{{{fence_length},}}[ \t]*(?:\r?\n)?$",
+            line,
+        )
+        if closing:
+            fence_char = ""
+            fence_length = 0
+    return "".join(kept)
 
 
 def _strip_html_comments(text: str) -> str:
@@ -638,10 +654,17 @@ def validate_handoff_binding(text: str, root: Path, supplied: Path) -> dict:
         return {"ok": False, "error": "contract handoff.path is missing"}
     expected = (root.resolve() / declared).resolve()
     actual = supplied.resolve()
+    docs_root = (root.resolve() / "docs").resolve()
+    try:
+        expected.relative_to(docs_root)
+        contained = True
+    except ValueError:
+        contained = False
     return {
-        "ok": expected == actual,
+        "ok": expected == actual and contained,
         "declared": str(expected),
         "supplied": str(actual),
+        "contained_in_docs": contained,
     }
 
 
@@ -783,6 +806,16 @@ def validate_gate_evidence(text: str, root: Path) -> dict:
     final_output_sha = _sha256_file(evidence_dir / "final_agent_output.json")
     manifest_attacks = manifest.get("attacks")
     current_output_attacks = manifest.get("current_output_attacks")
+    corpus_ids = {
+        attack.get("id")
+        for attack in (manifest_attacks or [])
+        if isinstance(attack, dict) and attack.get("id")
+    }
+    current_ids = {
+        attack.get("id")
+        for attack in (current_output_attacks or [])
+        if isinstance(attack, dict) and attack.get("id")
+    }
     receipt_usage = receipt.get("usage") or {}
     risk = str(gate_contract.get("risk") or "").lower()
     receipt_checks = {
@@ -825,6 +858,9 @@ def validate_gate_evidence(text: str, root: Path) -> dict:
         == expected_diff_sha,
         "manifest_matches_output": isinstance(current_output_attacks, list)
         and final_output.get("attacks") == current_output_attacks,
+        "current_attacks_in_corpus": isinstance(manifest_attacks, list)
+        and isinstance(current_output_attacks, list)
+        and current_ids.issubset(corpus_ids),
         "gate_host_attestation": _host_attestation_ok(gate),
         "provider_receipt": all(receipt_checks.values()),
     }
@@ -904,10 +940,19 @@ def validate_diff_binding(text: str, root: Path) -> dict:
             summary,
         )
     )
+    symlink_paths = set()
+    for path in changed:
+        for commit in (base_sha, candidate_sha):
+            tree = _git(root, "ls-tree", commit, "--", path).strip()
+            if tree.startswith("120000 "):
+                symlink_paths.add(path)
+                break
     high_risk_paths = sorted(
         path
         for path in changed
-        if _path_is_high_risk(path) or path in executable_mode_paths
+        if _path_is_high_risk(path)
+        or path in executable_mode_paths
+        or path in symlink_paths
     )
     risk_conflict = declared_risk == "low" and bool(high_risk_paths)
     result.update(
@@ -921,6 +966,7 @@ def validate_diff_binding(text: str, root: Path) -> dict:
             "changed_paths": sorted(changed),
             "high_risk_paths": high_risk_paths,
             "executable_mode_paths": sorted(executable_mode_paths),
+            "symlink_paths": sorted(symlink_paths),
             "missing_from_attack_scope": missing,
             "unexpected_in_attack_scope": unexpected,
             "risk_conflict": risk_conflict,
