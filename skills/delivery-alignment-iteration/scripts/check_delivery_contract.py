@@ -95,10 +95,21 @@ LOW_RISK_SUFFIXES = {
 }
 LOW_RISK_DATA_SUFFIXES = {".json"}
 HIGH_RISK_FILENAMES = {
+    "cargo.lock",
+    "cargo.toml",
     "deno.json",
     "deno.jsonc",
+    "environment.yml",
+    "package-lock.json",
     "package.json",
+    "pipfile",
+    "pipfile.lock",
+    "poetry.lock",
     "pyproject.toml",
+    "requirements-dev.txt",
+    "requirements.txt",
+    "uv.lock",
+    "yarn.lock",
 }
 SANDBOX_REQUIRED_KEYS = ["scope", "fixture", "invoke", "assert", "record"]
 GATE_EVIDENCE_FILES = [
@@ -168,6 +179,8 @@ def _semantic_scalar_nonempty(raw: str) -> bool:
         return False
     if re.fullmatch(r"\[\s*\]|\{\s*\}", value):
         return False
+    if re.fullmatch(r"[|>][-+]?[1-9]?", value):
+        return False
     return True
 
 
@@ -177,6 +190,10 @@ def _strip_fenced_blocks(text: str) -> str:
 
 def _strip_html_comments(text: str) -> str:
     return re.sub(r"(?s)<!--.*?-->", "", text)
+
+
+def _strip_html_tags(text: str) -> str:
+    return re.sub(r"(?s)<[^>]*>", "", text)
 
 
 def _top_level_field_nonempty(text: str, key: str) -> bool:
@@ -205,7 +222,9 @@ def _top_level_field_nonempty(text: str, key: str) -> bool:
 
 
 def _semantic_body_nonempty(body: str) -> bool:
-    cleaned = re.sub(r"(?m)^[ \t]*#.*$", "", body).strip()
+    cleaned = _strip_html_tags(
+        re.sub(r"(?m)^[ \t]*#.*$", "", body)
+    ).strip()
     if not _semantic_scalar_nonempty(cleaned):
         return False
     lines = [line for line in cleaned.splitlines() if line.strip()]
@@ -490,7 +509,8 @@ def validate_gate_evidence(text: str, root: Path) -> dict:
     candidate = _scalar_value(block, "candidate")
     scope = _nested_list_values(block, "attack_scope")
     try:
-        diff = _git(root, "diff", base, candidate, "--", *scope)
+        literal_scope = [f":(literal){path}" for path in scope]
+        diff = _git(root, "diff", base, candidate, "--", *literal_scope)
     except RuntimeError as exc:
         result["errors"].append(str(exc))
         return result
@@ -562,6 +582,7 @@ def validate_diff_binding(text: str, root: Path) -> dict:
         "changed_paths": [],
         "high_risk_paths": [],
         "missing_from_attack_scope": [],
+        "unexpected_in_attack_scope": [],
     }
     if not base or not candidate:
         result["error"] = "base and candidate are required for diff binding"
@@ -573,6 +594,16 @@ def validate_diff_binding(text: str, root: Path) -> dict:
     try:
         base_sha = _git(root, "rev-parse", f"{base}^{{commit}}").strip()
         candidate_sha = _git(root, "rev-parse", f"{candidate}^{{commit}}").strip()
+        ancestry = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", base_sha, candidate_sha],
+            cwd=root,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if ancestry.returncode != 0:
+            result["error"] = "candidate must descend from base"
+            return result
         changed = {
             line.strip()
             for line in _git(root, "diff", "--name-only", base_sha, candidate_sha, "--").splitlines()
@@ -582,16 +613,21 @@ def validate_diff_binding(text: str, root: Path) -> dict:
         result["error"] = str(exc)
         return result
     missing = sorted(changed - declared_scope)
+    unexpected = sorted(declared_scope - changed)
     high_risk_paths = sorted(path for path in changed if _path_is_high_risk(path))
     risk_conflict = declared_risk == "low" and bool(high_risk_paths)
     result.update(
         {
-            "ok": not missing and not risk_conflict and bool(changed),
+            "ok": not missing
+            and not unexpected
+            and not risk_conflict
+            and bool(changed),
             "base_sha": base_sha,
             "candidate_sha": candidate_sha,
             "changed_paths": sorted(changed),
             "high_risk_paths": high_risk_paths,
             "missing_from_attack_scope": missing,
+            "unexpected_in_attack_scope": unexpected,
             "risk_conflict": risk_conflict,
         }
     )

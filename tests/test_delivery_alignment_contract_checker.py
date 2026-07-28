@@ -511,3 +511,64 @@ def test_fabricated_empty_manifest_and_receipt_cannot_pass_gate(tmp_path: Path) 
 
 def test_default_validation_cannot_use_legacy_compatibility_to_skip_v2_rules() -> None:
     assert not checker.validate(_legacy_contract())["ok"]
+
+
+def test_empty_yaml_block_scalar_reason_is_rejected() -> None:
+    contract = _v2_contract(risk="low", decision="skipped").replace(
+        "  reason: executable change", "  reason: |"
+    )
+    result = checker.validate(contract)
+    assert not result["ok"]
+    assert "empty adversarial_gate.reason" in result["adversarial_errors"]
+
+
+def test_empty_yaml_block_scalar_sandbox_fields_are_rejected() -> None:
+    sandbox = "sandbox:\n" + "".join(
+        f"  {key}: |\n" for key in checker.SANDBOX_REQUIRED_KEYS
+    )
+    contract = _v2_contract(risk="low", decision="skipped").replace(
+        "sandbox: live\n", sandbox
+    )
+    result = checker.validate(contract)
+    assert not result["ok"]
+    assert set(result["sandbox_errors"]) == {
+        f"empty sandbox.{key}" for key in checker.SANDBOX_REQUIRED_KEYS
+    }
+
+
+def test_html_break_only_handoff_sections_are_empty() -> None:
+    metadata = "\n".join(f"{key}: value" for key in checker.HANDOFF_METADATA)
+    keys = checker.HANDOFF_HEADINGS + checker.V2_HANDOFF_HEADINGS
+    headings = "\n".join(f"## {key.replace('_', ' ')}\n<br>" for key in keys)
+    result = checker.validate_handoff(metadata + "\n" + headings, schema_version=2)
+    assert not result["ok"]
+    assert set(result["empty_headings"]) == set(keys)
+
+
+def test_low_risk_cannot_bypass_dependency_manifest_change(tmp_path: Path) -> None:
+    base, candidate = _diff_repo(tmp_path, "requirements.txt")
+    result = checker.validate_diff_binding(
+        _bound_contract(base, candidate, "requirements.txt"), tmp_path
+    )
+    assert not result["ok"]
+    assert result["risk_conflict"]
+    assert result["high_risk_paths"] == ["requirements.txt"]
+
+
+def test_attack_scope_rejects_git_pathspec_exclusions(tmp_path: Path) -> None:
+    base, candidate = _diff_repo(tmp_path, "runtime.py")
+    contract = _bound_contract(base, candidate, "runtime.py", risk="high").replace(
+        "    - runtime.py",
+        "    - runtime.py\n    - ':(exclude)runtime.py'",
+    )
+    result = checker.validate_diff_binding(contract, tmp_path)
+    assert not result["ok"]
+    assert result["unexpected_in_attack_scope"] == [":(exclude)runtime.py"]
+
+
+def test_diff_binding_rejects_candidate_ancestor_of_base(tmp_path: Path) -> None:
+    base, candidate = _diff_repo(tmp_path, "runtime.py")
+    contract = _bound_contract(candidate, base, "runtime.py", risk="high")
+    result = checker.validate_diff_binding(contract, tmp_path)
+    assert not result["ok"]
+    assert result["error"] == "candidate must descend from base"
