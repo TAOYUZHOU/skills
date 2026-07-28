@@ -309,3 +309,69 @@ def test_cli_defaults_cannot_disable_current_schema_gate(tmp_path: Path) -> None
     )
     assert completed.returncode == 2
     assert '"current_schema"' in completed.stdout
+
+
+def test_comment_only_nested_adversarial_reason_is_rejected() -> None:
+    contract = _v2_contract().replace(
+        "  reason: executable change", "  reason:\n    # no reason supplied"
+    )
+    result = checker.validate(contract)
+    assert not result["ok"]
+    assert "empty adversarial_gate.reason" in result["adversarial_errors"]
+
+
+def test_nested_yaml_values_do_not_fill_empty_markdown_contract_headings() -> None:
+    headings = "\n".join(f"# {key.replace('_', ' ')}" for key in checker.REQUIRED_KEYS)
+    nested = "wrapper:\n" + "\n".join(
+        f"  {key}: injected" for key in checker.REQUIRED_KEYS
+    )
+    result = checker.validate(headings + "\n" + nested)
+    assert not result["ok"]
+
+
+def test_nested_yaml_values_do_not_fill_empty_handoff_headings() -> None:
+    metadata = "\n".join(f"{key}: value" for key in checker.HANDOFF_METADATA)
+    keys = checker.HANDOFF_HEADINGS + checker.V2_HANDOFF_HEADINGS
+    headings = "\n".join(f"## {key.replace('_', ' ')}" for key in keys)
+    nested = "wrapper:\n" + "\n".join(f"  {key}: injected" for key in keys)
+    result = checker.validate_handoff(
+        metadata + "\n" + headings + "\n" + nested, schema_version=2
+    )
+    assert not result["ok"]
+
+
+def test_null_only_handoff_heading_bodies_are_rejected() -> None:
+    metadata = "\n".join(f"{key}: value" for key in checker.HANDOFF_METADATA)
+    keys = checker.HANDOFF_HEADINGS + checker.V2_HANDOFF_HEADINGS
+    headings = "\n".join(f"## {key.replace('_', ' ')}\nnull" for key in keys)
+    result = checker.validate_handoff(metadata + "\n" + headings, schema_version=2)
+    assert not result["ok"]
+    assert set(result["empty_headings"]) == set(keys)
+
+
+def test_low_risk_cannot_bypass_unlisted_executable_language(tmp_path: Path) -> None:
+    path = "tools/runner.rb"
+    base, candidate = _diff_repo(tmp_path, path)
+    result = checker.validate_diff_binding(
+        _bound_contract(base, candidate, path), tmp_path
+    )
+    assert not result["ok"]
+    assert result["high_risk_paths"] == [path]
+
+
+def test_low_risk_cannot_bypass_extensionless_executable(tmp_path: Path) -> None:
+    path = "tools/release"
+    base, candidate = _diff_repo(tmp_path, path)
+    result = checker.validate_diff_binding(
+        _bound_contract(base, candidate, path), tmp_path
+    )
+    assert not result["ok"]
+    assert result["high_risk_paths"] == [path]
+
+
+def test_scalar_live_sandbox_does_not_satisfy_completion_gate() -> None:
+    result = checker.validate(_v2_contract())
+    assert not result["ok"]
+    assert set(result["sandbox_errors"]) == {
+        f"missing sandbox.{key}" for key in checker.SANDBOX_REQUIRED_KEYS
+    }

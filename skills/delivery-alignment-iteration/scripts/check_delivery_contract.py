@@ -77,7 +77,31 @@ HIGH_RISK_PARTS = {
     "scripts",
     "src",
     "tests",
+    "tools",
 }
+LOW_RISK_SUFFIXES = {
+    ".bmp",
+    ".csv",
+    ".gif",
+    ".html",
+    ".jpeg",
+    ".jpg",
+    ".json",
+    ".md",
+    ".pdf",
+    ".png",
+    ".svg",
+    ".txt",
+    ".webp",
+}
+SANDBOX_REQUIRED_KEYS = ["scope", "fixture", "invoke", "assert", "record"]
+GATE_EVIDENCE_FILES = [
+    "prompt.md",
+    "final_agent_output.json",
+    "agent_attack_manifest.json",
+    "live_provider_receipt.md",
+    "gate_result.json",
+]
 
 
 def _read_contract(path: str) -> str:
@@ -133,7 +157,7 @@ def _scalar_value(text: str, key: str) -> str:
 
 
 def _semantic_scalar_nonempty(raw: str) -> bool:
-    value = raw.strip()
+    value = _strip_html_comments(re.sub(r"(?m)^[ \t]*#.*$", "", raw)).strip()
     if value in {"", "''", '""', "~", "null", "Null", "NULL"}:
         return False
     return True
@@ -161,14 +185,29 @@ def _top_level_field_nonempty(text: str, key: str) -> bool:
             tail,
             maxsplit=1,
         )[0]
-        return bool(_strip_html_comments(block).strip())
+        body = _strip_html_comments(block).strip()
+        return _semantic_body_nonempty(body)
     heading_key_pattern = re.escape(key).replace("_", r"[_\s-]*")
     heading = re.search(rf"(?im)^#+\s*{heading_key_pattern}\s*$", text)
     if not heading:
         return False
     tail = text[heading.end() :]
     body = re.split(r"(?m)^#+\s+", tail, maxsplit=1)[0]
-    return bool(_strip_html_comments(body).strip())
+    return _semantic_body_nonempty(_strip_html_comments(body).strip())
+
+
+def _semantic_body_nonempty(body: str) -> bool:
+    cleaned = re.sub(r"(?m)^[ \t]*#.*$", "", body).strip()
+    if not _semantic_scalar_nonempty(cleaned):
+        return False
+    lines = [line for line in cleaned.splitlines() if line.strip()]
+    if lines and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*[ \t]*:", lines[0]):
+        if all(
+            re.fullmatch(r"[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]*:.*", line)
+            for line in lines[1:]
+        ):
+            return False
+    return True
 
 
 def _direct_nested_match(block: str, key: str) -> re.Match[str] | None:
@@ -204,7 +243,7 @@ def _nested_field_nonempty(block: str, key: str) -> bool:
     nested = re.split(
         r"(?m)^[ \t]*[A-Za-z_][A-Za-z0-9_]*[ \t]*:", tail, maxsplit=1
     )[0]
-    return bool(nested.strip())
+    return _semantic_body_nonempty(nested)
 
 
 def _nested_list_values(block: str, key: str) -> list[str]:
@@ -239,6 +278,14 @@ def validate(text: str) -> dict:
         if key not in missing and not _top_level_field_nonempty(text, key)
     ]
     adversarial_errors = []
+    sandbox_errors = []
+    if version >= 2 and "sandbox" not in missing:
+        block = _top_level_block(text, "sandbox")
+        for key in SANDBOX_REQUIRED_KEYS:
+            if not _direct_nested_present(block, key):
+                sandbox_errors.append(f"missing sandbox.{key}")
+            elif not _nested_field_nonempty(block, key):
+                sandbox_errors.append(f"empty sandbox.{key}")
     if version >= 2 and "adversarial_gate" not in missing:
         block = _top_level_block(text, "adversarial_gate")
         for key in ADVERSARIAL_REQUIRED_KEYS:
@@ -263,12 +310,17 @@ def validate(text: str) -> dict:
         if risk == "low" and decision != "skipped":
             adversarial_errors.append("low-risk diff must record decision: skipped")
     return {
-        "ok": not version_error and not missing and not empty_required and not adversarial_errors,
+        "ok": not version_error
+        and not missing
+        and not empty_required
+        and not adversarial_errors
+        and not sandbox_errors,
         "schema_version": version,
         "schema_version_error": version_error,
         "missing_keys": missing,
         "empty_keys": empty_required,
         "adversarial_errors": adversarial_errors,
+        "sandbox_errors": sandbox_errors,
         "required_keys": required,
     }
 
@@ -354,9 +406,84 @@ def _path_is_high_risk(path: str) -> bool:
         return True
     if p.suffix.lower() in HIGH_RISK_SUFFIXES:
         return True
-    if len(p.parts) >= 2 and p.parts[0] == "docs" and p.parts[1] == "evidence":
-        return False
-    return any(token in lowered for token in ("contract", "prompt", "schema", "workflow"))
+    if any(token in lowered for token in ("contract", "prompt", "schema", "workflow")):
+        return True
+    return p.suffix.lower() not in LOW_RISK_SUFFIXES
+
+
+def _sha256_file(path: Path) -> str:
+    import hashlib
+
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def validate_gate_evidence(text: str, root: Path) -> dict:
+    import hashlib
+
+    block = _top_level_block(text, "adversarial_gate")
+    evidence_raw = _scalar_value(block, "evidence_dir")
+    evidence_dir = (root / evidence_raw).resolve()
+    result: dict = {
+        "ok": False,
+        "evidence_dir": str(evidence_dir),
+        "missing_files": [],
+        "errors": [],
+    }
+    try:
+        evidence_dir.relative_to(root.resolve())
+    except ValueError:
+        result["errors"].append("evidence_dir escapes repository root")
+        return result
+    missing = [name for name in GATE_EVIDENCE_FILES if not (evidence_dir / name).is_file()]
+    result["missing_files"] = missing
+    if missing:
+        return result
+    try:
+        gate = json.loads((evidence_dir / "gate_result.json").read_text(encoding="utf-8"))
+        manifest = json.loads(
+            (evidence_dir / "agent_attack_manifest.json").read_text(encoding="utf-8")
+        )
+        final_output = json.loads(
+            (evidence_dir / "final_agent_output.json").read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError) as exc:
+        result["errors"].append(f"invalid evidence JSON: {exc}")
+        return result
+    base = _scalar_value(block, "base")
+    candidate = _scalar_value(block, "candidate")
+    scope = _nested_list_values(block, "attack_scope")
+    try:
+        diff = _git(root, "diff", base, candidate, "--", *scope)
+    except RuntimeError as exc:
+        result["errors"].append(str(exc))
+        return result
+    expected_diff_sha = hashlib.sha256(diff.encode()).hexdigest()
+    checks = {
+        "base": gate.get("base") == base,
+        "candidate": gate.get("candidate") == candidate,
+        "diff_sha256": gate.get("diff_sha256") == expected_diff_sha,
+        "raw_output_sha256": gate.get("raw_output_sha256")
+        == _sha256_file(evidence_dir / "final_agent_output.json"),
+        "provider_thread_id": bool(str(gate.get("provider_thread_id") or "").strip()),
+        "generated_attack_count": gate.get("generated_attack_count")
+        == len(manifest.get("attacks") or []),
+        "executed_attack_count": int(gate.get("executed_attack_count") or -1)
+        >= len(manifest.get("attacks") or []),
+        "escaped_attack_count": gate.get("escaped_attack_count") == 0,
+        "deterministic_exit_code": gate.get("deterministic_exit_code") == 0,
+        "deterministic_command": bool(str(gate.get("deterministic_command") or "").strip()),
+        "live_sandbox_status": (gate.get("live_sandbox") or {}).get("status") == "passed",
+        "final_output_shape": isinstance(final_output, dict)
+        and isinstance(final_output.get("attacks"), list),
+    }
+    result.update(
+        {
+            "checks": checks,
+            "diff_sha256": expected_diff_sha,
+            "ok": all(checks.values()),
+        }
+    )
+    return result
 
 
 def validate_diff_binding(text: str, root: Path) -> dict:
@@ -423,11 +550,6 @@ def main() -> int:
         help="Deprecated compatibility alias; current schema is required by default.",
     )
     parser.add_argument(
-        "--allow-legacy",
-        action="store_true",
-        help="Explicitly validate a historical schema-version-1 contract.",
-    )
-    parser.add_argument(
         "--check-diff",
         action="store_true",
         help="Bind high-risk attack_scope to exact base..candidate git paths.",
@@ -437,10 +559,9 @@ def main() -> int:
 
     text = _read_contract(args.contract)
     result = validate(text)
-    if not args.allow_legacy:
-        current_schema = validate_current_schema(result)
-        result["current_schema"] = current_schema
-        result["ok"] = bool(result["ok"] and current_schema["ok"])
+    current_schema = validate_current_schema(result)
+    result["current_schema"] = current_schema
+    result["ok"] = bool(result["ok"] and current_schema["ok"])
     handoff_path = Path(args.handoff)
     try:
         handoff_text = handoff_path.read_text(encoding="utf-8")
@@ -461,6 +582,10 @@ def main() -> int:
         diff_result = validate_diff_binding(text, Path(args.root).resolve())
         result["diff_binding"] = diff_result
         result["ok"] = bool(result["ok"] and diff_result.get("ok"))
+        if _scalar_value(_top_level_block(text, "adversarial_gate"), "risk").lower() == "high":
+            gate_evidence = validate_gate_evidence(text, Path(args.root).resolve())
+            result["gate_evidence"] = gate_evidence
+            result["ok"] = bool(result["ok"] and gate_evidence.get("ok"))
     result["contract"] = args.contract
     result["root"] = str(Path(args.root).resolve())
 

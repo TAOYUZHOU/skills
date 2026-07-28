@@ -136,11 +136,13 @@ For every high-risk diff:
 5. Run both generated attacks and the fixed regression corpus. Completion
    requires zero escaped executable attacks. A prose finding without a
    deterministic oracle is review input, not a failed or passed attack.
-6. Run the checker with `--require-current-schema --check-diff`; it must prove
+6. Run the checker with `--require-current-schema`; current schema and exact
+   diff checks are mandatory by default. It must prove
    every path in the exact `base..candidate` diff is in `attack_scope`.
 7. Record the diff fingerprint, prompt, raw output, parsed attack manifest,
    executable artifacts, commands, exit codes, and escaped-attack count in the
-   contract evidence directory and handoff.
+   contract evidence directory and handoff. The checker must validate the
+   evidence receipt against the pinned diff and require zero escapes.
 
 Low-risk diffs may set `decision: skipped`, but must still bind immutable
 `base`, `candidate`, and complete `attack_scope`, and preserve a concrete reason.
