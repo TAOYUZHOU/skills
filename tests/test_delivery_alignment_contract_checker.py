@@ -713,7 +713,7 @@ def test_legacy_read_only_rejects_nested_required_contract_keys() -> None:
     )
     result = checker.validate_legacy_read_only(nested)
     assert not result["ok"]
-    assert set(result["missing_keys"]) == set(checker.REQUIRED_KEYS)
+    assert set(result["missing_keys"]) == set(checker.LEGACY_REQUIRED_KEYS)
 
 
 def test_quoted_whitespace_sandbox_fields_are_rejected() -> None:
@@ -808,3 +808,77 @@ def test_markdown_headings_inside_yaml_literal_do_not_form_contract() -> None:
     )
     result = checker.validate("notes: |\n" + body)
     assert not result["ok"]
+
+
+def test_low_risk_cannot_bypass_new_executable_low_risk_file(
+    tmp_path: Path,
+) -> None:
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, check=True)
+    (tmp_path / "README.md").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "add", "README.md"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=tmp_path, check=True)
+    base = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True).strip()
+    target = tmp_path / "docs" / "runner.md"
+    target.parent.mkdir()
+    target.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    target.chmod(0o755)
+    subprocess.run(["git", "add", "docs/runner.md"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "candidate"], cwd=tmp_path, check=True)
+    candidate = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    result = checker.validate_diff_binding(
+        _bound_contract(base, candidate, "docs/runner.md"), tmp_path
+    )
+    assert not result["ok"]
+    assert result["risk_conflict"]
+    assert result["high_risk_paths"] == ["docs/runner.md"]
+
+
+def test_fenced_markdown_example_cannot_satisfy_handoff() -> None:
+    keys = checker.HANDOFF_HEADINGS + checker.V2_HANDOFF_HEADINGS
+    metadata = (
+        "status: complete\nupdated_at_utc: value\n"
+        "iteration: value\ncontract: value"
+    )
+    headings = "\n".join(
+        f"## {key.replace('_', ' ')}\nexample" for key in keys
+    )
+    result = checker.validate_handoff(
+        f"```markdown\n{metadata}\n{headings}\n```\n",
+        schema_version=2,
+    )
+    assert not result["ok"]
+
+
+def test_authoritative_runtime_markdown_cannot_skip_high_risk_gate(
+    tmp_path: Path,
+) -> None:
+    base, candidate = _diff_repo(tmp_path, "docs/runtime-policy.md")
+    result = checker.validate_diff_binding(
+        _bound_contract(base, candidate, "docs/runtime-policy.md"), tmp_path
+    )
+    assert not result["ok"]
+    assert result["risk_conflict"]
+    assert result["high_risk_paths"] == ["docs/runtime-policy.md"]
+
+
+def test_preexisting_v1_contract_remains_readable_without_v2_handoff() -> None:
+    historic = "\n".join(
+        f"{key}: value" for key in checker.LEGACY_REQUIRED_KEYS
+    )
+    assert checker.validate_legacy_read_only(historic)["ok"]
+
+
+def test_documented_v2_yaml_template_matches_checker() -> None:
+    sandbox = "sandbox:\n" + "\n".join(
+        f"  {key}: evidence" for key in checker.SANDBOX_REQUIRED_KEYS
+    )
+    template = (
+        _v2_contract()
+        .replace("sandbox: live", sandbox)
+        .replace("handoff: value", "handoff:\n  path: docs/harp_iteration_handoff.md")
+    )
+    assert checker.validate(template)["ok"]

@@ -63,41 +63,60 @@ For `adversarial_gate`:
 9. Did a real Agent derive attacks from the exact high-risk diff, and do its
    executable oracles plus the fixed regression corpus report zero escapes?
 
-## Minimal Markdown Template
+## Minimal YAML Template
 
-```markdown
-# Iteration Contract
-
+```yaml
 schema_version: 2
 
-intent:
+intent: State the concrete requested outcome.
 
 non_goals:
+  - State an explicit exclusion.
 
 ssot:
+  - path: docs/source-of-truth.md
+    reason: Why this source is authoritative.
 
 deliverables:
+  - id: D1
+    path: path/to/deliverable
 
 acceptance_criteria:
+  - id: A1
+    description: Observable completion condition.
 
 verification:
+  - id: V1
+    command_or_check: pytest -q
 
 traceability:
+  - acceptance: A1
+    deliverables: [D1]
+    verification: [V1]
 
 risks:
+  - Residual risk.
 
 final_claims_allowed:
+  - Claim allowed after V1 passes.
 
 handoff:
   path: docs/harp_iteration_handoff.md
   policy: Update after every material implementation or verification step.
 
+sandbox:
+  scope: Changed boundary.
+  fixture: Minimal live fixture.
+  invoke: Real provider command.
+  assert: Deterministic postcondition.
+  record: Durable evidence path.
+
 adversarial_gate:
   risk: high
   decision: required
   reason: This changes an executable state boundary.
-  base: <immutable commit>
-  candidate: <immutable commit>
+  base: "0000000000000000000000000000000000000000"
+  candidate: "1111111111111111111111111111111111111111"
   attack_scope:
     - path/to/changed_module.py
   evidence_dir: docs/evidence/<iteration>

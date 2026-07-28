@@ -15,7 +15,7 @@ from pathlib import Path
 
 import yaml
 
-REQUIRED_KEYS = [
+LEGACY_REQUIRED_KEYS = [
     "intent",
     "non_goals",
     "ssot",
@@ -25,6 +25,9 @@ REQUIRED_KEYS = [
     "traceability",
     "risks",
     "final_claims_allowed",
+]
+REQUIRED_KEYS = [
+    *LEGACY_REQUIRED_KEYS,
     "handoff",
 ]
 
@@ -359,7 +362,11 @@ def _validate(text: str, *, allow_legacy_read_only: bool) -> dict:
     version, version_error = _schema_version(text)
     if version == 1 and not allow_legacy_read_only:
         version_error = version_error or "current validation requires schema_version: 2"
-    required = REQUIRED_KEYS + (V2_REQUIRED_KEYS if version >= 2 else [])
+    required = (
+        LEGACY_REQUIRED_KEYS
+        if version == 1 and allow_legacy_read_only
+        else REQUIRED_KEYS + (V2_REQUIRED_KEYS if version >= 2 else [])
+    )
     missing = [key for key in required if not _has_top_level_key(text, key)]
     empty_required = [
         key
@@ -572,7 +579,7 @@ def _heading_nonempty(text: str, key: str) -> bool:
 
 
 def validate_handoff(text: str, *, schema_version: int = 1) -> dict:
-    text = _strip_html_comments(text)
+    text = _strip_fenced_blocks(_strip_html_comments(text))
     missing_metadata = [key for key in HANDOFF_METADATA if not _has_top_level_key(text, key)]
     required_headings = HANDOFF_HEADINGS + (
         V2_HANDOFF_HEADINGS if schema_version >= 2 else []
@@ -660,7 +667,21 @@ def _path_is_high_risk(path: str) -> bool:
         return True
     if p.suffix.lower() in HIGH_RISK_SUFFIXES:
         return True
-    if any(token in lowered for token in ("contract", "prompt", "schema", "workflow")):
+    if any(
+        token in lowered
+        for token in (
+            "agent",
+            "contract",
+            "instruction",
+            "policy",
+            "prompt",
+            "role",
+            "runtime",
+            "schema",
+            "system",
+            "workflow",
+        )
+    ):
         return True
     if p.suffix.lower() in LOW_RISK_DATA_SUFFIXES:
         # JSON is low risk only when it is plainly evidence/data. Root package
@@ -872,6 +893,13 @@ def validate_diff_binding(text: str, root: Path) -> dict:
             summary,
         )
     }
+    executable_mode_paths.update(
+        match.group(1)
+        for match in re.finditer(
+            r"(?m)^ create mode 100755 (.+)$",
+            summary,
+        )
+    )
     high_risk_paths = sorted(
         path
         for path in changed
