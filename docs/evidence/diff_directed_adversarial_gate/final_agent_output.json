@@ -1,0 +1,13 @@
+{
+  "change_fingerprint": "47a3a5ab763c20f7eb0f5e31288a755dcb545296aa3c6d815dfd93188ccf62ec",
+  "changed_paths": [
+    "skills/delivery-alignment-iteration/SKILL.md",
+    "skills/delivery-alignment-iteration/agents/openai.yaml",
+    "skills/delivery-alignment-iteration/references/iteration_contract_schema.md",
+    "skills/delivery-alignment-iteration/scripts/check_delivery_contract.py",
+    "tests/test_delivery_alignment_contract_checker.py"
+  ],
+  "attacks": [],
+  "highest_risk": "A false pass through weakened gate semantics remains the highest-risk outcome, but none of the bounded attacks escaped.",
+  "no_attack_reason": "All 79 committed deterministic regression tests passed at candidate 061cc52dbe42e373b0ce92e0a26108c4f0326156, covering the specified strict-YAML, diff-binding, handoff, attestation, compatibility, executable-content, containment, formatting, symlink, and gitlink attacks."
+}

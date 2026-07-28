@@ -1,0 +1,18 @@
+{
+  "base": "36699dd5d0a1dca6c97cfd6c13949d2b6e4e0c57",
+  "candidate": "061cc52dbe42e373b0ce92e0a26108c4f0326156",
+  "diff_sha256": "47a3a5ab763c20f7eb0f5e31288a755dcb545296aa3c6d815dfd93188ccf62ec",
+  "raw_output_sha256": "21421abaefb52c8155c863f67ac89ed350160f317241bba9328102c8e6e659d1",
+  "provider_thread_id": "019fa882-4ada-7e62-8481-0e09af6f43e8",
+  "generated_attack_count": 3,
+  "executed_attack_count": 86,
+  "escaped_attack_count": 0,
+  "deterministic_exit_code": 0,
+  "deterministic_command": "pytest -q",
+  "live_sandbox": {
+    "status": "passed",
+    "checker_tests_passed": 79,
+    "full_suite_passed": 86
+  },
+  "attestation_hmac_sha256": "20337a75d311b052813f15900fbc1fef3d05b5c71d512d8c02889d9fbddc50c5"
+}

@@ -1,0 +1,21 @@
+{
+  "event": "provider_turn_completed",
+  "provider": "codex",
+  "thread_id": "019fa882-4ada-7e62-8481-0e09af6f43e8",
+  "base": "36699dd5d0a1dca6c97cfd6c13949d2b6e4e0c57",
+  "candidate": "061cc52dbe42e373b0ce92e0a26108c4f0326156",
+  "diff_sha256": "47a3a5ab763c20f7eb0f5e31288a755dcb545296aa3c6d815dfd93188ccf62ec",
+  "prompt_sha256": "f916c46af1d7b98a8cf9d7e2f775f17d5a2037da7d0b98eebaf7c9b15f47f480",
+  "final_output_sha256": "21421abaefb52c8155c863f67ac89ed350160f317241bba9328102c8e6e659d1",
+  "returncode": 0,
+  "started_at_utc": "2026-07-28T11:35:38Z",
+  "completed_at_utc": "2026-07-28T11:36:36Z",
+  "command": "codex exec --ephemeral --dangerously-bypass-approvals-and-sandbox --ignore-rules --json -",
+  "usage": {
+    "input_tokens": 143777,
+    "cached_input_tokens": 102400,
+    "output_tokens": 1182,
+    "reasoning_output_tokens": 120
+  },
+  "attestation_hmac_sha256": "384f039725db7f7cdb3cd0da038c1cd4ed950502d2a5ab996d43e1bc8c9f91aa"
+}

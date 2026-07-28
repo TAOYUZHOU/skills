@@ -1,0 +1,29 @@
+{
+  "change_fingerprint": "47a3a5ab763c20f7eb0f5e31288a755dcb545296aa3c6d815dfd93188ccf62ec",
+  "provider": "codex",
+  "current_thread_id": "019fa882-4ada-7e62-8481-0e09af6f43e8",
+  "current_output_attacks": [],
+  "attacks": [
+    {
+      "id": "format_only_handoff",
+      "source_thread_id": "019fa87e-8c9a-78c3-914e-5561dd391e6e",
+      "source_change_fingerprint": "59268e885a53cd7742de1ad4a51356334ac68f4ff8f4b16dc30113653babef8f",
+      "candidate_test_name": "test_markdown_formatting_only_handoff_sections_are_empty",
+      "expected_oracle": "Formatting-only Markdown bodies do not satisfy required handoff evidence."
+    },
+    {
+      "id": "authoritative_doc_bypass",
+      "source_thread_id": "019fa87e-8c9a-78c3-914e-5561dd391e6e",
+      "source_change_fingerprint": "59268e885a53cd7742de1ad4a51356334ac68f4ff8f4b16dc30113653babef8f",
+      "candidate_test_name": "test_low_risk_cannot_bypass_authoritative_access_control_markdown",
+      "expected_oracle": "An authoritative access-control document cannot self-declare a low-risk skip."
+    },
+    {
+      "id": "gitlink_mode_bypass",
+      "source_thread_id": "019fa87e-8c9a-78c3-914e-5561dd391e6e",
+      "source_change_fingerprint": "59268e885a53cd7742de1ad4a51356334ac68f4ff8f4b16dc30113653babef8f",
+      "candidate_test_name": "test_low_risk_cannot_bypass_gitlink_mode",
+      "expected_oracle": "Git mode 160000 is high risk even under a documentation-looking path."
+    }
+  ]
+}
