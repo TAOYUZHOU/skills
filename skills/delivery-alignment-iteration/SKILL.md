@@ -303,20 +303,22 @@ For HARP and equivalent event-supervised architectures:
   opaque payload may not invent a transition kind or its control meaning.
 
 A state transition is admissible only when one canonical transition revision
-contains sufficient typed evidence for all of the following:
+or atomic transaction contract contains sufficient typed evidence for all of
+the following:
 
 1. the exact subject identity, including workspace, contract revision, entity,
    parent lineage, predecessor identity, and relevant payload hash;
 2. the exact predecessor state and state revision;
-3. typed causative events allowed by that predecessor state, folded in canonical
-   event-sequence order to one unique result;
+3. typed causative commands or events allowed by that predecessor state,
+   applied in the mechanism's canonical transaction order—monotonic event
+   sequence for HARP—to one unique result;
 4. deterministic transition preconditions evaluated against that same revision;
 5. the current owner or admission identity and its authority;
 6. exactly one post-state revision plus its applicable durable wakeup or
    terminal fact.
 
-The same packet and reducer revision must produce the same result in every
-deployed process and service that can affect a control outcome.
+The same command/event packet and transition revision must produce the same
+result in every deployed process and service that can affect a control outcome.
 
 Timestamp order, file order, a later plan or review, model prose, a template
 recommendation, an inferred process state, a missing file, or a Web/report
@@ -343,7 +345,7 @@ typed human pause rather than creating an unbounded observation frontier.
 
 For each changed control entity, the iteration evidence must enumerate:
 
-- every state and allowed next event;
+- every state and allowed next command or event;
 - exact identity and predecessor bindings;
 - the single reducer writer and every mutation entry point, each mechanically
   forced through that reducer;
@@ -362,8 +364,8 @@ reader/projection that can affect a control outcome must pass a deterministic
 semantic-equivalence oracle for effective state and allowed next events;
 syntactic revision binding alone is insufficient. A nonconforming reader must
 be removed from the control path, not relabeled unsupported.
-Each reader is compared directly with the reducer oracle, not only pairwise with
-other readers. Inventory completeness must cover transitive adapters, caches,
+Each reader is compared directly with the canonical transition oracle, not only
+pairwise with other readers. Inventory completeness must cover transitive adapters, caches,
 prompts, environment inputs, triggers, plugins, CLIs, RPCs, and direct-store
 access; tainting any noncanonical input while canonical facts are fixed must not
 change a control outcome.
@@ -400,10 +402,10 @@ requires:
 1. a bounded model explorer over the changed state/event product, with the
    transition table or reducer as oracle;
 2. crash injection immediately before and after every durable boundary reachable
-   from the changed state/event product, including textually unchanged writes
+   from the changed state/input product, including textually unchanged writes
    whose interpretation, transaction, ordering, or ownership semantics changed,
-   followed by replay proving a unique state revision, owner, frontier, and
-   wakeup;
+   followed by replay or transactional re-read proving one unique result for
+   every applicable state revision, owner, frontier, and wakeup field;
 3. stale identity, duplicate event, concurrent writer, partial publication,
    projection disagreement, timeout, and owner-missing sequences where
    reachable in the bounded transition model. Any excluded class needs a
