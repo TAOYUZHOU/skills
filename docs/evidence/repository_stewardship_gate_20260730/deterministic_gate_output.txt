@@ -1,0 +1,9 @@
+separate_repository_budgets=passed
+one_authority_and_evidence_tiers=passed
+responsibility_and_quality_ratchets=passed
+clean_room_and_destructive_authority=passed
+flow_diffusion_not_malicious_actor=passed
+provider_free_boundary_supported=passed
+safe_bounded_migration_extension=passed
+generic_identity_not_harp_shaped=passed
+harp_profile_remains_strict=passed

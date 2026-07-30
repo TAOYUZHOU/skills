@@ -1,0 +1,161 @@
+schema_version: 2
+
+intent: >-
+  Extend delivery-alignment-iteration with repository-stewardship principles
+  that prevent local feature delivery from silently increasing artifact
+  duplication, evidence sprawl, architectural concentration, quality debt,
+  release impurity, or irreversible Git-history risk; clarify that the
+  adversarial Agent performs happy-flow diffusion and preserves non-blocking
+  generalization concerns rather than assuming a malicious actor.
+
+non_goals:
+  - Modify or clean the HARP engine repository in this iteration.
+  - Delete evidence, rewrite Git history, migrate artifact storage, or publish a release.
+  - Replace the existing canonical control-state audit.
+  - Claim that an already-running Agent can hot-reload a prompt it has already received.
+
+ssot:
+  - path: skills/delivery-alignment-iteration/SKILL.md
+    reason: Canonical shared iteration behavior contract.
+  - path: docs/harp_iteration_handoff.md
+    reason: Stable current-state handoff for this skills-repository iteration.
+  - path: /root/autodl-tmp/taoyuzhou/harness-auto-research
+    reason: Read-only motivating repository audit; it is not modified by this iteration.
+
+deliverables:
+  - id: D1
+    path: skills/delivery-alignment-iteration/SKILL.md
+    description: General repository-stewardship gate integrated into the iteration workflow.
+  - id: D1A
+    path: skills/delivery-alignment-iteration/agents/openai.yaml
+    description: UI metadata and default invocation prompt aligned with the new gate.
+  - id: D2
+    path: docs/iteration_contracts/repository_stewardship_gate_20260730.yaml
+    description: Traceable machine contract for this skill change.
+  - id: D3
+    path: docs/harp_iteration_handoff.md
+    description: Reconciled current handoff and activation boundary.
+
+acceptance_criteria:
+  - id: A1
+    description: >-
+      Relevant iterations must measure source, generated checkout, artifact,
+      dependency, duplicate, and Git-history growth separately and establish
+      explicit budgets before material growth.
+  - id: A2
+    description: >-
+      The skill requires one authority per artifact, public/internal evidence
+      tiering, reduction-first responsibility slicing, and a monotonic
+      lint/type/test debt ratchet.
+  - id: A3
+    description: >-
+      Public release work requires a clean-room package and reproducibility
+      proof; destructive history or artifact migration requires explicit human
+      authorization, backup, exact scope, and rollback evidence.
+  - id: A4
+    description: >-
+      The skill and interface metadata remain valid and repository tests pass
+      without removing the pre-existing canonical control-state rules.
+  - id: A5
+    description: >-
+      Handoff and final claims distinguish canonical-file activation for newly
+      assembled turns from impossible retroactive mutation of an active prompt
+      and from automatic skill discovery.
+  - id: A6
+    description: >-
+      The adversarial gate starts from expected flows, permits interacting
+      dimensions, preserves future generalization concerns separately, and
+      blocks promotion only on current executable deterministic counterexamples.
+
+verification:
+  - id: V1
+    command_or_check: >-
+      python3 /root/autodl-tmp/caches/.codex/skills/.system/skill-creator/scripts/quick_validate.py
+      skills/delivery-alignment-iteration
+  - id: V2
+    command_or_check: pytest -q
+  - id: V3
+    command_or_check: >-
+      Inspect the exact base..candidate diff and require all repository
+      stewardship invariants plus the unchanged Canonical Control-State Audit.
+  - id: V4
+    command_or_check: >-
+      Run a real-provider atomic sandbox against a repository-maintenance
+      request and deterministically score whether its plan covers authority,
+      evidence tiers, responsibility slicing, debt ratchet, clean-room release,
+      and history safety.
+  - id: V5
+    command_or_check: >-
+      Run check_delivery_contract.py with --require-current-schema after the
+      immutable candidate and signed evidence receipts exist.
+  - id: V6
+    command_or_check: >-
+      Inspect the exact skill diff and live Agent output for flow-diffusion
+      semantics without a one-dimension restriction or malicious-actor premise.
+
+traceability:
+  - acceptance: A1
+    deliverables: [D1]
+    verification: [V1, V3, V4]
+  - acceptance: A2
+    deliverables: [D1]
+    verification: [V1, V3, V4]
+  - acceptance: A3
+    deliverables: [D1]
+    verification: [V1, V3, V4]
+  - acceptance: A4
+    deliverables: [D1, D1A]
+    verification: [V1, V2, V3]
+  - acceptance: A5
+    deliverables: [D1, D3]
+    verification: [V3, V5]
+  - acceptance: A6
+    deliverables: [D1]
+    verification: [V3, V4, V6]
+
+risks:
+  - >-
+    This canonical repository is not currently listed in the active Codex
+    session's automatically discovered skills; explicit reading applies the
+    rules now, while automatic future triggering still depends on installation
+    or runtime prompt wiring.
+  - >-
+    The working tree already contains the completed canonical-control-state
+    candidate diff. This iteration preserves it and uses that immutable
+    candidate as its base.
+  - >-
+    Until the real-provider sandbox, exact-diff adversarial gate, and signed
+    receipts pass, this iteration remains partial.
+
+final_claims_allowed:
+  - The shared skill contains the repository-stewardship gate after D1 and V1-V3 pass.
+  - The existing canonical control-state audit remains present after V3 passes.
+  - Newly assembled Agent turns that explicitly load the canonical skill receive the new rules.
+  - No already-running prompt, HARP repository cleanup, history rewrite, or release is claimed.
+
+handoff:
+  path: docs/harp_iteration_handoff.md
+  policy: Update after every material implementation, verification, blocker, or activation decision.
+
+sandbox:
+  scope: One planning turn for a repository with vendored source/build duplication, bulky evidence, god modules, static-analysis debt, and public-release requirements.
+  fixture: A bounded synthetic repository-audit packet with no access to the intended wording.
+  invoke: Real provider in a read-only isolated turn.
+  assert:
+    - The response separates tracked source, generated checkout, artifacts, dependencies, duplicates, and Git history.
+    - The response selects one authority for derived artifacts and separates public reproduction from internal forensic evidence.
+    - The response proposes responsibility-boundary extraction and a non-regression debt ratchet.
+    - The response requires clean-room release proof and human authorization for destructive history operations.
+  record:
+    - docs/evidence/repository_stewardship_gate_20260730
+
+adversarial_gate:
+  risk: high
+  decision: required
+  reason: SKILL.md is an authoritative Agent behavior contract.
+  base: 311c3e1e03a77132700acd03aa8f92de5bd1cb8a
+  candidate: 6943549bae2d5a565b5ed4ce2d94a40990dc7dff
+  attack_scope:
+    - skills/delivery-alignment-iteration/SKILL.md
+    - skills/delivery-alignment-iteration/agents/openai.yaml
+  evidence_dir: docs/evidence/repository_stewardship_gate_20260730

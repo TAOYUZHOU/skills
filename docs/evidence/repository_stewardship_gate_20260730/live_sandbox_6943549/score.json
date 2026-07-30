@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "candidate": "6943549bae2d5a565b5ed4ce2d94a40990dc7dff",
+  "thread_id": "019fb14c-3510-7903-9751-85d8110eb980",
+  "checks": {
+    "separate_budgets": true,
+    "one_authority": true,
+    "evidence_tiers": true,
+    "responsibility_extraction": true,
+    "quality_ratchet": true,
+    "clean_room": true,
+    "destructive_authorization_backup_rollback": true,
+    "skill_read_completed": true,
+    "source_hash_unchanged": true
+  },
+  "passed": true
+}

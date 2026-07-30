@@ -1,0 +1,20 @@
+{
+  "base": "311c3e1e03a77132700acd03aa8f92de5bd1cb8a",
+  "candidate": "6943549bae2d5a565b5ed4ce2d94a40990dc7dff",
+  "diff_sha256": "072563f2464a2c8784df3413a7748bcb3fb7809fa786e12cc4411724f8a3a0df",
+  "raw_output_sha256": "f1cbf746b2b812fc82ca0a5d2ab14c1d47b9b579256b64b1f04b781bc514ded1",
+  "provider_thread_id": "019fb14b-3f41-72d0-aa42-04608e727653",
+  "generated_attack_count": 4,
+  "executed_attack_count": 9,
+  "escaped_attack_count": 0,
+  "deterministic_exit_code": 0,
+  "deterministic_command": "python3 docs/evidence/repository_stewardship_gate_20260730/deterministic_gate.py && PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -q",
+  "live_sandbox": {
+    "status": "passed",
+    "skill_checks_passed": 9,
+    "full_suite_passed": 86,
+    "candidate": "6943549bae2d5a565b5ed4ce2d94a40990dc7dff",
+    "thread_id": "019fb14c-3510-7903-9751-85d8110eb980"
+  },
+  "attestation_hmac_sha256": "810f320d162ef7c8b0cc5b83c6021e65ca85eea47b6c27f5d1bbba685f0792af"
+}

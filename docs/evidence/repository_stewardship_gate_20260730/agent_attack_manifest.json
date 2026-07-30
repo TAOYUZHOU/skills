@@ -1,0 +1,36 @@
+{
+  "change_fingerprint": "072563f2464a2c8784df3413a7748bcb3fb7809fa786e12cc4411724f8a3a0df",
+  "provider": "codex",
+  "current_thread_id": "019fb14b-3f41-72d0-aa42-04608e727653",
+  "current_output_attacks": [],
+  "attacks": [
+    {
+      "id": "generic_runtime_forced_into_harp_supervisor",
+      "source_thread_id": "019fb13b-fa52-7753-a3ab-1d21a1fd746f",
+      "source_change_fingerprint": "4690b1fa27f8002960139b17ad2b43181e78e2bebf15f0a54d82ede478859a6d",
+      "candidate_test_name": "generic_identity_not_harp_shaped",
+      "expected_oracle": "A declared atomic SQL transition mechanism can prove semantic invariants without adopting HARP event-supervisor artifacts."
+    },
+    {
+      "id": "provider_free_control_change_impossible_gate",
+      "source_thread_id": "019fb13b-fa52-7753-a3ab-1d21a1fd746f",
+      "source_change_fingerprint": "4690b1fa27f8002960139b17ad2b43181e78e2bebf15f0a54d82ede478859a6d",
+      "candidate_test_name": "provider_free_boundary_supported",
+      "expected_oracle": "A provider-free state product may prove provider-path unreachability and exercise its real deterministic boundary."
+    },
+    {
+      "id": "unsafe_absolute_migration_lane_sunset",
+      "source_thread_id": "019fb13b-fa52-7753-a3ab-1d21a1fd746f",
+      "source_change_fingerprint": "4690b1fa27f8002960139b17ad2b43181e78e2bebf15f0a54d82ede478859a6d",
+      "candidate_test_name": "safe_bounded_migration_extension",
+      "expected_oracle": "Replay-proven unsafe cutover permits one explicitly authorized bounded safety extension with backup and rollback."
+    },
+    {
+      "id": "generic_control_identity_and_writer_harp_shaped",
+      "source_thread_id": "019fb140-ccfc-7a10-bcab-94722719928a",
+      "source_change_fingerprint": "5d90424ad4347ad1a49d254d739f1b587fbc6ae7d511c22da849bacd6c0bdaa9",
+      "candidate_test_name": "generic_identity_not_harp_shaped",
+      "expected_oracle": "The project declares an injective typed subject identity and one canonical transition writer or transaction mechanism; HARP retains its stricter profile."
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "event": "provider_turn_completed",
+  "provider": "codex",
+  "thread_id": "019fb14b-3f41-72d0-aa42-04608e727653",
+  "base": "311c3e1e03a77132700acd03aa8f92de5bd1cb8a",
+  "candidate": "6943549bae2d5a565b5ed4ce2d94a40990dc7dff",
+  "diff_sha256": "072563f2464a2c8784df3413a7748bcb3fb7809fa786e12cc4411724f8a3a0df",
+  "prompt_sha256": "dc099200c879ed9c551b16e12f75c8427b422416dc2f4eb72c5c06b43d2b7816",
+  "final_output_sha256": "f1cbf746b2b812fc82ca0a5d2ab14c1d47b9b579256b64b1f04b781bc514ded1",
+  "returncode": 0,
+  "started_at_utc": "2026-07-30T04:32:06Z",
+  "completed_at_utc": "2026-07-30T04:32:41Z",
+  "command": "codex exec --ephemeral --ignore-rules -s read-only -m gpt-5.6-sol --output-schema output_schema_final.json --json -",
+  "usage": {
+    "input_tokens": 24695,
+    "cached_input_tokens": 0,
+    "output_tokens": 1042,
+    "reasoning_output_tokens": 458
+  },
+  "attestation_hmac_sha256": "d6dd05aca3e61dc5e35b489b41c06a96ba6d1f5301fedf248a77c38d719b2bcc"
+}
