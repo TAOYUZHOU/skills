@@ -351,8 +351,9 @@ For each changed control entity, the iteration evidence must enumerate:
 
 - every state and allowed next command or event;
 - exact project-declared identity and predecessor bindings;
-- the single reducer writer and every mutation entry point, each mechanically
-  forced through that reducer;
+- the single canonical transition writer or transaction mechanism and every
+  mutation entry point, each mechanically forced through it. For HARP this is
+  the canonical reducer writer;
 - every reader and projection;
 - owner, wakeup, retry/resume, terminal, and replay semantics;
 - each legacy or heuristic authority path removed by the candidate.
