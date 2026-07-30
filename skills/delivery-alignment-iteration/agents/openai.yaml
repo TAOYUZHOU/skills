@@ -1,4 +1,4 @@
 interface:
   display_name: "Delivery Alignment Iteration"
-  short_description: "Align delivery, handoff, and adversarial evidence"
-  default_prompt: "Use $delivery-alignment-iteration to maintain a traceable contract and docs handoff SSOT, apply the risk-triggered diff-directed adversarial Agent gate, and verify this iteration."
+  short_description: "Align delivery, stewardship, and adversarial evidence"
+  default_prompt: "Use $delivery-alignment-iteration to maintain a traceable contract and handoff SSOT, apply repository-stewardship and risk-triggered adversarial gates, and verify this iteration."
