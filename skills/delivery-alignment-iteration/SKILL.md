@@ -32,14 +32,13 @@ Use this skill to prevent implementation drift. The core output is a traceable c
    below. For a high-risk diff, a real adversarial Agent must generate attacks
    from the actual diff; a static checklist, hand-written test list, or prompt
    inspection does not satisfy the gate.
-9. Run at least one live atomic agent sandbox in every iteration — not only unit
-   tests, mocks, or a full benchmark run. Spin up the smallest real slice (one
-   role, one directive, or one handoff hop), invoke a real provider, and record
-   the prompt, raw output, parsed result, downstream fact, and deterministic
-   assertions. If no real provider can complete, the iteration cannot be marked
-   `complete`; record it as `partial` or `blocked` with the exact provider
-   evidence and next retry action. Architecture or role-boundary changes must
-   exercise the changed boundary itself.
+9. Run at least one atomic sandbox in every iteration—not only broad regression
+   or a full benchmark run. When the changed system has an Agent, provider,
+   prompt, role, or handoff boundary, invoke a real provider against the
+   smallest real slice and record prompt, raw output, parsed result, downstream
+   fact, and deterministic assertions. A provider-free deterministic system may
+   instead exercise its real changed boundary without adding an AI dependency;
+   record a deterministic unreachability proof for the provider path.
 10. Run the contract and handoff checker when a contract file exists:
 
 ```bash
@@ -276,11 +275,18 @@ Use this audit whenever a diff or design touches a control state, identity,
 transition, reducer, writer, reader, projection, retry, resume, owner, wakeup,
 admission, completion, or migration.
 
-For this audit:
+Use the project's declared canonical control mechanism. In HARP this is the
+typed-event supervisor transaction and canonical reducer. A provider-free or
+non-event-sourced repository may use an atomic database transaction or another
+single authoritative state machine when it proves the same identity,
+predecessor, authority, uniqueness, replay, and projection invariants. Do not
+redesign a repository into HARP merely to satisfy this audit.
+
+For HARP and equivalent event-supervised architectures:
 
 - a control outcome is any effective state, owner, wakeup, retry, admission,
   graph, queue, completion, or human-pause decision;
-- a canonical event is accepted only through the supervisor transaction, which
+- a canonical event is accepted only through the canonical transaction, which
   verifies producer identity and authority, binds subject/revision/payload hash,
   and assigns monotonic `event_seq` independently of filenames, timestamps, or
   prose ordering;
@@ -296,7 +302,7 @@ For this audit:
   authorized Agent may choose an allowed verdict value, but free prose or an
   opaque payload may not invent a transition kind or its control meaning.
 
-A state transition is admissible only when one canonical reducer revision
+A state transition is admissible only when one canonical transition revision
 contains sufficient typed evidence for all of the following:
 
 1. the exact subject identity, including workspace, contract revision, entity,
@@ -306,7 +312,8 @@ contains sufficient typed evidence for all of the following:
    event-sequence order to one unique result;
 4. deterministic transition preconditions evaluated against that same revision;
 5. the current owner or admission identity and its authority;
-6. exactly one post-state revision plus its durable wakeup or terminal fact.
+6. exactly one post-state revision plus its applicable durable wakeup or
+   terminal fact.
 
 The same packet and reducer revision must produce the same result in every
 deployed process and service that can affect a control outcome.
@@ -319,7 +326,10 @@ transition from canonical facts must emit a typed
 it must not guess or call a provider to reconcile deterministic state. If that
 owner cannot be proven live and authorized from canonical facts, the reducer
 must preserve the unresolved entity and enter a typed human pause with a durable
-wakeup; missing ownership may not strand or terminate the entity.
+wakeup; missing ownership may not strand or terminate the entity. Apply these
+reconciliation event names and wakeup semantics when the project declares such
+an asynchronous owner path; a synchronous atomic system must instead fail the
+transaction without changing canonical state.
 
 `reconciliation_required` does not assert or perform the disputed transition.
 It appends a node-attached observation while leaving the subject state
@@ -366,8 +376,11 @@ Apply Occam's razor at the state-machine boundary:
   adding conflict-specific branches;
 - keep shadow replay read-only and bounded; do not create a long-lived
   dual-writer or dual-reader compatibility lane. Its sunset revision and removal
-  condition bind a stable migration-lane identity and may not be extended by
-  this or a later candidate. Identity includes source/destination schema,
+  condition bind a stable migration-lane identity. Extend it only when
+  deterministic replay proves the scheduled cutover would violate canonical
+  conservation, and only with explicit human authorization, an exact defect,
+  one bounded replacement sunset, verified backup, and rollback evidence.
+  Convenience or incomplete work is not an extension reason. Identity includes source/destination schema,
   stores, predecessor lane, and effective readers/writers, so rename or adapter
   replacement cannot reincarnate it. At cutover, no legacy/shadow read or write
   may remain on a control path;
@@ -395,10 +408,13 @@ requires:
    projection disagreement, timeout, and owner-missing sequences where
    reachable in the bounded transition model. Any excluded class needs a
    deterministic unreachability proof from that model;
-4. a real-provider atomic sandbox proving Agents can consume the canonical
+4. when an Agent/provider consumer is reachable from the changed state product,
+   a real-provider atomic sandbox proving Agents can consume the canonical
    packet without inventing authority. Holding canonical facts constant,
    provider output or availability must never change transition truth; the
-   sandbox validates consumption only;
+   sandbox validates consumption only. For a provider-free state product,
+   record deterministic unreachability and exercise the real non-provider
+   boundary instead;
 5. the exact-diff adversarial gate. The adversarial Agent expands attack
    sequences; it does not define transition truth and may emit events only into
    the isolated test fixture, never the candidate or production event stream.
@@ -430,8 +446,9 @@ Rules:
 
 - Prefer an existing repo script when one already exists (for HARP: `scripts/evaluate_agent_boundary_from_history.py` with `--run-llm` for release/model/prompt changes).
 - A dry-run may remain as supplementary diagnostic evidence, but it never
-  satisfies iteration completion. Every iteration requires a successful real
-  provider cell against the changed or most material boundary.
+  replaces the real changed boundary. Agent/provider changes require a
+  successful real-provider cell; provider-free changes require a real
+  deterministic boundary run plus proof that no provider path is reachable.
 - Do not substitute a full AIRS/benchmark run for a missing atomic sandbox when the change is localized to one boundary.
 - Add or extend a sandbox when subtracting over-engineered machinery, not only when adding new machinery.
 
