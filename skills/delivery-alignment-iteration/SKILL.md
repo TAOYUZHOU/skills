@@ -279,7 +279,8 @@ Use the project's declared canonical control mechanism. In HARP this is the
 typed-event supervisor transaction and canonical reducer. A provider-free or
 non-event-sourced repository may use an atomic database transaction or another
 single authoritative state machine when it proves the same identity,
-predecessor, authority, uniqueness, replay, and projection invariants. Do not
+predecessor, authority, uniqueness, transactional re-read or replay, and
+reader-equivalence invariants applicable to its declared mechanism. Do not
 redesign a repository into HARP merely to satisfy this audit.
 
 For HARP and equivalent event-supervised architectures:
@@ -306,8 +307,10 @@ A state transition is admissible only when one canonical transition revision
 or atomic transaction contract contains sufficient typed evidence for all of
 the following:
 
-1. the exact subject identity, including workspace, contract revision, entity,
-   parent lineage, predecessor identity, and relevant payload hash;
+1. the project-declared injective typed subject identity. For HARP this includes
+   workspace, contract revision, entity, parent lineage, predecessor identity,
+   and relevant payload hash; other mechanisms must enumerate their own
+   sufficient tuple rather than synthesize inapplicable HARP fields;
 2. the exact predecessor state and state revision;
 3. typed causative commands or events allowed by that predecessor state,
    applied in the mechanism's canonical transaction order—monotonic event
@@ -317,8 +320,9 @@ the following:
 6. exactly one post-state revision plus its applicable durable wakeup or
    terminal fact.
 
-The same command/event packet and transition revision must produce the same
-result in every deployed process and service that can affect a control outcome.
+The same command/event packet, canonical predecessor/admission snapshot, and
+transition revision must produce the same result in every deployed process and
+service that can affect a control outcome.
 
 Timestamp order, file order, a later plan or review, model prose, a template
 recommendation, an inferred process state, a missing file, or a Web/report
@@ -346,7 +350,7 @@ typed human pause rather than creating an unbounded observation frontier.
 For each changed control entity, the iteration evidence must enumerate:
 
 - every state and allowed next command or event;
-- exact identity and predecessor bindings;
+- exact project-declared identity and predecessor bindings;
 - the single reducer writer and every mutation entry point, each mechanically
   forced through that reducer;
 - every reader and projection;
@@ -405,7 +409,8 @@ requires:
    from the changed state/input product, including textually unchanged writes
    whose interpretation, transaction, ordering, or ownership semantics changed,
    followed by replay or transactional re-read proving one unique result for
-   every applicable state revision, owner, frontier, and wakeup field;
+   every state revision and for each owner, frontier, or wakeup field that the
+   declared mechanism makes reachable;
 3. stale identity, duplicate event, concurrent writer, partial publication,
    projection disagreement, timeout, and owner-missing sequences where
    reachable in the bounded transition model. Any excluded class needs a
