@@ -1,0 +1,275 @@
+{
+  "archetype": "blocked_artifact_dependency",
+  "authority": "historical_observation_only",
+  "capture_mode": "read_only_whitelist",
+  "facts": {
+    "completion": {
+      "active_plan_status_counts": {
+        "completed": 5,
+        "in_progress": 1,
+        "result_reviewing": 1
+      },
+      "artifact_gate": {
+        "missing_count": 0,
+        "ok": true,
+        "skipped": true
+      },
+      "blockers": [
+        "active_plan_nonterminal_rows_present",
+        "artifact_gate_skipped",
+        "execution_queue_blocked_items_present",
+        "reviewer_acceptance_missing",
+        "task_truth_update_needed"
+      ],
+      "complete": false,
+      "reviewer_acceptance": {
+        "accepted_count": 0,
+        "ok": false,
+        "required_count": 6,
+        "rows": [
+          {
+            "accepted": false,
+            "queue_id": "q008",
+            "review_identity_present": false,
+            "strategy_attempt_identity_present": false
+          },
+          {
+            "accepted": false,
+            "queue_id": "q001",
+            "review_identity_present": false,
+            "strategy_attempt_identity_present": false
+          },
+          {
+            "accepted": false,
+            "queue_id": "q007",
+            "review_identity_present": false,
+            "strategy_attempt_identity_present": false
+          },
+          {
+            "accepted": false,
+            "queue_id": "q006",
+            "review_identity_present": false,
+            "strategy_attempt_identity_present": false
+          },
+          {
+            "accepted": false,
+            "queue_id": "q005",
+            "review_identity_present": false,
+            "strategy_attempt_identity_present": false
+          },
+          {
+            "accepted": false,
+            "queue_id": "q002",
+            "review_identity_present": false,
+            "strategy_attempt_identity_present": false
+          }
+        ]
+      },
+      "status": "not_ready"
+    },
+    "dag": {
+      "frontier_count": 0,
+      "launchable_count": 0,
+      "ready_count": 0,
+      "status": "quiescent"
+    },
+    "queue": [
+      {
+        "attempts": 1,
+        "executor_next_action_present": false,
+        "executor_result_status": "",
+        "exit_code": 0,
+        "expected_output_count": 3,
+        "output_assessment": {
+          "checked_count": 2,
+          "missing_count": 0,
+          "status": "passed"
+        },
+        "queue_id": "q008",
+        "result_review_verdict": "",
+        "review_identity_present": false,
+        "status": "done",
+        "strategy_attempt_identity_present": false,
+        "terminal_class": ""
+      },
+      {
+        "attempts": 2,
+        "executor_next_action_present": true,
+        "executor_result_status": "completed",
+        "exit_code": 0,
+        "expected_output_count": 4,
+        "output_assessment": {
+          "checked_count": 3,
+          "missing_count": 0,
+          "status": "passed"
+        },
+        "queue_id": "q001",
+        "result_review_verdict": "",
+        "review_identity_present": false,
+        "status": "done",
+        "strategy_attempt_identity_present": false,
+        "terminal_class": "success"
+      },
+      {
+        "attempts": 1,
+        "executor_next_action_present": true,
+        "executor_result_status": "partial",
+        "exit_code": 0,
+        "expected_output_count": 3,
+        "output_assessment": {
+          "checked_count": 1,
+          "missing_count": 0,
+          "status": "passed"
+        },
+        "queue_id": "q007",
+        "result_review_verdict": "",
+        "review_identity_present": false,
+        "status": "done",
+        "strategy_attempt_identity_present": false,
+        "terminal_class": "success"
+      },
+      {
+        "attempts": 1,
+        "executor_next_action_present": true,
+        "executor_result_status": "partial",
+        "exit_code": 0,
+        "expected_output_count": 2,
+        "output_assessment": {
+          "checked_count": 1,
+          "missing_count": 0,
+          "status": "passed"
+        },
+        "queue_id": "q006",
+        "result_review_verdict": "",
+        "review_identity_present": false,
+        "status": "done",
+        "strategy_attempt_identity_present": false,
+        "terminal_class": "success"
+      },
+      {
+        "attempts": 1,
+        "executor_next_action_present": false,
+        "executor_result_status": "",
+        "exit_code": 0,
+        "expected_output_count": 2,
+        "output_assessment": {
+          "checked_count": 0,
+          "missing_count": 0,
+          "status": "semantic_only"
+        },
+        "queue_id": "q005",
+        "result_review_verdict": "",
+        "review_identity_present": false,
+        "status": "done",
+        "strategy_attempt_identity_present": false,
+        "terminal_class": ""
+      },
+      {
+        "attempts": 2,
+        "executor_next_action_present": true,
+        "executor_result_status": "blocked",
+        "exit_code": 0,
+        "expected_output_count": 3,
+        "output_assessment": {
+          "checked_count": 0,
+          "missing_count": 1,
+          "status": "missing"
+        },
+        "queue_id": "q003",
+        "result_review_verdict": "",
+        "review_identity_present": false,
+        "status": "blocked",
+        "strategy_attempt_identity_present": false,
+        "terminal_class": ""
+      },
+      {
+        "attempts": 1,
+        "executor_next_action_present": true,
+        "executor_result_status": "blocked",
+        "exit_code": 0,
+        "expected_output_count": 3,
+        "output_assessment": {
+          "checked_count": 0,
+          "missing_count": 1,
+          "status": "missing"
+        },
+        "queue_id": "q004",
+        "result_review_verdict": "",
+        "review_identity_present": false,
+        "status": "blocked",
+        "strategy_attempt_identity_present": false,
+        "terminal_class": "terminal_exception"
+      },
+      {
+        "attempts": 1,
+        "executor_next_action_present": true,
+        "executor_result_status": "partial",
+        "exit_code": 0,
+        "expected_output_count": 0,
+        "output_assessment": {
+          "checked_count": 0,
+          "missing_count": 0,
+          "status": "no_contract"
+        },
+        "queue_id": "q002",
+        "result_review_verdict": "",
+        "review_identity_present": false,
+        "status": "done",
+        "strategy_attempt_identity_present": false,
+        "terminal_class": "success"
+      }
+    ],
+    "review_events": [],
+    "workflow_health": {
+      "active": true,
+      "dag_status": "quiescent",
+      "issue_types": [
+        "COMPLETION_REFRESH_REQUIRED",
+        "WORKFLOW_STALL"
+      ],
+      "queue_counts": {
+        "blocked": 2,
+        "done": 6,
+        "failed": 0,
+        "queued": 0,
+        "running": 0,
+        "superseded": 0
+      },
+      "severity": "red",
+      "status": "issues_detected"
+    }
+  },
+  "replay_id": "generic-blocked",
+  "sanitization": {
+    "absolute_paths_removed": true,
+    "credentials_copied": false,
+    "free_form_text_removed": true,
+    "prompt_or_agent_output_copied": false,
+    "queue_id_pseudonyms": true,
+    "raw_database_copied": false,
+    "scientific_artifact_copied": false
+  },
+  "schema_version": 1,
+  "source_provenance": {
+    "selected_event_count": 0,
+    "selected_event_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "state_files": {
+      "completion_fact.json": {
+        "sha256": "0835db2851ccfaa89ce219e70a199199cdf5cc051c4ae7b06315e0b70eab8275",
+        "size_bytes": 19897
+      },
+      "dag_state.json": {
+        "sha256": "f0ca649a538e65d5371845f944baedf392a0f0480b8448a6ff2ae64146be1d69",
+        "size_bytes": 4369
+      },
+      "execution_queue.json": {
+        "sha256": "b3428eb6196a52edddd5b936869839e25e8d911369a2bcfa4dc7fc54f2285109",
+        "size_bytes": 119812
+      },
+      "workflow_health_fact.json": {
+        "sha256": "c941f5f188e4e26f114dd296f6bf23ab4b1ac1241203569115edeb4b4b087b82",
+        "size_bytes": 3729
+      }
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "authority": "historical_observation_only",
+  "capture_mode": "read_only_whitelist",
+  "captured_at_utc": "2026-08-01T05:17:40.632675Z",
+  "profile_count": 3,
+  "profiles": [
+    {
+      "archetype": "blocked_artifact_dependency",
+      "path": "blocked_artifact_dependency.json",
+      "replay_id": "generic-blocked",
+      "sha256": "c4d660dfcf17ff83e10f6a2c1781d10979693a192ef4a23ca9149db0408b72a1"
+    },
+    {
+      "archetype": "partial_result_materialization",
+      "path": "partial_result_materialization.json",
+      "replay_id": "generic-partial",
+      "sha256": "58fa2fcaad8cc9e1f5da7b3e1992880bec57a84a037f0b359d1efa172e67efaa"
+    },
+    {
+      "archetype": "review_projection_mismatch",
+      "path": "review_projection_mismatch.json",
+      "replay_id": "generic-review",
+      "sha256": "f9da5c2a7cd4aa6b89da049c9e85250aea440869931b922ca3ba63e43dddc274"
+    }
+  ],
+  "schema_version": 1
+}

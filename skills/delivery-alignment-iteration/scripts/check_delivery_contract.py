@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import html
 import hmac
+import importlib.util
 import json
 import os
 import re
@@ -120,6 +121,16 @@ HIGH_RISK_FILENAMES = {
     "yarn.lock",
 }
 SANDBOX_REQUIRED_KEYS = ["scope", "fixture", "invoke", "assert", "record"]
+COMBINED_CHAIN_REQUIRED_KEYS = ["decision", "reason"]
+COMBINED_CHAIN_EVIDENCE_KEYS = ["scope", "invoke", "assert", "evidence"]
+HISTORICAL_REPLAY_REQUIRED_KEYS = ["decision", "reason"]
+HISTORICAL_REPLAY_EVIDENCE_KEYS = [
+    "fixture_manifest",
+    "capture",
+    "invoke",
+    "assert",
+    "evidence",
+]
 GATE_EVIDENCE_FILES = [
     "prompt.md",
     "final_agent_output.json",
@@ -477,6 +488,44 @@ def _structured_nonempty(value) -> bool:
     return True
 
 
+def _conditional_gate_errors(
+    data: dict,
+    *,
+    gate_name: str,
+    high_risk: bool,
+    required_keys: list[str],
+    evidence_keys: list[str],
+) -> list[str]:
+    errors: list[str] = []
+    if gate_name not in data:
+        if high_risk:
+            errors.append(f"missing {gate_name}")
+        return errors
+    gate = data.get(gate_name)
+    if not isinstance(gate, dict):
+        return [f"{gate_name} must be a mapping"]
+    for key in required_keys:
+        if key not in gate:
+            errors.append(f"missing {gate_name}.{key}")
+        elif not _structured_nonempty(gate[key]):
+            errors.append(f"empty {gate_name}.{key}")
+    decision = gate.get("decision")
+    if decision not in {"required", "not_applicable"}:
+        errors.append(f"{gate_name}.decision must be required or not_applicable")
+    if decision == "required":
+        for key in evidence_keys:
+            if key not in gate:
+                errors.append(f"missing {gate_name}.{key}")
+            elif not _structured_nonempty(gate[key]):
+                errors.append(f"empty {gate_name}.{key}")
+    if decision == "not_applicable":
+        if not _structured_nonempty(gate.get("unreachability")):
+            errors.append(
+                f"{gate_name}.unreachability is required when not_applicable"
+            )
+    return errors
+
+
 def validate(text: str) -> dict:
     """Validate the strict YAML schema used by every current iteration."""
 
@@ -490,6 +539,8 @@ def validate(text: str) -> dict:
             "empty_keys": [],
             "adversarial_errors": [],
             "sandbox_errors": [],
+            "combined_chain_errors": [],
+            "historical_replay_errors": [],
             "required_keys": REQUIRED_KEYS + V2_REQUIRED_KEYS,
         }
     raw_version = re.findall(
@@ -563,18 +614,37 @@ def validate(text: str) -> dict:
             adversarial_errors.append("high-risk diff requires decision: required")
         if risk == "low" and decision != "skipped":
             adversarial_errors.append("low-risk diff must record decision: skipped")
+    high_risk = isinstance(gate, dict) and gate.get("risk") == "high"
+    combined_chain_errors = _conditional_gate_errors(
+        data,
+        gate_name="combined_chain_gate",
+        high_risk=high_risk,
+        required_keys=COMBINED_CHAIN_REQUIRED_KEYS,
+        evidence_keys=COMBINED_CHAIN_EVIDENCE_KEYS,
+    )
+    historical_replay_errors = _conditional_gate_errors(
+        data,
+        gate_name="historical_replay_gate",
+        high_risk=high_risk,
+        required_keys=HISTORICAL_REPLAY_REQUIRED_KEYS,
+        evidence_keys=HISTORICAL_REPLAY_EVIDENCE_KEYS,
+    )
     return {
         "ok": not version_error
         and not missing
         and not empty_required
         and not adversarial_errors
-        and not sandbox_errors,
+        and not sandbox_errors
+        and not combined_chain_errors
+        and not historical_replay_errors,
         "schema_version": version if type(version) is int else 0,
         "schema_version_error": version_error,
         "missing_keys": missing,
         "empty_keys": empty_required,
         "adversarial_errors": adversarial_errors,
         "sandbox_errors": sandbox_errors,
+        "combined_chain_errors": combined_chain_errors,
+        "historical_replay_errors": historical_replay_errors,
         "required_keys": required,
     }
 
@@ -753,6 +823,160 @@ def _host_attestation_ok(record: dict) -> bool:
     ).encode()
     expected = hmac.new(key, canonical, hashlib.sha256).hexdigest()
     return hmac.compare_digest(supplied, expected)
+
+
+def _contained_file(root: Path, raw: object, field: str) -> tuple[Path | None, str]:
+    if not isinstance(raw, str) or not raw.strip():
+        return None, f"{field} is missing"
+    path = (root / raw).resolve()
+    try:
+        path.relative_to(root.resolve())
+    except ValueError:
+        return None, f"{field} escapes repository root"
+    if not path.is_file():
+        return None, f"{field} does not exist: {raw}"
+    return path, ""
+
+
+def _load_chain_validator():
+    path = Path(__file__).with_name("validate_harp_chain_evidence.py")
+    spec = importlib.util.spec_from_file_location(
+        "delivery_alignment_chain_evidence", path
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load lifecycle evidence validator: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def validate_lifecycle_evidence(text: str, root: Path) -> dict:
+    """Recompute required replay and combined-chain evidence fail-closed."""
+
+    data, parse_error = _load_v2_mapping(text)
+    result: dict = {
+        "ok": False,
+        "errors": [],
+        "combined_chain": {"ok": True, "decision": "not_declared"},
+        "historical_replay": {"ok": True, "decision": "not_declared"},
+    }
+    if data is None:
+        result["errors"].append(parse_error)
+        return result
+    adversarial = data.get("adversarial_gate")
+    high_risk = isinstance(adversarial, dict) and adversarial.get("risk") == "high"
+    combined = data.get("combined_chain_gate")
+    historical = data.get("historical_replay_gate")
+    if high_risk and not isinstance(combined, dict):
+        result["errors"].append("combined_chain_gate is required for high risk")
+    if high_risk and not isinstance(historical, dict):
+        result["errors"].append("historical_replay_gate is required for high risk")
+    if result["errors"]:
+        return result
+    if not isinstance(combined, dict) and not isinstance(historical, dict):
+        result["ok"] = True
+        return result
+    try:
+        validator = _load_chain_validator()
+    except Exception as exc:  # pragma: no cover - defensive import failure
+        result["errors"].append(str(exc))
+        return result
+
+    replay_manifest: Path | None = None
+    replay_validation: dict | None = None
+    if isinstance(historical, dict):
+        decision = historical.get("decision")
+        result["historical_replay"] = {"ok": False, "decision": decision}
+        if decision == "not_applicable":
+            ok = _structured_nonempty(historical.get("unreachability"))
+            result["historical_replay"]["ok"] = ok
+            if not ok:
+                result["errors"].append(
+                    "historical_replay_gate lacks an unreachability proof"
+                )
+        elif decision == "required":
+            replay_manifest, error = _contained_file(
+                root,
+                historical.get("fixture_manifest"),
+                "historical_replay_gate.fixture_manifest",
+            )
+            evidence_path, evidence_error = _contained_file(
+                root,
+                historical.get("evidence"),
+                "historical_replay_gate.evidence",
+            )
+            result["errors"].extend(
+                value for value in (error, evidence_error) if value
+            )
+            if replay_manifest is not None:
+                replay_validation = validator.validate_replay_manifest(replay_manifest)
+                result["historical_replay"]["recomputed"] = replay_validation
+                if replay_validation.get("ok") is not True:
+                    result["errors"].append("historical replay manifest is invalid")
+            if evidence_path is not None:
+                try:
+                    stored = json.loads(evidence_path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError) as exc:
+                    result["errors"].append(
+                        f"invalid historical replay evidence JSON: {exc}"
+                    )
+                else:
+                    stored_replay = stored.get("replay") if isinstance(stored, dict) else None
+                    if (
+                        not isinstance(stored, dict)
+                        or stored.get("ok") is not True
+                        or stored_replay != replay_validation
+                    ):
+                        result["errors"].append(
+                            "historical replay evidence does not match recomputed validation"
+                        )
+            result["historical_replay"]["ok"] = bool(
+                replay_validation
+                and replay_validation.get("ok") is True
+                and evidence_path is not None
+                and not any("historical replay" in error for error in result["errors"])
+            )
+
+    if isinstance(combined, dict):
+        decision = combined.get("decision")
+        result["combined_chain"] = {"ok": False, "decision": decision}
+        if decision == "not_applicable":
+            ok = _structured_nonempty(combined.get("unreachability"))
+            result["combined_chain"]["ok"] = ok
+            if not ok:
+                result["errors"].append(
+                    "combined_chain_gate lacks an unreachability proof"
+                )
+        elif decision == "required":
+            receipt, error = _contained_file(
+                root,
+                combined.get("evidence"),
+                "combined_chain_gate.evidence",
+            )
+            if error:
+                result["errors"].append(error)
+            if replay_manifest is None:
+                result["errors"].append(
+                    "combined chain requires a required historical replay manifest"
+                )
+            if receipt is not None and replay_manifest is not None:
+                try:
+                    chain_validation = validator.validate_chain_receipt(
+                        receipt, replay_manifest
+                    )
+                except (OSError, ValueError, json.JSONDecodeError) as exc:
+                    chain_validation = {"ok": False, "errors": [str(exc)]}
+                result["combined_chain"]["recomputed"] = chain_validation
+                if chain_validation.get("ok") is not True:
+                    result["errors"].append("combined chain receipt is invalid")
+                result["combined_chain"]["ok"] = chain_validation.get("ok") is True
+
+    result["ok"] = bool(
+        not result["errors"]
+        and result["combined_chain"].get("ok") is True
+        and result["historical_replay"].get("ok") is True
+    )
+    return result
 
 
 def validate_gate_evidence(text: str, root: Path) -> dict:
@@ -1029,6 +1253,11 @@ def main() -> int:
     result["handoff"] = handoff_result
     result["ok"] = bool(result["ok"] and handoff_result.get("ok"))
     if int(result.get("schema_version") or 0) == 2:
+        lifecycle_evidence = validate_lifecycle_evidence(
+            text, Path(args.root).resolve()
+        )
+        result["lifecycle_evidence"] = lifecycle_evidence
+        result["ok"] = bool(result["ok"] and lifecycle_evidence.get("ok"))
         diff_result = validate_diff_binding(text, Path(args.root).resolve())
         result["diff_binding"] = diff_result
         result["ok"] = bool(result["ok"] and diff_result.get("ok"))

@@ -1,6 +1,6 @@
 ---
 name: delivery-alignment-iteration
-description: Use when planning, implementing, reviewing, or handing off a project iteration where the user cares about exact alignment between requested intent, acceptance criteria, implemented diff, tests, handoff state, and final claims; especially for HARP iterations, prior delivery mismatches, "货不对板", runtime repair work, docs, skills, prompt changes, repository hygiene or refactors, vendored/generated artifacts, evidence retention, technical-debt ratchets, release updates, or branch/workspace synchronization.
+description: Use when planning, implementing, reviewing, or handing off a project iteration where the user cares about exact alignment between requested intent, acceptance criteria, implemented diff, tests, handoff state, and final claims; especially for HARP iterations, prior delivery mismatches, "货不对板", runtime repair work, queue/review/completion/health control chains, historical workspace replay, docs, skills, prompt changes, repository hygiene or refactors, vendored/generated artifacts, evidence retention, technical-debt ratchets, release updates, or branch/workspace synchronization.
 ---
 
 # Delivery Alignment Iteration
@@ -39,7 +39,11 @@ Use this skill to prevent implementation drift. The core output is a traceable c
    fact, and deterministic assertions. A provider-free deterministic system may
    instead exercise its real changed boundary without adding an AI dependency;
    record a deterministic unreachability proof for the provider path.
-10. Run the contract and handoff checker when a contract file exists:
+10. When queue, handoff, review, artifact, completion, retry/resume, or health
+    behavior is reachable, run the Combined Lifecycle Chain and Historical
+    Replay gates below. They are additive to unit, regression, atomic-sandbox,
+    and exact-diff adversarial evidence.
+11. Run the contract and handoff checker when a contract file exists:
 
 ```bash
 python3 scripts/check_delivery_contract.py \
@@ -49,10 +53,10 @@ python3 scripts/check_delivery_contract.py \
   --require-current-schema
 ```
 
-11. Before the final response, reconcile the handoff against the actual diff and
+12. Before the final response, reconcile the handoff against the actual diff and
     verification artifacts. Set `status` to `complete`, `partial`, or `blocked`,
     and leave one exact next action even when complete.
-12. In the final response, only claim completed work that has evidence. Clearly separate completed, partial, blocked, and unverified items, and link the handoff.
+13. In the final response, only claim completed work that has evidence. Clearly separate completed, partial, blocked, and unverified items, and link the handoff.
 
 ## Required Contract Fields
 
@@ -460,6 +464,35 @@ Rules:
 - Do not substitute a full AIRS/benchmark run for a missing atomic sandbox when the change is localized to one boundary.
 - Add or extend a sandbox when subtracting over-engineered machinery, not only when adding new machinery.
 
+## Combined Lifecycle Chain and Historical Replay Gates
+
+Use both gates for a high-risk iteration whenever queue, executor handoff,
+output assessment, result review, event projection, artifact admission,
+completion, retry/resume, or workflow-health routing is reachable.
+
+- Add a target-local integration test that invokes the real producers and
+  consumers across the complete executor-to-post-repair-health chain. A one-hop
+  mock, direct terminal-state construction, or isolated reducer assertion is
+  insufficient.
+- Replay the three bundled sanitized historical archetypes:
+  `review_projection_mismatch`, `blocked_artifact_dependency`, and
+  `partial_result_materialization`.
+- Capture historical workspaces read-only, whitelist only control-shape facts,
+  and replay copied fixtures in a temporary workspace. Never copy raw databases,
+  prompts, free-form outputs, scientific artifacts, credentials, or paths; never
+  mutate or repair a historical source.
+- Require the failure paths to be detected, owner-routed, prevented from early
+  completion, and retained for later health audit. Also require one happy path
+  to reach accepted review, passed artifact gate, true completion, restored
+  health, and zero repeated zero-work wakeups.
+- Declare `combined_chain_gate` and `historical_replay_gate` in the contract.
+  `not_applicable` requires deterministic unreachability; missing evidence keeps
+  the iteration non-complete.
+
+Follow
+[`references/harp_combined_chain_replay.md`](references/harp_combined_chain_replay.md)
+for the ordered stages, capture policy, fixture schema, and evidence validator.
+
 ## When To Read References
 
-Read `references/iteration_contract_schema.md` when creating a durable contract, reviewing a mismatch, or adapting the schema for a repository.
+Read `references/iteration_contract_schema.md` when creating a durable contract, reviewing a mismatch, or adapting the schema for a repository. Read `references/harp_combined_chain_replay.md` whenever a HARP control lifecycle is reachable or historical workspace state is used as a fixture.

@@ -1,0 +1,315 @@
+{
+  "archetype": "partial_result_materialization",
+  "authority": "historical_observation_only",
+  "capture_mode": "read_only_whitelist",
+  "facts": {
+    "completion": {
+      "active_plan_status_counts": {
+        "abandoned": 2,
+        "completed": 4
+      },
+      "artifact_gate": {
+        "missing_count": 0,
+        "ok": true,
+        "skipped": true
+      },
+      "blockers": [
+        "artifact_gate_skipped",
+        "reviewer_acceptance_missing",
+        "task_truth_update_needed"
+      ],
+      "complete": false,
+      "reviewer_acceptance": {
+        "accepted_count": 3,
+        "ok": false,
+        "required_count": 4,
+        "rows": [
+          {
+            "accepted": true,
+            "queue_id": "q001",
+            "review_identity_present": true,
+            "strategy_attempt_identity_present": true
+          },
+          {
+            "accepted": true,
+            "queue_id": "q002",
+            "review_identity_present": true,
+            "strategy_attempt_identity_present": true
+          },
+          {
+            "accepted": true,
+            "queue_id": "q003",
+            "review_identity_present": true,
+            "strategy_attempt_identity_present": true
+          },
+          {
+            "accepted": false,
+            "queue_id": "q005",
+            "review_identity_present": true,
+            "strategy_attempt_identity_present": false
+          }
+        ]
+      },
+      "status": "not_ready"
+    },
+    "dag": {
+      "frontier_count": 0,
+      "launchable_count": 0,
+      "ready_count": 0,
+      "status": "quiescent"
+    },
+    "queue": [
+      {
+        "attempts": 2,
+        "executor_next_action_present": true,
+        "executor_result_status": "partial",
+        "exit_code": 0,
+        "expected_output_count": 0,
+        "output_assessment": {
+          "checked_count": 0,
+          "missing_count": 0,
+          "status": "no_contract"
+        },
+        "queue_id": "q001",
+        "result_review_verdict": "accepted",
+        "review_identity_present": true,
+        "status": "done",
+        "strategy_attempt_identity_present": true,
+        "terminal_class": "success"
+      },
+      {
+        "attempts": 1,
+        "executor_next_action_present": true,
+        "executor_result_status": "partial",
+        "exit_code": 0,
+        "expected_output_count": 0,
+        "output_assessment": {
+          "checked_count": 0,
+          "missing_count": 0,
+          "status": "no_contract"
+        },
+        "queue_id": "q002",
+        "result_review_verdict": "accepted",
+        "review_identity_present": true,
+        "status": "done",
+        "strategy_attempt_identity_present": false,
+        "terminal_class": "success"
+      },
+      {
+        "attempts": 1,
+        "executor_next_action_present": true,
+        "executor_result_status": "partial",
+        "exit_code": 0,
+        "expected_output_count": 11,
+        "output_assessment": {
+          "checked_count": 11,
+          "missing_count": 0,
+          "status": "passed"
+        },
+        "queue_id": "q003",
+        "result_review_verdict": "accepted",
+        "review_identity_present": true,
+        "status": "done",
+        "strategy_attempt_identity_present": false,
+        "terminal_class": "success"
+      },
+      {
+        "attempts": 1,
+        "executor_next_action_present": true,
+        "executor_result_status": "blocked",
+        "exit_code": 0,
+        "expected_output_count": 14,
+        "output_assessment": {
+          "checked_count": 14,
+          "missing_count": 0,
+          "status": "passed"
+        },
+        "queue_id": "q004",
+        "result_review_verdict": "",
+        "review_identity_present": false,
+        "status": "superseded",
+        "strategy_attempt_identity_present": true,
+        "terminal_class": ""
+      },
+      {
+        "attempts": 1,
+        "executor_next_action_present": true,
+        "executor_result_status": "partial",
+        "exit_code": 0,
+        "expected_output_count": 7,
+        "output_assessment": {
+          "checked_count": 7,
+          "missing_count": 0,
+          "status": "passed"
+        },
+        "queue_id": "q005",
+        "result_review_verdict": "accepted",
+        "review_identity_present": true,
+        "status": "done",
+        "strategy_attempt_identity_present": false,
+        "terminal_class": "success"
+      },
+      {
+        "attempts": 2,
+        "executor_next_action_present": true,
+        "executor_result_status": "partial",
+        "exit_code": 0,
+        "expected_output_count": 15,
+        "output_assessment": {
+          "checked_count": 14,
+          "missing_count": 1,
+          "status": "missing"
+        },
+        "queue_id": "q006",
+        "result_review_verdict": "",
+        "review_identity_present": false,
+        "status": "blocked",
+        "strategy_attempt_identity_present": true,
+        "terminal_class": "terminal_exception"
+      }
+    ],
+    "review_events": [
+      {
+        "event_seq": 1659,
+        "event_type": "ResultObservationRecorded",
+        "launch_identity_present": true,
+        "observation_identity_present": true,
+        "queue_id": "q001",
+        "review_identity_present": false,
+        "strategy_attempt_identity_present": true,
+        "verdict": ""
+      },
+      {
+        "event_seq": 1663,
+        "event_type": "ResultReviewRecorded",
+        "launch_identity_present": false,
+        "observation_identity_present": false,
+        "queue_id": "q001",
+        "review_identity_present": true,
+        "strategy_attempt_identity_present": false,
+        "verdict": "accepted"
+      },
+      {
+        "event_seq": 2017,
+        "event_type": "ResultObservationRecorded",
+        "launch_identity_present": true,
+        "observation_identity_present": true,
+        "queue_id": "q002",
+        "review_identity_present": false,
+        "strategy_attempt_identity_present": true,
+        "verdict": ""
+      },
+      {
+        "event_seq": 2022,
+        "event_type": "ResultReviewRecorded",
+        "launch_identity_present": false,
+        "observation_identity_present": false,
+        "queue_id": "q002",
+        "review_identity_present": true,
+        "strategy_attempt_identity_present": false,
+        "verdict": "accepted"
+      },
+      {
+        "event_seq": 2337,
+        "event_type": "ResultObservationRecorded",
+        "launch_identity_present": true,
+        "observation_identity_present": true,
+        "queue_id": "q003",
+        "review_identity_present": false,
+        "strategy_attempt_identity_present": true,
+        "verdict": ""
+      },
+      {
+        "event_seq": 2341,
+        "event_type": "ResultReviewRecorded",
+        "launch_identity_present": false,
+        "observation_identity_present": false,
+        "queue_id": "q003",
+        "review_identity_present": true,
+        "strategy_attempt_identity_present": false,
+        "verdict": "accepted"
+      },
+      {
+        "event_seq": 2532,
+        "event_type": "ResultObservationRecorded",
+        "launch_identity_present": true,
+        "observation_identity_present": true,
+        "queue_id": "q004",
+        "review_identity_present": false,
+        "strategy_attempt_identity_present": true,
+        "verdict": ""
+      },
+      {
+        "event_seq": 41637,
+        "event_type": "ResultObservationRecorded",
+        "launch_identity_present": true,
+        "observation_identity_present": true,
+        "queue_id": "q005",
+        "review_identity_present": false,
+        "strategy_attempt_identity_present": false,
+        "verdict": ""
+      },
+      {
+        "event_seq": 41640,
+        "event_type": "ResultReviewRecorded",
+        "launch_identity_present": false,
+        "observation_identity_present": false,
+        "queue_id": "q005",
+        "review_identity_present": false,
+        "strategy_attempt_identity_present": false,
+        "verdict": "accepted"
+      }
+    ],
+    "workflow_health": {
+      "active": true,
+      "dag_status": "quiescent",
+      "issue_types": [
+        "COMPLETION_REFRESH_REQUIRED",
+        "WORKFLOW_STALL"
+      ],
+      "queue_counts": {
+        "blocked": 1,
+        "done": 4,
+        "failed": 0,
+        "queued": 0,
+        "running": 0,
+        "superseded": 1
+      },
+      "severity": "red",
+      "status": "issues_detected"
+    }
+  },
+  "replay_id": "generic-partial",
+  "sanitization": {
+    "absolute_paths_removed": true,
+    "credentials_copied": false,
+    "free_form_text_removed": true,
+    "prompt_or_agent_output_copied": false,
+    "queue_id_pseudonyms": true,
+    "raw_database_copied": false,
+    "scientific_artifact_copied": false
+  },
+  "schema_version": 1,
+  "source_provenance": {
+    "selected_event_count": 9,
+    "selected_event_digest": "63f28070a2c8e42861c318d32fb07e802703641961ae384cf810ddb745c9251d",
+    "state_files": {
+      "completion_fact.json": {
+        "sha256": "6f1c59fe8f96130c9dd427da4984f5cd64d13171274d02bccdfb31e9d0ce407a",
+        "size_bytes": 10540
+      },
+      "dag_state.json": {
+        "sha256": "9beecb8aaedaadf2a8733e787d373ca25365e6180ad04e3e9b5681825f20cf3f",
+        "size_bytes": 2687
+      },
+      "execution_queue.json": {
+        "sha256": "ea635462f5b318a324f12d512a9ac7c1708273b3ccf7d9c37c56bb1cbf46589c",
+        "size_bytes": 201923
+      },
+      "workflow_health_fact.json": {
+        "sha256": "7c0045944185e5d326c9fcab698dfb0f4d99b6a047bc9283011a12d1c568d866",
+        "size_bytes": 5246
+      }
+    }
+  }
+}

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
+import json
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -36,6 +39,14 @@ def _v2_contract(*, risk: str = "high", decision: str = "required") -> str:
         + "  attack_scope:\n"
         + "    - runtime.py\n"
         + "  evidence_dir: docs/evidence/test\n"
+        + "combined_chain_gate:\n"
+        + "  decision: not_applicable\n"
+        + "  reason: fixture contract test has no control lifecycle\n"
+        + "  unreachability: no queue, review, completion, or health path exists\n"
+        + "historical_replay_gate:\n"
+        + "  decision: not_applicable\n"
+        + "  reason: fixture contract test has no persisted workspace state\n"
+        + "  unreachability: no historical control state can reach this fixture\n"
     )
 
 
@@ -119,6 +130,155 @@ def test_high_risk_contract_cannot_skip() -> None:
     result = checker.validate(_v2_contract(risk="high", decision="skipped"))
     assert not result["ok"]
     assert "high-risk diff requires decision: required" in result["adversarial_errors"]
+
+
+def test_high_risk_contract_requires_both_lifecycle_gates() -> None:
+    contract = _v2_contract()
+    contract = contract.split("combined_chain_gate:\n", 1)[0]
+    result = checker.validate(contract)
+    assert not result["ok"]
+    assert result["combined_chain_errors"] == ["missing combined_chain_gate"]
+    assert result["historical_replay_errors"] == [
+        "missing historical_replay_gate"
+    ]
+
+
+def test_lifecycle_not_applicable_requires_unreachability() -> None:
+    contract = _v2_contract().replace(
+        "  unreachability: no queue, review, completion, or health path exists\n",
+        "",
+    )
+    result = checker.validate(contract)
+    assert not result["ok"]
+    assert (
+        "combined_chain_gate.unreachability is required when not_applicable"
+        in result["combined_chain_errors"]
+    )
+
+
+def test_required_lifecycle_gates_require_evidence_fields() -> None:
+    contract = _v2_contract()
+    contract = contract.replace(
+        "combined_chain_gate:\n"
+        "  decision: not_applicable\n"
+        "  reason: fixture contract test has no control lifecycle\n"
+        "  unreachability: no queue, review, completion, or health path exists\n",
+        "combined_chain_gate:\n"
+        "  decision: required\n"
+        "  reason: control lifecycle is reachable\n",
+    )
+    contract = contract.replace(
+        "historical_replay_gate:\n"
+        "  decision: not_applicable\n"
+        "  reason: fixture contract test has no persisted workspace state\n"
+        "  unreachability: no historical control state can reach this fixture\n",
+        "historical_replay_gate:\n"
+        "  decision: required\n"
+        "  reason: persisted workspace state is reachable\n",
+    )
+    result = checker.validate(contract)
+    assert not result["ok"]
+    assert set(result["combined_chain_errors"]) == {
+        f"missing combined_chain_gate.{key}"
+        for key in checker.COMBINED_CHAIN_EVIDENCE_KEYS
+    }
+    assert set(result["historical_replay_errors"]) == {
+        f"missing historical_replay_gate.{key}"
+        for key in checker.HISTORICAL_REPLAY_EVIDENCE_KEYS
+    }
+
+
+def test_required_lifecycle_evidence_is_recomputed(tmp_path: Path) -> None:
+    source = (
+        Path(__file__).parents[1]
+        / "skills"
+        / "delivery-alignment-iteration"
+        / "assets"
+        / "harp-history-replays"
+    )
+    fixtures = tmp_path / "fixtures"
+    shutil.copytree(source, fixtures)
+    manifest = fixtures / "manifest.json"
+    validator = checker._load_chain_validator()
+    replay = validator.validate_replay_manifest(manifest)
+    history_evidence = tmp_path / "history_validation.json"
+    history_evidence.write_text(
+        json.dumps({"ok": replay["ok"], "replay": replay}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    receipt = {
+        "status": "passed",
+        "exit_code": 0,
+        "command": "pytest -q tests/test_target_combined_lifecycle_chain.py",
+        "replay_manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
+        "stages": validator.CHAIN_STAGES,
+        "replay_results": [
+            {
+                "archetype": archetype,
+                "detected": True,
+                "owner_routed": True,
+                "review_required_when_applicable": True,
+                "premature_completion_rejected": True,
+                "later_health_audit_required": True,
+            }
+            for archetype in sorted(validator.ARCHETYPES)
+        ],
+        "happy_path": {
+            "identity_preserved": True,
+            "review_accepted": True,
+            "artifact_gate_passed": True,
+            "completion_true": True,
+            "health_restored": True,
+            "repeated_zero_work_wakeups": 0,
+        },
+    }
+    chain_evidence = tmp_path / "chain_receipt.json"
+    chain_evidence.write_text(json.dumps(receipt), encoding="utf-8")
+    contract = _v2_contract().replace(
+        "sandbox: live\n",
+        "sandbox:\n"
+        "  scope: deterministic validator boundary\n"
+        "  fixture: copied replay profiles\n"
+        "  invoke: validate lifecycle evidence\n"
+        "  assert: recomputed evidence matches\n"
+        "  record: tmp test outputs\n",
+    )
+    contract = contract.replace(
+        "combined_chain_gate:\n"
+        "  decision: not_applicable\n"
+        "  reason: fixture contract test has no control lifecycle\n"
+        "  unreachability: no queue, review, completion, or health path exists\n",
+        "combined_chain_gate:\n"
+        "  decision: required\n"
+        "  reason: control lifecycle is reachable\n"
+        "  scope: executor through post-repair audit\n"
+        "  invoke: pytest target chain\n"
+        "  assert: all stages and closure oracles pass\n"
+        "  evidence: chain_receipt.json\n",
+    )
+    contract = contract.replace(
+        "historical_replay_gate:\n"
+        "  decision: not_applicable\n"
+        "  reason: fixture contract test has no persisted workspace state\n"
+        "  unreachability: no historical control state can reach this fixture\n",
+        "historical_replay_gate:\n"
+        "  decision: required\n"
+        "  reason: persisted workspace state is reachable\n"
+        "  fixture_manifest: fixtures/manifest.json\n"
+        "  capture: read-only whitelist capture\n"
+        "  invoke: replay all three profiles\n"
+        "  assert: all replay oracles pass\n"
+        "  evidence: history_validation.json\n",
+    )
+    assert checker.validate(contract)["ok"]
+    result = checker.validate_lifecycle_evidence(contract, tmp_path)
+    assert result["ok"], result
+
+    profile = fixtures / "blocked_artifact_dependency.json"
+    profile.write_text(profile.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    tampered = checker.validate_lifecycle_evidence(contract, tmp_path)
+    assert not tampered["ok"]
+    assert "historical replay manifest is invalid" in tampered["errors"]
 
 
 def test_new_v1_contract_cannot_bypass_v2_rules() -> None:

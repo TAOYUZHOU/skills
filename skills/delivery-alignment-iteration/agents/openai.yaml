@@ -1,4 +1,4 @@
 interface:
   display_name: "Delivery Alignment Iteration"
-  short_description: "Align delivery, stewardship, and adversarial evidence"
-  default_prompt: "Use $delivery-alignment-iteration to maintain a traceable contract and handoff SSOT, apply repository-stewardship and risk-triggered adversarial gates, and verify this iteration."
+  short_description: "Align delivery with full-chain replay gates"
+  default_prompt: "Use $delivery-alignment-iteration to bind an iteration to exact evidence, run full lifecycle-chain and real-history replay gates when applicable, and maintain the handoff SSOT."

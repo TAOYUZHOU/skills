@@ -1,0 +1,207 @@
+schema_version: 2
+
+intent: >-
+  Extend delivery-alignment-iteration so high-risk control-flow iterations must
+  prove the complete executor-to-health lifecycle with one combined atomic
+  chain test and must replace clean hand-written mock workspaces with sanitized,
+  provenance-bound replays derived from three real generic HARP workspace
+  histories.
+
+non_goals:
+  - Repair or mutate any of the three live HARP workspaces.
+  - Copy raw SQLite databases, prompts, scientific artifacts, credentials, or absolute workspace paths into this repository.
+  - Make a historical replay authoritative for current live state or scientific completion.
+  - Remove focused unit, regression, atomic-boundary, clean-room, or exact-diff adversarial tests.
+
+ssot:
+  - path: skills/delivery-alignment-iteration/SKILL.md
+    reason: Canonical workflow and acceptance behavior for future iterations.
+  - path: skills/delivery-alignment-iteration/references/harp_combined_chain_replay.md
+    reason: Detailed combined-chain stages, replay schema, sanitization, and oracle requirements.
+  - path: skills/delivery-alignment-iteration/scripts/check_delivery_contract.py
+    reason: Machine enforcement for required combined-chain and historical-replay declarations and evidence.
+  - path: docs/harp_iteration_handoff.md
+    reason: Stable current-state handoff for this skill iteration.
+
+deliverables:
+  - id: D1
+    path: skills/delivery-alignment-iteration/SKILL.md
+    description: Mandatory combined lifecycle chain and real-history replay gates for applicable high-risk iterations.
+  - id: D2
+    path: skills/delivery-alignment-iteration/references/harp_combined_chain_replay.md
+    description: Portable chain/replay contract with exact stages, source handling, sanitization, and closure oracles.
+  - id: D3
+    path: skills/delivery-alignment-iteration/scripts/capture_harp_history_replay.py
+    description: Read-only extractor that converts live workspace control facts into bounded generic replay bundles.
+  - id: D4
+    path: skills/delivery-alignment-iteration/scripts/validate_harp_chain_evidence.py
+    description: Deterministic validator for the three replay archetypes and the full-chain receipt.
+  - id: D5
+    path: skills/delivery-alignment-iteration/assets/harp-history-replays
+    description: Sanitized replay profiles derived from the three observed real workspaces without raw scientific content.
+  - id: D6
+    path: skills/delivery-alignment-iteration/scripts/check_delivery_contract.py
+    description: Contract and evidence enforcement for both new gates.
+  - id: D7
+    path: tests/test_delivery_alignment_contract_checker.py
+    description: Regression coverage for required declarations, not-applicable proofs, replay manifests, and chain receipts.
+  - id: D8
+    path: tests/test_delivery_alignment_history_replay.py
+    description: Combined validation over all three bundled real-history replay profiles.
+  - id: D9
+    path: skills/delivery-alignment-iteration/agents/openai.yaml
+    description: UI metadata aligned with lifecycle-chain and historical-replay behavior.
+  - id: D10
+    path: docs/harp_iteration_handoff.md
+    description: Reconciled implementation, evidence, blockers, and exact next action.
+
+acceptance_criteria:
+  - id: A1
+    description: >-
+      Applicable high-risk iterations add one real combined test covering
+      executor handoff, output assessment, result-review admission and event,
+      queue terminal projection, artifact gate, completion fact, health routing,
+      and a later closure audit without substituting isolated mocks.
+  - id: A2
+    description: >-
+      Three portable replay profiles reproduce the distinct historical classes
+      review/projection mismatch, blocked missing-artifact dependency, and
+      partial-result materialization from read-only real workspace facts.
+  - id: A3
+    description: >-
+      Replay capture excludes raw databases, prompts, scientific artifacts,
+      secrets, free-form outputs, and absolute paths while retaining source
+      file hashes and a digest of the selected canonical event facts.
+  - id: A4
+    description: >-
+      The checker rejects high-risk contracts that omit either gate, accepts
+      not-applicable only with a deterministic unreachability explanation, and
+      validates required replay/chain evidence paths and receipt semantics.
+  - id: A5
+    description: >-
+      Existing focused tests remain required; the new chain/replay gates are
+      additive and cannot be replaced by unit regression, one-hop atomic,
+      clean mock workspace, or exact-diff diffusion alone.
+  - id: A6
+    description: Skill validation, targeted tests, full repository tests, and diff hygiene pass without modifying live workspace state.
+
+verification:
+  - id: V1
+    command_or_check: >-
+      python3 skills/delivery-alignment-iteration/scripts/capture_harp_history_replay.py
+      with the three read-only workspace roots and a temporary output directory.
+  - id: V2
+    command_or_check: >-
+      python3 skills/delivery-alignment-iteration/scripts/validate_harp_chain_evidence.py
+      --replay-manifest skills/delivery-alignment-iteration/assets/harp-history-replays/manifest.json
+      --chain-receipt docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_receipt.json
+  - id: V3
+    command_or_check: pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py
+  - id: V4
+    command_or_check: pytest -q
+  - id: V5
+    command_or_check: >-
+      python3 /root/autodl-tmp/caches/.codex/skills/.system/skill-creator/scripts/quick_validate.py
+      skills/delivery-alignment-iteration
+  - id: V6
+    command_or_check: git diff --check
+  - id: V7
+    command_or_check: >-
+      Run a provider/Agent forward test and exact-diff counterexample gate over
+      the immutable base and candidate, then validate signed evidence with the
+      current contract checker.
+
+traceability:
+  - acceptance: A1
+    deliverables: [D1, D2, D4, D6, D8]
+    verification: [V2, V3, V4]
+  - acceptance: A2
+    deliverables: [D3, D5, D8]
+    verification: [V1, V2, V3]
+  - acceptance: A3
+    deliverables: [D2, D3, D5]
+    verification: [V1, V2, V3]
+  - acceptance: A4
+    deliverables: [D6, D7]
+    verification: [V3, V4]
+  - acceptance: A5
+    deliverables: [D1, D2, D9]
+    verification: [V3, V5]
+  - acceptance: A6
+    deliverables: [D1, D2, D3, D4, D5, D6, D7, D8, D9, D10]
+    verification: [V3, V4, V5, V6, V7]
+
+risks:
+  - Historical snapshots can leak paths or task content unless extraction is whitelist-only and sanitization is tested.
+  - Exact historical files are observations, not current authority; future tests must replay copies and never write the source workspace.
+  - A generic receipt validator cannot replace the project-local test that invokes the real runtime producers and consumers.
+  - The working tree contains unrelated untracked evidence and skills; this iteration must stage and commit only its declared paths.
+
+final_claims_allowed:
+  - The skill requires an additive complete lifecycle-chain gate for applicable high-risk iterations after A1 and A4 pass.
+  - The bundled replay assets are sanitized derivatives of three real workspace histories after A2 and A3 pass.
+  - The replay assets diagnose historical failure shapes but do not claim the source workspaces are repaired or currently healthy.
+  - The iteration is complete only after the immutable exact-diff Agent gate, all deterministic tests, and the current checker pass.
+
+handoff:
+  path: docs/harp_iteration_handoff.md
+  policy: Update after every material implementation, verification, blocker, candidate identity, or evidence decision.
+
+sandbox:
+  scope: One complete HARP executor-result-to-post-repair-health lifecycle plus three historical negative replay profiles.
+  fixture: Sanitized read-only derivatives of the three observed generic live workspace histories.
+  invoke: Targeted pytest and validate_harp_chain_evidence.py over bundled replay assets and a generated full-chain receipt.
+  assert:
+    - Partial or blocked executor results cannot silently become terminal success.
+    - Result observation and ResultReviewRecorded identity agree with the completion consumer.
+    - Missing artifacts route to the owning executor/runtime lane and keep completion open.
+    - Accepted evidence closes only after artifact, reviewer, completion, and later health invariants all pass.
+  record:
+    - docs/evidence/delivery_alignment_combined_chain_replay_20260801
+
+combined_chain_gate:
+  decision: required
+  reason: The skill changes the mandatory verification lifecycle for control-state iterations.
+  scope: Executor handoff through post-repair workflow-health closure.
+  invoke: pytest -q tests/test_delivery_alignment_history_replay.py
+  assert:
+    - All mandatory lifecycle stages appear once in canonical order.
+    - Three historical negative cases remain open and typed until their owner/reviewer/closure conditions are satisfied.
+  evidence: docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_receipt.json
+
+historical_replay_gate:
+  decision: required
+  reason: Clean hand-authored mocks previously hid cross-projection and retained-state failures.
+  fixture_manifest: skills/delivery-alignment-iteration/assets/harp-history-replays/manifest.json
+  capture: Read-only whitelist extraction with source hashes, selected-event digest, path scrubbing, and no raw database copy.
+  invoke: python3 skills/delivery-alignment-iteration/scripts/validate_harp_chain_evidence.py --replay-manifest skills/delivery-alignment-iteration/assets/harp-history-replays/manifest.json
+  assert:
+    - Exactly three distinct generic historical archetypes are present.
+    - No fixture contains absolute paths, prompts, free-form scientific output, credentials, or raw database bytes.
+  evidence: docs/evidence/delivery_alignment_combined_chain_replay_20260801/historical_replay_validation.json
+
+adversarial_gate:
+  risk: high
+  decision: required
+  reason: SKILL.md and the checker are authoritative Agent and delivery-gate behavior.
+  base: d94d282c7982a6de7041343d12df9cee5cf8a7c1
+  candidate: PENDING_IMMUTABLE_CANDIDATE
+  attack_scope:
+    - skills/delivery-alignment-iteration/SKILL.md
+    - skills/delivery-alignment-iteration/agents/openai.yaml
+    - skills/delivery-alignment-iteration/references/iteration_contract_schema.md
+    - skills/delivery-alignment-iteration/references/harp_combined_chain_replay.md
+    - skills/delivery-alignment-iteration/scripts/check_delivery_contract.py
+    - skills/delivery-alignment-iteration/scripts/capture_harp_history_replay.py
+    - skills/delivery-alignment-iteration/scripts/validate_harp_chain_evidence.py
+    - skills/delivery-alignment-iteration/assets/harp-history-replays/manifest.json
+    - skills/delivery-alignment-iteration/assets/harp-history-replays/review_projection_mismatch.json
+    - skills/delivery-alignment-iteration/assets/harp-history-replays/blocked_artifact_dependency.json
+    - skills/delivery-alignment-iteration/assets/harp-history-replays/partial_result_materialization.json
+    - tests/test_delivery_alignment_contract_checker.py
+    - tests/test_delivery_alignment_history_replay.py
+    - docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_receipt.json
+    - docs/evidence/delivery_alignment_combined_chain_replay_20260801/historical_replay_validation.json
+    - docs/iteration_contracts/delivery_alignment_combined_chain_replay_20260801.yaml
+    - docs/harp_iteration_handoff.md
+  evidence_dir: docs/evidence/delivery_alignment_combined_chain_replay_20260801/adversarial_gate

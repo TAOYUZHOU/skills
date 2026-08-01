@@ -21,6 +21,10 @@ version-1 Markdown; it cannot authorize promotion.
 - `handoff`: Stable docs path and update policy for the iteration handoff SSOT.
 - `adversarial_gate`: Diff risk, gate decision, reason, immutable base,
   attack scope, and durable evidence directory.
+- `combined_chain_gate`: Applicability decision plus the target-local command,
+  assertions, and receipt for the complete control lifecycle.
+- `historical_replay_gate`: Applicability decision plus the sanitized fixture
+  manifest, read-only capture command, replay command, assertions, and evidence.
 
 Required for every iteration:
 
@@ -50,6 +54,18 @@ For `adversarial_gate`:
   current attack ID must appear in the cumulative `attacks` regression corpus.
   Historical corpus entries may come from earlier exact candidates.
 
+For high-risk control-lifecycle iterations, both lifecycle gates are mandatory:
+
+- `decision: required` needs non-empty `reason`, `scope`, `invoke`, `assert`,
+  and `evidence` in `combined_chain_gate`.
+- `decision: required` needs non-empty `reason`, `fixture_manifest`, `capture`,
+  `invoke`, `assert`, and `evidence` in `historical_replay_gate`.
+- `decision: not_applicable` needs a deterministic `unreachability` proof.
+  Existing mocks, unit tests, cost, or an unavailable provider do not establish
+  unreachability.
+- The chain is additive to the atomic sandbox and exact-diff adversarial gate.
+  Required gates without passing evidence keep the iteration non-complete.
+
 ## Recommended Review Questions
 
 1. Does every acceptance criterion map to at least one deliverable?
@@ -65,6 +81,11 @@ For `adversarial_gate`:
    blockers, and next action?
 9. Did a real Agent derive attacks from the exact high-risk diff, and do its
    executable oracles plus the fixed regression corpus report zero escapes?
+10. Does a high-risk control change exercise the complete executor-to-later-
+    health-audit chain through real target producers and consumers?
+11. Do the three sanitized historical archetypes reproduce their original
+    inconsistency signatures without copying raw workspace content or mutating
+    a source workspace?
 
 ## Minimal YAML Template
 
@@ -123,6 +144,29 @@ adversarial_gate:
   attack_scope:
     - path/to/changed_module.py
   evidence_dir: docs/evidence/<iteration>
+
+combined_chain_gate:
+  decision: required
+  reason: Queue-to-health control behavior is reachable.
+  scope: Executor handoff through post-repair health audit.
+  invoke: pytest -q tests/test_combined_lifecycle_chain.py
+  assert:
+    - All ordered stages use the target runtime producers and consumers.
+    - Failure paths reject premature completion and remain health-auditable.
+    - The happy path closes with zero repeated zero-work wakeups.
+  evidence: docs/evidence/<iteration>/combined_chain_receipt.json
+
+historical_replay_gate:
+  decision: required
+  reason: The control change can regress previously observed workspace states.
+  fixture_manifest: path/to/sanitized/history/manifest.json
+  capture: python3 path/to/capture_script.py --source ...
+  invoke: pytest -q tests/test_historical_control_replay.py
+  assert:
+    - review_projection_mismatch is detected and routed.
+    - blocked_artifact_dependency cannot complete.
+    - partial_result_materialization cannot complete.
+  evidence: docs/evidence/<iteration>/historical_replay_validation.json
 ```
 
 ## Handoff Document Schema

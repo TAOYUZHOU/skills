@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "evidence_scope": "delivery-alignment skill gate meta-validation",
+  "status": "passed",
+  "exit_code": 0,
+  "command": "pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py",
+  "replay_manifest_sha256": "b8e9db471e71ebe7d344edb8cbbc080f20f13d8dbe03374b12e5fda0d11dffed",
+  "stages": [
+    "executor_handoff",
+    "output_assessment",
+    "result_review_admission",
+    "result_observation_recorded",
+    "result_review_recorded",
+    "queue_terminal_projection",
+    "artifact_gate",
+    "completion_fact",
+    "workflow_health_routing",
+    "post_repair_health_audit"
+  ],
+  "replay_results": [
+    {
+      "archetype": "blocked_artifact_dependency",
+      "detected": true,
+      "owner_routed": true,
+      "review_required_when_applicable": true,
+      "premature_completion_rejected": true,
+      "later_health_audit_required": true
+    },
+    {
+      "archetype": "partial_result_materialization",
+      "detected": true,
+      "owner_routed": true,
+      "review_required_when_applicable": true,
+      "premature_completion_rejected": true,
+      "later_health_audit_required": true
+    },
+    {
+      "archetype": "review_projection_mismatch",
+      "detected": true,
+      "owner_routed": true,
+      "review_required_when_applicable": true,
+      "premature_completion_rejected": true,
+      "later_health_audit_required": true
+    }
+  ],
+  "happy_path": {
+    "identity_preserved": true,
+    "review_accepted": true,
+    "artifact_gate_passed": true,
+    "completion_true": true,
+    "health_restored": true,
+    "repeated_zero_work_wakeups": 0
+  },
+  "limitations": [
+    "This receipt validates the skill's required chain contract and replay oracles; each future HARP runtime change must emit its own target-local receipt from real runtime producers and consumers."
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "ok": true,
+  "replay": {
+    "errors": [],
+    "ok": true,
+    "path": "/root/autodl-tmp/taoyuzhou/skills/skills/delivery-alignment-iteration/assets/harp-history-replays/manifest.json",
+    "profiles": [
+      {
+        "archetype": "blocked_artifact_dependency",
+        "oracle_ok": true,
+        "path": "blocked_artifact_dependency.json"
+      },
+      {
+        "archetype": "partial_result_materialization",
+        "oracle_ok": true,
+        "path": "partial_result_materialization.json"
+      },
+      {
+        "archetype": "review_projection_mismatch",
+        "oracle_ok": true,
+        "path": "review_projection_mismatch.json"
+      }
+    ]
+  }
+}
