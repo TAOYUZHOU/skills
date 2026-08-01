@@ -1,10 +1,10 @@
 # HARP Iteration Handoff
 
 status: partial
-updated_at_utc: 2026-08-01T06:13:20Z
+updated_at_utc: 2026-08-01T07:04:00Z
 iteration: delivery-alignment-combined-chain-replay
 contract: docs/iteration_contracts/delivery_alignment_combined_chain_replay_20260801.yaml
-candidate: e606effd18de22e5da890fdea6bbbed1295e6c0b
+candidate: 1269274d743d8ba47ee6b35bbdc6045500986d3b
 
 ## Intent
 
@@ -30,7 +30,8 @@ workspace mocks with sanitized replays derived from three real workspace histori
 - Rejected fifth candidate: `6ecd8409ac1c0dc4cdf52673fa45a3c7eeae12b4`.
 - Rejected sixth candidate: `876153fc3dc8af5e6c2fa4723f4c9331ab1fb4af`.
 - Rejected seventh candidate: `e606effd18de22e5da890fdea6bbbed1295e6c0b`;
-  eighth pending freeze.
+- Rejected eighth candidate: `1269274d743d8ba47ee6b35bbdc6045500986d3b`;
+  ninth pending freeze.
 - Three read-only source histories exhibit distinct classes: accepted-review projection mismatch, blocked missing-artifact dependency, and partial-result materialization.
 - The working tree already contains unrelated untracked evidence and skills; they are outside this iteration.
 
@@ -50,6 +51,12 @@ The seventh candidate's exact-diff review found that a signed absence observatio
 could still be replayed into a different repository instance and that the handoff
 candidate was not machine-bound. Both now fail closed through a current-root
 declarative predicate and a contract/external/handoff three-way candidate check.
+The eighth candidate's exact-diff review found an `output_assessment` nested
+free-text escape, an author-selectable absence path that did not inventory the
+repository, and a signed manifest without an independently bound capture
+witness. The validator now closes the nested schema, the checker owns a fixed
+repository-wide runtime-boundary inventory, and each real-history capture has a
+separately host-attested receipt binding its tool and source/profile digests.
 
 ## Completed changes
 
@@ -61,6 +68,9 @@ declarative predicate and a contract/external/handoff three-way candidate check.
 - Captured three pseudonymous control-shape profiles with no raw database, prompts, free-form output, scientific artifacts, credentials, or absolute source paths.
 - Added checker enforcement for required versus deterministically unreachable gates and recomputed evidence validation.
 - Added regression tests for missing declarations, evidence tampering, all three historical signatures, ordered chain stages, and manifest binding.
+- Added a trusted capture receipt and a fixed current-root runtime-boundary
+  inventory; neither replay provenance nor chain applicability now depends on a
+  candidate-authored path or unsigned capture claim.
 - Rejected candidate `84f7ddeb2c7c1e8c14c9bbf48325f93754627485` after independent review found a fixture-path mismatch and the real exact-diff Agent generated eight executable escapes.
 - Repaired self-authored receipts, prose-only unreachability, risk self-downgrade, profile-field injection, stale event digests, source-directory output, torn multi-file snapshots, and absolute evidence paths.
 - Rejected `ad783b1` and added manifest/unreachability host attestations, single-component path rejection, contract/candidate/test command binding, and per-stage producer/consumer/assertion bindings.
@@ -73,8 +83,8 @@ declarative predicate and a contract/external/handoff three-way candidate check.
 
 - Pre-change repository HEAD is `d94d282c7982a6de7041343d12df9cee5cf8a7c1`.
 - The three source workspaces were inspected read-only and no repair command was executed.
-- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 100 passed after the sixth adversarial repairs.
-- `pytest -q`: 107 passed after the sixth adversarial repairs.
+- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 103 passed after the eighth adversarial repairs.
+- `pytest -q`: 110 passed after the eighth adversarial repairs.
 - `quick_validate.py skills/delivery-alignment-iteration`: `Skill is valid!`.
 - `validate_harp_chain_evidence.py` reports all three replay oracles and the combined receipt valid.
 - Durable evidence: `docs/evidence/delivery_alignment_combined_chain_replay_20260801/`.
@@ -92,7 +102,10 @@ declarative predicate and a contract/external/handoff three-way candidate check.
 - Candidate `876153f` produced two executable attacks; both are repaired by candidate-bound unreachability evidence and nested-map sanitization.
 - Candidate `e606eff` produced two executable attacks; both are repaired by
   current-root predicate re-evaluation and machine-bound handoff candidate metadata.
-- Eighth immutable candidate, clean independent output, zero-escape deterministic
+- Candidate `1269274` produced three executable attacks; they are repaired by
+  strict nested assessment scalars, a fixed repository inventory predicate, and
+  a separately attested capture witness.
+- Ninth immutable candidate, clean independent output, zero-escape deterministic
   result, and final trusted attestations remain pending.
 
 ## Open blockers and risks
@@ -103,7 +116,7 @@ declarative predicate and a contract/external/handoff three-way candidate check.
 
 ## Exact next action
 
-Freeze the eighth candidate, then rerun independent skill consumption plus
+Freeze the ninth candidate, then rerun independent skill consumption plus
 exact-diff counterexample review with its forward-binding patch.
 
 ## Final claims allowed now

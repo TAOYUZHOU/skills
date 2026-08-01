@@ -85,6 +85,12 @@ COMPLETION_BLOCKERS = {
 }
 PLAN_STATUSES = {"pending", "running", "blocked", "completed", "failed", "unknown"}
 WORKFLOW_ISSUES = {"COMPLETION_REFRESH_REQUIRED", "WORKFLOW_STALL", "unknown"}
+EVENT_TYPES = {"ResultObservationRecorded", "ResultReviewRecorded", "unknown"}
+COMPLETION_STATUSES = {"", "not_ready", "complete", "blocked", "unknown"}
+WORKFLOW_STATUSES = {"", "healthy", "issues_detected", "unknown"}
+WORKFLOW_SEVERITIES = {"", "green", "yellow", "red", "unknown"}
+DAG_STATUSES = {"", "quiescent", "running", "blocked", "complete", "unknown"}
+QUEUE_ID_RE = re.compile(r"q[0-9]{3}")
 
 
 def _sha256(data: bytes) -> str:
@@ -157,6 +163,13 @@ def _profile_schema_errors(profile: dict[str, Any]) -> list[str]:
         if isinstance(row, dict):
             assessment = row.get("output_assessment")
             assessment = assessment if isinstance(assessment, dict) else {}
+            error = _key_error(
+                row.get("output_assessment"),
+                {"status", "missing_count", "checked_count"},
+                f"queue[{index}].output_assessment",
+            )
+            if error:
+                errors.append(error)
             if (
                 row.get("status") not in QUEUE_STATUSES
                 or row.get("terminal_class") not in TERMINAL_CLASSES
@@ -165,18 +178,50 @@ def _profile_schema_errors(profile: dict[str, Any]) -> list[str]:
                 or assessment.get("status") not in ASSESSMENT_STATUSES
             ):
                 errors.append(f"queue[{index}] contains a non-whitelisted enum")
+            if (
+                not QUEUE_ID_RE.fullmatch(str(row.get("queue_id") or ""))
+                or row.get("exit_code") is not None
+                and type(row.get("exit_code")) is not int
+                or type(row.get("attempts")) is not int
+                or row.get("attempts", -1) < 0
+                or type(row.get("expected_output_count")) is not int
+                or row.get("expected_output_count", -1) < 0
+                or any(
+                    type(row.get(key)) is not bool
+                    for key in (
+                        "executor_next_action_present",
+                        "review_identity_present",
+                        "strategy_attempt_identity_present",
+                    )
+                )
+                or any(
+                    type(assessment.get(key)) is not int or assessment.get(key, -1) < 0
+                    for key in ("missing_count", "checked_count")
+                )
+            ):
+                errors.append(f"queue[{index}] contains an invalid scalar")
             continue
-        error = _key_error(
-            row.get("output_assessment"),
-            {"status", "missing_count", "checked_count"},
-            f"queue[{index}].output_assessment",
-        )
-        if error:
-            errors.append(error)
     for index, row in enumerate(facts.get("review_events") or []):
         error = _key_error(row, EVENT_KEYS, f"review_events[{index}]")
         if error:
             errors.append(error)
+        if isinstance(row, dict) and (
+            type(row.get("event_seq")) is not int
+            or row.get("event_seq", -1) < 0
+            or row.get("event_type") not in EVENT_TYPES
+            or not QUEUE_ID_RE.fullmatch(str(row.get("queue_id") or ""))
+            or row.get("verdict") not in REVIEW_VERDICTS
+            or any(
+                type(row.get(key)) is not bool
+                for key in (
+                    "observation_identity_present",
+                    "review_identity_present",
+                    "launch_identity_present",
+                    "strategy_attempt_identity_present",
+                )
+            )
+        ):
+            errors.append(f"review_events[{index}] contains an invalid scalar")
     completion = facts.get("completion")
     nested = [
         (completion, {
@@ -199,6 +244,17 @@ def _profile_schema_errors(profile: dict[str, Any]) -> list[str]:
             errors.append(error)
     reviewer = completion.get("reviewer_acceptance") if isinstance(completion, dict) else {}
     if isinstance(completion, dict):
+        artifact = completion.get("artifact_gate") or {}
+        if (
+            completion.get("status") not in COMPLETION_STATUSES
+            or type(completion.get("complete")) is not bool
+            or not isinstance(completion.get("blockers"), list)
+            or any(not isinstance(value, str) for value in completion.get("blockers") or [])
+            or any(type(artifact.get(key)) is not bool for key in ("ok", "skipped"))
+            or type(artifact.get("missing_count")) is not int
+            or artifact.get("missing_count", -1) < 0
+        ):
+            errors.append("completion contains an invalid scalar")
         if not set(completion.get("blockers") or []).issubset(COMPLETION_BLOCKERS):
             errors.append("completion blockers contain a non-whitelisted value")
         plan_counts = completion.get("active_plan_status_counts")
@@ -207,6 +263,15 @@ def _profile_schema_errors(profile: dict[str, Any]) -> list[str]:
         ) or any(type(value) is not int or value < 0 for value in plan_counts.values()):
             errors.append("active plan status counts are invalid")
     if isinstance(reviewer, dict):
+        if (
+            type(reviewer.get("ok")) is not bool
+            or any(
+                type(reviewer.get(key)) is not int or reviewer.get(key, -1) < 0
+                for key in ("required_count", "accepted_count")
+            )
+            or not isinstance(reviewer.get("rows"), list)
+        ):
+            errors.append("completion reviewer acceptance contains an invalid scalar")
         for index, row in enumerate(reviewer.get("rows") or []):
             error = _key_error(
                 row,
@@ -215,6 +280,20 @@ def _profile_schema_errors(profile: dict[str, Any]) -> list[str]:
             )
             if error:
                 errors.append(error)
+            if isinstance(row, dict) and (
+                not QUEUE_ID_RE.fullmatch(str(row.get("queue_id") or ""))
+                or any(
+                    type(row.get(key)) is not bool
+                    for key in (
+                        "accepted",
+                        "review_identity_present",
+                        "strategy_attempt_identity_present",
+                    )
+                )
+            ):
+                errors.append(
+                    f"completion.reviewer_acceptance.rows[{index}] contains an invalid scalar"
+                )
     provenance = profile.get("source_provenance")
     workflow = facts.get("workflow_health")
     if isinstance(workflow, dict):
@@ -227,6 +306,24 @@ def _profile_schema_errors(profile: dict[str, Any]) -> list[str]:
             errors.append("workflow queue counts are invalid")
         if not set(workflow.get("issue_types") or []).issubset(WORKFLOW_ISSUES):
             errors.append("workflow issue types contain a non-whitelisted value")
+        if (
+            workflow.get("status") not in WORKFLOW_STATUSES
+            or workflow.get("severity") not in WORKFLOW_SEVERITIES
+            or type(workflow.get("active")) is not bool
+            or workflow.get("dag_status") not in DAG_STATUSES
+            or not isinstance(workflow.get("issue_types"), list)
+            or any(not isinstance(value, str) for value in workflow.get("issue_types") or [])
+        ):
+            errors.append("workflow health contains an invalid scalar")
+    dag = facts.get("dag")
+    if isinstance(dag, dict) and (
+        dag.get("status") not in DAG_STATUSES
+        or any(
+            type(dag.get(key)) is not int or dag.get(key, -1) < 0
+            for key in ("frontier_count", "ready_count", "launchable_count")
+        )
+    ):
+        errors.append("dag contains an invalid scalar")
     state_files = provenance.get("state_files") if isinstance(provenance, dict) else None
     error = _key_error(
         state_files,
@@ -264,6 +361,113 @@ def _host_attestation_ok(record: dict[str, Any]) -> bool:
     ).encode()
     expected = hmac.new(key, canonical, hashlib.sha256).hexdigest()
     return hmac.compare_digest(supplied, expected)
+
+
+def _capture_receipt_errors(
+    manifest_path: Path,
+    manifest: dict[str, Any],
+    profiles: dict[str, dict[str, Any]],
+    *,
+    require_host_attestation: bool,
+) -> list[str]:
+    errors: list[str] = []
+    relative = manifest.get("capture_receipt")
+    if relative != "capture_receipt.json":
+        return ["manifest capture_receipt must be capture_receipt.json"]
+    receipt_path = (manifest_path.parent / relative).resolve()
+    try:
+        receipt_path.relative_to(manifest_path.parent.resolve())
+        raw = receipt_path.read_bytes()
+        receipt = json.loads(raw)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return [f"invalid capture receipt: {exc}"]
+    if not isinstance(receipt, dict):
+        return ["capture receipt must be an object"]
+    if ABSOLUTE_PATH_RE.search(raw.decode("utf-8", errors="replace")):
+        errors.append("absolute path leaked in capture receipt")
+    expected_keys = {
+        "schema_version",
+        "event",
+        "captured_at_utc",
+        "capture_mode",
+        "authority",
+        "capture_tool_sha256",
+        "controls",
+        "sources",
+        "attestation_hmac_sha256",
+    }
+    error = _key_error(receipt, expected_keys, "capture receipt")
+    if error:
+        errors.append(error)
+    controls = receipt.get("controls")
+    control_keys = {
+        "source_opened_read_only",
+        "sqlite_uri_mode_ro",
+        "sqlite_query_only",
+        "double_snapshot_equal",
+        "source_output_disjoint",
+    }
+    error = _key_error(controls, control_keys, "capture receipt controls")
+    if error:
+        errors.append(error)
+    elif any(controls.get(key) is not True for key in control_keys):
+        errors.append("capture receipt read-only controls did not all pass")
+    capture_tool = Path(__file__).with_name("capture_harp_history_replay.py")
+    expected_tool_sha = _sha256(capture_tool.read_bytes())
+    if (
+        receipt.get("schema_version") != 1
+        or receipt.get("event") != "trusted_read_only_capture_completed"
+        or receipt.get("captured_at_utc") != manifest.get("captured_at_utc")
+        or receipt.get("capture_mode") != manifest.get("capture_mode")
+        or receipt.get("authority") != manifest.get("authority")
+        or receipt.get("capture_tool_sha256") != expected_tool_sha
+    ):
+        errors.append("capture receipt metadata or tool binding is invalid")
+    if require_host_attestation and not _host_attestation_ok(receipt):
+        errors.append("capture receipt host attestation is invalid")
+    sources = receipt.get("sources")
+    if not isinstance(sources, list) or len(sources) != 3:
+        errors.append("capture receipt must contain exactly three source snapshots")
+        return errors
+    manifest_rows = {
+        str(row.get("path") or ""): row
+        for row in (manifest.get("profiles") or [])
+        if isinstance(row, dict)
+    }
+    seen: set[str] = set()
+    for index, source in enumerate(sources):
+        error = _key_error(
+            source,
+            {
+                "replay_id",
+                "archetype",
+                "profile_path",
+                "profile_sha256",
+                "source_snapshot",
+            },
+            f"capture receipt sources[{index}]",
+        )
+        if error:
+            errors.append(error)
+            continue
+        profile_path = str(source.get("profile_path") or "")
+        profile = profiles.get(profile_path)
+        row = manifest_rows.get(profile_path)
+        if (
+            not profile
+            or not row
+            or source.get("replay_id") != row.get("replay_id")
+            or source.get("archetype") != row.get("archetype")
+            or source.get("profile_sha256") != row.get("sha256")
+            or source.get("source_snapshot") != profile.get("source_provenance")
+        ):
+            errors.append(
+                f"capture receipt source does not bind manifest/profile provenance: {profile_path}"
+            )
+        seen.add(profile_path)
+    if seen != set(manifest_rows):
+        errors.append("capture receipt source set does not match manifest profiles")
+    return errors
 
 
 def _pytest_command_ok(receipt: dict[str, Any]) -> bool:
@@ -358,7 +562,7 @@ def validate_replay_manifest(
         manifest,
         {
             "schema_version", "captured_at_utc", "capture_mode", "authority",
-            "profile_count", "profiles", "attestation_hmac_sha256"
+            "capture_receipt", "profile_count", "profiles", "attestation_hmac_sha256"
         },
         "manifest",
     )
@@ -378,6 +582,7 @@ def validate_replay_manifest(
         result["errors"].append("manifest must contain exactly three profiles")
         return result
     seen: set[str] = set()
+    loaded_profiles: dict[str, dict[str, Any]] = {}
     for row in rows:
         if not isinstance(row, dict):
             result["errors"].append("profile manifest row must be an object")
@@ -408,6 +613,7 @@ def validate_replay_manifest(
         if not isinstance(profile, dict):
             result["errors"].append(f"profile must be an object: {relative}")
             continue
+        loaded_profiles[relative] = profile
         if _sha256(raw) != str(row.get("sha256") or ""):
             result["errors"].append(f"profile hash mismatch: {relative}")
         text = raw.decode("utf-8", errors="replace")
@@ -443,7 +649,8 @@ def validate_replay_manifest(
         if len(digests) != 5 or any(not re.fullmatch(r"[0-9a-f]{64}", digest) for digest in digests):
             result["errors"].append(f"source provenance incomplete: {relative}")
         if any(
-            int(value.get("size_bytes") or 0) <= 0
+            type(value.get("size_bytes")) is not int
+            or value.get("size_bytes", 0) <= 0
             for value in (provenance.get("state_files") or {}).values()
             if isinstance(value, dict)
         ):
@@ -463,6 +670,14 @@ def validate_replay_manifest(
         result["errors"].append(
             "archetypes must be exactly: " + ", ".join(sorted(ARCHETYPES))
         )
+    result["errors"].extend(
+        _capture_receipt_errors(
+            path,
+            manifest,
+            loaded_profiles,
+            require_host_attestation=require_host_attestation,
+        )
+    )
     result["ok"] = not result["errors"]
     return result
 

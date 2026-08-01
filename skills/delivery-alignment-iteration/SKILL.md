@@ -497,6 +497,10 @@ completion, retry/resume, or workflow-health routing is reachable.
   mutate or repair a historical source.
 - Require the external trusted runner to attest the replay manifest; a
   candidate-selected key or unsigned capture cannot authorize promotion.
+- Require a separately attested capture receipt binding the capture-tool hash,
+  read-only/SQLite/double-snapshot controls, source snapshot digests, and every
+  derived profile hash. A signed manifest alone does not prove real-history
+  provenance.
 - Require the failure paths to be detected, owner-routed, prevented from early
   completion, and retained for later health audit. Also require one happy path
   to reach accepted review, passed artifact gate, true completion, restored
@@ -505,6 +509,10 @@ completion, retry/resume, or workflow-health routing is reachable.
   predicate, invocation, deterministic assertion, and durable evidence. The
   checker must re-evaluate the predicate against the current contract root;
   a signed record alone is replayable and insufficient.
+- For HARP runtime absence, use the checker's fixed
+  `no_harp_runtime_boundaries` repository inventory. It accepts no
+  author-selected paths and binds the current code inventory and every detected
+  boundary candidate into the signed observation.
 - A required combined receipt needs host-controlled attestation in addition to
   exact contract invocation, candidate/test hashes, stage producer/consumer
   bindings, fixture binding, and closure assertions.

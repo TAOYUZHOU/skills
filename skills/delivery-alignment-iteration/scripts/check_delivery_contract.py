@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import hmac
 import importlib.util
@@ -133,6 +134,7 @@ HISTORICAL_REPLAY_REQUIRED_KEYS = ["decision", "reason"]
 HISTORICAL_REPLAY_EVIDENCE_KEYS = [
     "fixture_manifest",
     "capture",
+    "capture_receipt",
     "invoke",
     "assert",
     "evidence",
@@ -913,6 +915,75 @@ def _load_chain_validator():
     return module
 
 
+RUNTIME_CODE_SUFFIXES = {
+    ".c", ".cc", ".cpp", ".go", ".java", ".js", ".mjs", ".py", ".rs",
+    ".sh", ".ts", ".tsx",
+}
+RUNTIME_BOUNDARY_STEMS = {
+    "completion_fact",
+    "execution_queue",
+    "result_review",
+    "workflow_health",
+}
+RUNTIME_META_FILES = {
+    "skills/delivery-alignment-iteration/scripts/capture_harp_history_replay.py",
+    "skills/delivery-alignment-iteration/scripts/check_delivery_contract.py",
+    "skills/delivery-alignment-iteration/scripts/validate_harp_chain_evidence.py",
+    "tests/test_delivery_alignment_contract_checker.py",
+    "tests/test_delivery_alignment_history_replay.py",
+}
+
+
+def _runtime_boundary_inventory(root: Path) -> tuple[dict, list[str]]:
+    """Inventory current code with a fixed, candidate-independent HARP classifier."""
+
+    rows: list[tuple[str, str]] = []
+    candidates: list[str] = []
+    for path in sorted(root.rglob("*")):
+        if ".git" in path.parts or not path.is_file():
+            continue
+        try:
+            relative = path.relative_to(root).as_posix()
+        except ValueError:
+            continue
+        if path.suffix.lower() not in RUNTIME_CODE_SUFFIXES:
+            continue
+        try:
+            raw = path.read_bytes()
+        except OSError:
+            candidates.append(relative)
+            continue
+        rows.append((relative, hashlib.sha256(raw).hexdigest()))
+        lowered_parts = {part.lower() for part in path.relative_to(root).parts}
+        path_signal = (
+            "runtime" in lowered_parts
+            or path.stem.lower() in RUNTIME_BOUNDARY_STEMS
+            or ("harp" in lowered_parts and relative not in RUNTIME_META_FILES)
+        )
+        semantic_signal = False
+        if relative not in RUNTIME_META_FILES:
+            text = raw.decode("utf-8", errors="ignore").lower()
+            semantic_signal = all(
+                token in text for token in ("queue", "review", "completion", "health")
+            )
+        if path_signal or semantic_signal:
+            candidates.append(relative)
+    inventory_sha = hashlib.sha256(
+        json.dumps(rows, ensure_ascii=False, separators=(",", ":")).encode()
+    ).hexdigest()
+    observation = {
+        "scanned_code_file_count": len(rows),
+        "inventory_sha256": inventory_sha,
+        "runtime_boundary_candidates": sorted(set(candidates)),
+    }
+    errors = [
+        "combined_chain_gate unreachability predicate is false: runtime boundary "
+        f"candidate is present: {path}"
+        for path in observation["runtime_boundary_candidates"]
+    ]
+    return observation, errors
+
+
 def _validate_unreachability(
     root: Path, gate_name: str, gate: dict, candidate: str
 ) -> tuple[bool, list[str], dict]:
@@ -932,16 +1003,28 @@ def _validate_unreachability(
         return False, [f"invalid {gate_name} unreachability evidence: {exc}"], {}
     predicate = proof.get("predicate")
     predicate_errors: list[str] = []
-    observation: dict[str, str] = {}
-    if not isinstance(predicate, dict) or set(predicate) != {"kind", "paths"}:
+    observation: dict = {}
+    if not isinstance(predicate, dict) or "kind" not in predicate:
         predicate_errors.append(
-            f"{gate_name} unreachability predicate must contain only kind and paths"
+            f"{gate_name} unreachability predicate must be a supported mapping"
         )
+    elif predicate.get("kind") == "no_harp_runtime_boundaries":
+        if set(predicate) != {"kind"}:
+            predicate_errors.append(
+                f"{gate_name} no_harp_runtime_boundaries predicate accepts no author-selected fields"
+            )
+        else:
+            observation, inventory_errors = _runtime_boundary_inventory(root)
+            predicate_errors.extend(inventory_errors)
     elif predicate.get("kind") != "all_paths_absent":
         predicate_errors.append(
             f"{gate_name} unreachability predicate kind is unsupported"
         )
     else:
+        if set(predicate) != {"kind", "paths"}:
+            predicate_errors.append(
+                f"{gate_name} all_paths_absent predicate must contain only kind and paths"
+            )
         paths = predicate.get("paths")
         if not isinstance(paths, list) or not paths:
             predicate_errors.append(
@@ -1085,14 +1168,33 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
                 historical.get("evidence"),
                 "historical_replay_gate.evidence",
             )
+            capture_receipt, capture_error = _contained_file(
+                root,
+                historical.get("capture_receipt"),
+                "historical_replay_gate.capture_receipt",
+            )
             result["errors"].extend(
-                value for value in (error, evidence_error) if value
+                value for value in (error, evidence_error, capture_error) if value
             )
             if replay_manifest is not None:
                 replay_validation = validator.validate_replay_manifest(replay_manifest)
                 result["historical_replay"]["recomputed"] = replay_validation
                 if replay_validation.get("ok") is not True:
                     result["errors"].append("historical replay manifest is invalid")
+                try:
+                    manifest_record = json.loads(
+                        replay_manifest.read_text(encoding="utf-8")
+                    )
+                    manifest_receipt = (
+                        replay_manifest.parent
+                        / str(manifest_record.get("capture_receipt") or "")
+                    ).resolve()
+                except (OSError, json.JSONDecodeError):
+                    manifest_receipt = None
+                if capture_receipt is None or manifest_receipt != capture_receipt.resolve():
+                    result["errors"].append(
+                        "historical replay capture receipt is not bound to the manifest"
+                    )
             if evidence_path is not None:
                 try:
                     stored = json.loads(evidence_path.read_text(encoding="utf-8"))
@@ -1114,6 +1216,7 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
                 replay_validation
                 and replay_validation.get("ok") is True
                 and evidence_path is not None
+                and capture_receipt is not None
                 and not any("historical replay" in error for error in result["errors"])
             )
 

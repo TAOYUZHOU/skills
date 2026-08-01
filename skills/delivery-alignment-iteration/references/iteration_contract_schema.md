@@ -61,16 +61,19 @@ For high-risk control-lifecycle iterations, both lifecycle gates are mandatory:
 - `decision: required` needs non-empty `reason`, `scope`, `invoke`, `assert`,
   and `evidence` in `combined_chain_gate`.
 - `decision: required` needs non-empty `reason`, `fixture_manifest`, `capture`,
-  `invoke`, `assert`, and `evidence` in `historical_replay_gate`.
+  `capture_receipt`, `invoke`, `assert`, and `evidence` in
+  `historical_replay_gate`.
 - Every schema-v2 contract declares both gates. `decision: not_applicable`
   needs `unreachability.predicate`, `unreachability.invoke`,
   `unreachability.assert`, and
   `unreachability.evidence`; the evidence JSON must say `ok: true`, identify the
   gate, record `reachable: false`, and exactly bind the predicate, current
   observation, command, and assertion. The checker supports the declarative
-  `all_paths_absent` predicate and re-evaluates every safe repository-relative
-  path against the current contract root. A copied signed record fails when
-  the current root makes the predicate false.
+  `all_paths_absent` predicate and the fixed `no_harp_runtime_boundaries`
+  repository inventory. The latter accepts no author-selected fields and
+  re-evaluates path and semantic boundary signals across the current code
+  inventory. A copied signed record fails when the current root makes the
+  predicate false.
   The signed record also binds `candidate_revision`, `repository_scope`, and
   `command_cwd`; it cannot be replayed for a later candidate.
   Existing mocks, unit tests, cost, prose, or an unavailable provider do not
@@ -78,6 +81,10 @@ For high-risk control-lifecycle iterations, both lifecycle gates are mandatory:
 - The historical manifest and unreachability record must be signed by the
   pre-provisioned host trust root outside the candidate repository. A temporary
   key selected by the candidate author is not promotion evidence.
+- The historical manifest names `capture_receipt.json`; the trusted runner
+  separately signs that record after the read-only capture. The checker
+  recomputes its capture-tool hash and requires its source snapshots and
+  profile hashes to exactly match the manifest and fixtures.
 - A required combined receipt must carry a valid host-controlled HMAC
   attestation and bind the exact contract invocation, candidate revision,
   target-local test path/hash, and all stage producer/consumer/assertion rows.
@@ -182,6 +189,7 @@ historical_replay_gate:
   reason: The control change can regress previously observed workspace states.
   fixture_manifest: path/to/sanitized/history/manifest.json
   capture: python3 path/to/capture_script.py --source ...
+  capture_receipt: path/to/sanitized/history/capture_receipt.json
   invoke: pytest -q tests/test_historical_control_replay.py
   assert:
     - review_projection_mismatch is detected and routed.

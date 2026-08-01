@@ -1,0 +1,102 @@
+{
+  "attestation_hmac_sha256": "5f233d6fa4593a6a79a45b31da748469d31f95163ec6dc61d2b5aa8b857e4d1e",
+  "authority": "historical_observation_only",
+  "capture_mode": "read_only_whitelist",
+  "capture_tool_sha256": "a165b95de8fa1cfe235ffa9cea6f3d2929d5336ee01a49c50209f1142a8f1700",
+  "captured_at_utc": "2026-08-01T06:35:56.949091Z",
+  "controls": {
+    "double_snapshot_equal": true,
+    "source_opened_read_only": true,
+    "source_output_disjoint": true,
+    "sqlite_query_only": true,
+    "sqlite_uri_mode_ro": true
+  },
+  "event": "trusted_read_only_capture_completed",
+  "schema_version": 1,
+  "sources": [
+    {
+      "archetype": "blocked_artifact_dependency",
+      "profile_path": "blocked_artifact_dependency.json",
+      "profile_sha256": "31e83431166a76e9e528a8cd4b784edb80e73f90448ab082af460c6948f28e1e",
+      "replay_id": "generic-blocked",
+      "source_snapshot": {
+        "selected_event_count": 0,
+        "selected_event_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "state_files": {
+          "completion_fact.json": {
+            "sha256": "d77e676dbbe7ef00b54b4e0c3676ca39370c1a1c424d964f68c833cb1ec32e1a",
+            "size_bytes": 19897
+          },
+          "dag_state.json": {
+            "sha256": "5f41dc0f5a1b9f73b0a078bef73221d4fdd2edc08bd9bd6e6185219f247f7444",
+            "size_bytes": 4369
+          },
+          "execution_queue.json": {
+            "sha256": "3e10547d3e1b2f8d8d6267c2b38ba2b6c1729a161dd0ff528588f5fdd1e83731",
+            "size_bytes": 119812
+          },
+          "workflow_health_fact.json": {
+            "sha256": "7b4e092fc7976f184e8f1f66fc2aa1f3947af015391d8b350741edc486d96075",
+            "size_bytes": 2702
+          }
+        }
+      }
+    },
+    {
+      "archetype": "partial_result_materialization",
+      "profile_path": "partial_result_materialization.json",
+      "profile_sha256": "74494bcb329079f2b8a83ddbbf38e592fcdb1f756b83c52297bdc4d5d98f671d",
+      "replay_id": "generic-partial",
+      "source_snapshot": {
+        "selected_event_count": 9,
+        "selected_event_digest": "63f28070a2c8e42861c318d32fb07e802703641961ae384cf810ddb745c9251d",
+        "state_files": {
+          "completion_fact.json": {
+            "sha256": "f81df8510e73c073c6a582b6b82861384976836eff0c0807adb454327fad65f3",
+            "size_bytes": 10540
+          },
+          "dag_state.json": {
+            "sha256": "4cff3b3e9eb069aa45bfe6cc740c974b9becd60eef120e002a7dbd3715485335",
+            "size_bytes": 2687
+          },
+          "execution_queue.json": {
+            "sha256": "8a9b6662b9a6521b07bb8b511f46ac26e03121425dad20cbfdb404f639ef72ff",
+            "size_bytes": 201923
+          },
+          "workflow_health_fact.json": {
+            "sha256": "28fc0b1e8b73ec641055a9abe67d00810f836a7b14ca0855cc74f150880663a2",
+            "size_bytes": 5248
+          }
+        }
+      }
+    },
+    {
+      "archetype": "review_projection_mismatch",
+      "profile_path": "review_projection_mismatch.json",
+      "profile_sha256": "22ee9521faafbb162ff6f5b0799150c3bafda07c9630d5060e1958bba6c800de",
+      "replay_id": "generic-review",
+      "source_snapshot": {
+        "selected_event_count": 16,
+        "selected_event_digest": "5847546e8479782e1e084f1af46cdc6d35babfc8f68b602f5b5091fc510d3b8f",
+        "state_files": {
+          "completion_fact.json": {
+            "sha256": "5a93564dca9cfc05912cf956461edb5bdd0b5d2dbee1ceb8d589c9e817420182",
+            "size_bytes": 7718
+          },
+          "dag_state.json": {
+            "sha256": "f5df0c8a5aad64ae4e5a8c59335f3e7ea6c0287e61f56b019492ba4f4193b75b",
+            "size_bytes": 2992
+          },
+          "execution_queue.json": {
+            "sha256": "e1ffc4be62c92b20f070e5e29ca9c7698c6b3ac91e0c813f95c9b8199a3bd25e",
+            "size_bytes": 212931
+          },
+          "workflow_health_fact.json": {
+            "sha256": "6b2e328e8c3c6f10dceecd32c5b257c260962d06bf549ffc69980b1464970508",
+            "size_bytes": 3460
+          }
+        }
+      }
+    }
+  ]
+}

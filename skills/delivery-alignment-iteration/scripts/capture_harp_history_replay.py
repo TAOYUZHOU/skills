@@ -375,6 +375,7 @@ def main() -> int:
             )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     profiles = []
+    capture_sources = []
     for label, archetype, workspace in sources:
         profile = _capture(label, archetype, workspace)
         target = args.output_dir / f"{archetype}.json"
@@ -390,11 +391,43 @@ def main() -> int:
                 "sha256": _sha256(target.read_bytes()),
             }
         )
-    manifest = {
+        capture_sources.append(
+            {
+                "replay_id": label,
+                "archetype": archetype,
+                "profile_path": target.name,
+                "profile_sha256": _sha256(target.read_bytes()),
+                "source_snapshot": profile["source_provenance"],
+            }
+        )
+    captured_at = _utc_now()
+    capture_receipt = {
         "schema_version": 1,
-        "captured_at_utc": _utc_now(),
+        "event": "trusted_read_only_capture_completed",
+        "captured_at_utc": captured_at,
         "capture_mode": "read_only_whitelist",
         "authority": "historical_observation_only",
+        "capture_tool_sha256": _sha256(Path(__file__).read_bytes()),
+        "controls": {
+            "source_opened_read_only": True,
+            "sqlite_uri_mode_ro": True,
+            "sqlite_query_only": True,
+            "double_snapshot_equal": True,
+            "source_output_disjoint": True,
+        },
+        "sources": sorted(capture_sources, key=lambda row: row["archetype"]),
+    }
+    capture_receipt_path = args.output_dir / "capture_receipt.json"
+    capture_receipt_path.write_text(
+        json.dumps(capture_receipt, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    manifest = {
+        "schema_version": 1,
+        "captured_at_utc": captured_at,
+        "capture_mode": "read_only_whitelist",
+        "authority": "historical_observation_only",
+        "capture_receipt": capture_receipt_path.name,
         "profile_count": len(profiles),
         "profiles": sorted(profiles, key=lambda row: row["archetype"]),
     }

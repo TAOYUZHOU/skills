@@ -264,6 +264,7 @@
       "active": true,
       "dag_status": "quiescent",
       "issue_types": [
+        "COMPLETION_REFRESH_REQUIRED",
         "WORKFLOW_STALL"
       ],
       "queue_counts": {
@@ -294,20 +295,20 @@
     "selected_event_digest": "63f28070a2c8e42861c318d32fb07e802703641961ae384cf810ddb745c9251d",
     "state_files": {
       "completion_fact.json": {
-        "sha256": "5d2528bdd1ed95bc5850c037e4115e6306b2b363040c6d46307e14aa2b6d70e0",
+        "sha256": "f81df8510e73c073c6a582b6b82861384976836eff0c0807adb454327fad65f3",
         "size_bytes": 10540
       },
       "dag_state.json": {
-        "sha256": "952a2d7ad7cf6278decf2e69a046325f142a385f7a99076aa98c982e5cd77b8e",
+        "sha256": "4cff3b3e9eb069aa45bfe6cc740c974b9becd60eef120e002a7dbd3715485335",
         "size_bytes": 2687
       },
       "execution_queue.json": {
-        "sha256": "4c8a29b415a5cea93693dff2b6451e7c136f34a50fd87acb960bba8c4ac96876",
+        "sha256": "8a9b6662b9a6521b07bb8b511f46ac26e03121425dad20cbfdb404f639ef72ff",
         "size_bytes": 201923
       },
       "workflow_health_fact.json": {
-        "sha256": "9a338bea5e4345099ec7b400abe4654116098c36e2267ad5ad7ed56f2f72dc1a",
-        "size_bytes": 2617
+        "sha256": "28fc0b1e8b73ec641055a9abe67d00810f836a7b14ca0855cc74f150880663a2",
+        "size_bytes": 5248
       }
     }
   }

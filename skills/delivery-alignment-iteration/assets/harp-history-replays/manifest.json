@@ -1,27 +1,28 @@
 {
+  "attestation_hmac_sha256": "10a6a94c8cd25c556f3017e972048d6ec6266c36b24373acbcfd61bf021ad061",
   "authority": "historical_observation_only",
-  "attestation_hmac_sha256": "942e8a4d09cb96d58f66b99fa53caf361c976a1ef2b570014b23678dff9510ed",
   "capture_mode": "read_only_whitelist",
-  "captured_at_utc": "2026-08-01T06:11:54.171490Z",
+  "capture_receipt": "capture_receipt.json",
+  "captured_at_utc": "2026-08-01T06:35:56.949091Z",
   "profile_count": 3,
   "profiles": [
     {
       "archetype": "blocked_artifact_dependency",
       "path": "blocked_artifact_dependency.json",
       "replay_id": "generic-blocked",
-      "sha256": "688d32445a22133a93459a943e44bbce5799b768527cb8bb82803b3e8a80102c"
+      "sha256": "31e83431166a76e9e528a8cd4b784edb80e73f90448ab082af460c6948f28e1e"
     },
     {
       "archetype": "partial_result_materialization",
       "path": "partial_result_materialization.json",
       "replay_id": "generic-partial",
-      "sha256": "f099503d9f077484b65499926a28e0dd3bd47b023fac00af7ff6598c342725a0"
+      "sha256": "74494bcb329079f2b8a83ddbbf38e592fcdb1f756b83c52297bdc4d5d98f671d"
     },
     {
       "archetype": "review_projection_mismatch",
       "path": "review_projection_mismatch.json",
       "replay_id": "generic-review",
-      "sha256": "fa59f5186588b65e18bae08668ad7e2221469b07e8d2b98f94a064c37dae24ef"
+      "sha256": "22ee9521faafbb162ff6f5b0799150c3bafda07c9630d5060e1958bba6c800de"
     }
   ],
   "schema_version": 1

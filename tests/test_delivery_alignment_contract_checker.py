@@ -45,8 +45,7 @@ def _v2_contract(*, risk: str = "high", decision: str = "required") -> str:
         + "  reason: fixture contract test has no control lifecycle\n"
         + "  unreachability:\n"
         + "    predicate:\n"
-        + "      kind: all_paths_absent\n"
-        + "      paths: [harp/runtime]\n"
+        + "      kind: no_harp_runtime_boundaries\n"
         + "    invoke: prove no queue, review, completion, or health path exists\n"
         + "    assert: combined lifecycle is unreachable\n"
         + "    evidence: docs/evidence/combined_unreachable.json\n"
@@ -197,8 +196,7 @@ def test_required_lifecycle_gates_require_evidence_fields() -> None:
         "  reason: fixture contract test has no control lifecycle\n"
         "  unreachability:\n"
         "    predicate:\n"
-        "      kind: all_paths_absent\n"
-        "      paths: [harp/runtime]\n"
+        "      kind: no_harp_runtime_boundaries\n"
         "    invoke: prove no queue, review, completion, or health path exists\n"
         "    assert: combined lifecycle is unreachable\n"
         "    evidence: docs/evidence/combined_unreachable.json\n",
@@ -258,6 +256,16 @@ def test_required_lifecycle_evidence_is_recomputed(
         key.read_bytes(), manifest_payload, hashlib.sha256
     ).hexdigest()
     manifest.write_text(json.dumps(manifest_record), encoding="utf-8")
+    capture_receipt = fixtures / "capture_receipt.json"
+    capture_record = json.loads(capture_receipt.read_text(encoding="utf-8"))
+    capture_record.pop("attestation_hmac_sha256", None)
+    capture_payload = json.dumps(
+        capture_record, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
+    capture_record["attestation_hmac_sha256"] = hmac.new(
+        key.read_bytes(), capture_payload, hashlib.sha256
+    ).hexdigest()
+    capture_receipt.write_text(json.dumps(capture_record), encoding="utf-8")
     validator = checker._load_chain_validator()
     replay = validator.validate_replay_manifest(manifest)
     history_evidence = tmp_path / "history_validation.json"
@@ -339,8 +347,7 @@ def test_required_lifecycle_evidence_is_recomputed(
         "  reason: fixture contract test has no control lifecycle\n"
         "  unreachability:\n"
         "    predicate:\n"
-        "      kind: all_paths_absent\n"
-        "      paths: [harp/runtime]\n"
+        "      kind: no_harp_runtime_boundaries\n"
         "    invoke: prove no queue, review, completion, or health path exists\n"
         "    assert: combined lifecycle is unreachable\n"
         "    evidence: docs/evidence/combined_unreachable.json\n",
@@ -363,12 +370,13 @@ def test_required_lifecycle_evidence_is_recomputed(
         "    invoke: prove no historical control state reaches this fixture\n"
         "    assert: historical replay is unreachable\n"
         "    evidence: docs/evidence/history_unreachable.json\n",
-        "historical_replay_gate:\n"
-        "  decision: required\n"
-        "  reason: persisted workspace state is reachable\n"
-        "  fixture_manifest: fixtures/manifest.json\n"
-        "  capture: read-only whitelist capture\n"
-        "  invoke: replay all three profiles\n"
+            "historical_replay_gate:\n"
+            "  decision: required\n"
+            "  reason: persisted workspace state is reachable\n"
+            "  fixture_manifest: fixtures/manifest.json\n"
+            "  capture: read-only whitelist capture\n"
+            "  capture_receipt: fixtures/capture_receipt.json\n"
+            "  invoke: replay all three profiles\n"
         "  assert: all replay oracles pass\n"
         "  evidence: history_validation.json\n",
     )
@@ -419,8 +427,7 @@ def test_unreachability_prose_cannot_satisfy_a_lifecycle_gate() -> None:
     contract = _v2_contract().replace(
         "  unreachability:\n"
         "    predicate:\n"
-        "      kind: all_paths_absent\n"
-        "      paths: [harp/runtime]\n"
+        "      kind: no_harp_runtime_boundaries\n"
         "    invoke: prove no queue, review, completion, or health path exists\n"
         "    assert: combined lifecycle is unreachable\n"
         "    evidence: docs/evidence/combined_unreachable.json\n",
@@ -470,21 +477,19 @@ def test_unreachability_evidence_is_machine_bound(
             "ok": True,
             "gate": gate,
             "reachable": False,
-            "predicate": {
-                "kind": "all_paths_absent",
-                "paths": [
-                    "harp/runtime"
-                    if gate == "combined_chain_gate"
-                    else "harp/history-state"
-                ],
-            },
-            "observation": {
-                (
-                    "harp/runtime"
-                    if gate == "combined_chain_gate"
-                    else "harp/history-state"
-                ): "absent"
-            },
+            "predicate": (
+                {"kind": "no_harp_runtime_boundaries"}
+                if gate == "combined_chain_gate"
+                else {
+                    "kind": "all_paths_absent",
+                    "paths": ["harp/history-state"],
+                }
+            ),
+            "observation": (
+                checker._runtime_boundary_inventory(tmp_path)[0]
+                if gate == "combined_chain_gate"
+                else {"harp/history-state": "absent"}
+            ),
             "command": command,
             "assertion": assertion,
             "candidate_revision": "def",
@@ -507,13 +512,18 @@ def test_unreachability_evidence_is_machine_bound(
     assert not result["ok"]
     assert any("does not match its proof" in error for error in result["errors"])
 
-    runtime = tmp_path / "harp" / "runtime"
+    runtime = tmp_path / "src" / "harp" / "runtime"
     runtime.mkdir(parents=True)
+    (runtime / "control_chain.py").write_text(
+        "queue = review = completion = health = True\n", encoding="utf-8"
+    )
     result = checker.validate_lifecycle_evidence(contract, tmp_path)
     assert not result["ok"]
     assert any("predicate is false" in error for error in result["errors"])
+    (runtime / "control_chain.py").unlink()
     runtime.rmdir()
     runtime.parent.rmdir()
+    runtime.parent.parent.rmdir()
 
     path = tmp_path / "docs" / "evidence" / "combined_unreachable.json"
     record = json.loads(path.read_text(encoding="utf-8"))

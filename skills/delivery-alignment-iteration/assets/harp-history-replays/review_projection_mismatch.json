@@ -460,11 +460,11 @@
     "selected_event_digest": "5847546e8479782e1e084f1af46cdc6d35babfc8f68b602f5b5091fc510d3b8f",
     "state_files": {
       "completion_fact.json": {
-        "sha256": "f1457e3bf4c22419662a93cdd2869912e17c8c6eb512e470a9fdf7bb3cc1c1d5",
+        "sha256": "5a93564dca9cfc05912cf956461edb5bdd0b5d2dbee1ceb8d589c9e817420182",
         "size_bytes": 7718
       },
       "dag_state.json": {
-        "sha256": "d74138c1aa71c3ba1788926868836a153d7faa9d5264db11cfc4dd87989ac846",
+        "sha256": "f5df0c8a5aad64ae4e5a8c59335f3e7ea6c0287e61f56b019492ba4f4193b75b",
         "size_bytes": 2992
       },
       "execution_queue.json": {
@@ -472,8 +472,8 @@
         "size_bytes": 212931
       },
       "workflow_health_fact.json": {
-        "sha256": "a1ca32b5cd56d2b9908ac7012ba04e6b91b9fc0c6c54e1b2916203ea946946fa",
-        "size_bytes": 3461
+        "sha256": "6b2e328e8c3c6f10dceecd32c5b257c260962d06bf549ffc69980b1464970508",
+        "size_bytes": 3460
       }
     }
   }

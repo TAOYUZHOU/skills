@@ -91,6 +91,11 @@ historical source.
 After capture, the trusted runner outside the candidate repository signs the
 manifest with its pre-provisioned trust root. A developer-selected temporary
 key or unsigned manifest is diagnostic only and cannot authorize completion.
+The same trusted run emits and separately signs `capture_receipt.json`, binding
+the capture script hash, enforced read-only controls, all three source snapshot
+digest sets, and each derived profile hash. The manifest names this receipt and
+the iteration contract binds its path; a plausible synthetic manifest without
+that capture witness is not acceptable provenance.
 
 ## Evidence Contract
 
@@ -99,7 +104,8 @@ For an applicable high-risk iteration, the machine contract declares:
 - `combined_chain_gate`: scope, invocation, ordered assertions, and durable
   receipt;
 - `historical_replay_gate`: fixture manifest, read-only capture command,
-  replay invocation, archetype assertions, and durable validation evidence.
+  trusted capture receipt, replay invocation, archetype assertions, and durable
+  validation evidence.
 
 The combined receipt binds the contract invocation, immutable candidate,
 target-local test path and SHA-256, fixture-manifest SHA-256, and a

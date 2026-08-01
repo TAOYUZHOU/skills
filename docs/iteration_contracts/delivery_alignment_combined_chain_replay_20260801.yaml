@@ -167,11 +167,9 @@ combined_chain_gate:
     on which a target-local ten-stage chain could run.
   unreachability:
     predicate:
-      kind: all_paths_absent
-      paths:
-        - harp/runtime
+      kind: no_harp_runtime_boundaries
     invoke: >-
-      python3 -c "from pathlib import Path; assert not Path('harp/runtime').exists()"
+      checker built-in no_harp_runtime_boundaries inventory over the current contract root
     assert: No target HARP runtime producer/consumer package exists in this skill repository.
     evidence: docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_unreachability.json
 
@@ -180,6 +178,7 @@ historical_replay_gate:
   reason: Clean hand-authored mocks previously hid cross-projection and retained-state failures.
   fixture_manifest: skills/delivery-alignment-iteration/assets/harp-history-replays/manifest.json
   capture: Read-only whitelist extraction with source hashes, selected-event digest, path scrubbing, and no raw database copy.
+  capture_receipt: skills/delivery-alignment-iteration/assets/harp-history-replays/capture_receipt.json
   invoke: python3 skills/delivery-alignment-iteration/scripts/validate_harp_chain_evidence.py --replay-manifest skills/delivery-alignment-iteration/assets/harp-history-replays/manifest.json
   assert:
     - Exactly three distinct generic historical archetypes are present.
@@ -191,7 +190,7 @@ adversarial_gate:
   decision: required
   reason: SKILL.md and the checker are authoritative Agent and delivery-gate behavior.
   base: d94d282c7982a6de7041343d12df9cee5cf8a7c1
-  candidate: e606effd18de22e5da890fdea6bbbed1295e6c0b
+  candidate: 1269274d743d8ba47ee6b35bbdc6045500986d3b
   attack_scope:
     - skills/delivery-alignment-iteration/SKILL.md
     - skills/delivery-alignment-iteration/agents/openai.yaml
@@ -201,6 +200,7 @@ adversarial_gate:
     - skills/delivery-alignment-iteration/scripts/capture_harp_history_replay.py
     - skills/delivery-alignment-iteration/scripts/validate_harp_chain_evidence.py
     - skills/delivery-alignment-iteration/assets/harp-history-replays/manifest.json
+    - skills/delivery-alignment-iteration/assets/harp-history-replays/capture_receipt.json
     - skills/delivery-alignment-iteration/assets/harp-history-replays/review_projection_mismatch.json
     - skills/delivery-alignment-iteration/assets/harp-history-replays/blocked_artifact_dependency.json
     - skills/delivery-alignment-iteration/assets/harp-history-replays/partial_result_materialization.json

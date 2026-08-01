@@ -288,6 +288,44 @@ def test_workflow_queue_counts_cannot_carry_free_form_keys(tmp_path: Path) -> No
     assert any("workflow queue counts are invalid" in error for error in result["errors"])
 
 
+def test_output_assessment_cannot_carry_free_form_keys(tmp_path: Path) -> None:
+    copied = tmp_path / "fixtures"
+    shutil.copytree(FIXTURES, copied)
+    manifest_path = copied / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    row = manifest["profiles"][0]
+    profile_path = copied / row["path"]
+    profile = json.loads(profile_path.read_text(encoding="utf-8"))
+    profile["facts"]["queue"][0]["output_assessment"]["note"] = (
+        "secret-token-material"
+    )
+    profile_path.write_text(json.dumps(profile), encoding="utf-8")
+    row["sha256"] = _sha256(profile_path)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    result = validator.validate_replay_manifest(
+        manifest_path, require_host_attestation=False
+    )
+    assert not result["ok"]
+    assert any("output_assessment keys mismatch" in error for error in result["errors"])
+
+
+def test_capture_receipt_must_bind_real_snapshot_and_profile(tmp_path: Path) -> None:
+    copied = tmp_path / "fixtures"
+    shutil.copytree(FIXTURES, copied)
+    receipt_path = copied / "capture_receipt.json"
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    receipt["sources"][0]["source_snapshot"]["selected_event_digest"] = "0" * 64
+    receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+    result = validator.validate_replay_manifest(
+        copied / "manifest.json", require_host_attestation=False
+    )
+    assert not result["ok"]
+    assert any(
+        "does not bind manifest/profile provenance" in error
+        for error in result["errors"]
+    )
+
+
 def test_capture_refuses_output_inside_a_historical_source(tmp_path: Path) -> None:
     sources = [tmp_path / f"source-{index}" for index in range(3)]
     for source in sources:
