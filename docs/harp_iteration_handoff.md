@@ -1,7 +1,7 @@
 # HARP Iteration Handoff
 
 status: partial
-updated_at_utc: 2026-08-01T05:55:20Z
+updated_at_utc: 2026-08-01T06:02:36Z
 iteration: delivery-alignment-combined-chain-replay
 contract: docs/iteration_contracts/delivery_alignment_combined_chain_replay_20260801.yaml
 
@@ -25,7 +25,8 @@ workspace mocks with sanitized replays derived from three real workspace histori
 - Rejected first candidate: `84f7ddeb2c7c1e8c14c9bbf48325f93754627485`.
 - Rejected second candidate: `ad783b17d84b55e31fc3655f16586521807de83c`.
 - Rejected third candidate: `826c814ab0ece6cacac778089a219798220165ac`.
-- Internally rejected fourth candidate: `27316c4b011d0663aeaeb9a046ed16536dac2e1c`; fifth pending freeze.
+- Internally rejected fourth candidate: `27316c4b011d0663aeaeb9a046ed16536dac2e1c`.
+- Rejected fifth candidate: `6ecd8409ac1c0dc4cdf52673fa45a3c7eeae12b4`; sixth pending freeze.
 - Three read-only source histories exhibit distinct classes: accepted-review projection mismatch, blocked missing-artifact dependency, and partial-result materialization.
 - The working tree already contains unrelated untracked evidence and skills; they are outside this iteration.
 
@@ -34,9 +35,11 @@ workspace mocks with sanitized replays derived from three real workspace histori
 The first frozen candidate failed independent forward and exact-diff review.
 The third candidate's exact-diff review found one remaining command/test
 semantic split. It was repaired and covered in fourth candidate `27316c4`.
-Before sending that candidate to the external Agent, internal review found that
+Before sending the fourth candidate to the external Agent, internal review found that
 argv membership alone could still be deselected. Constrained pytest plus parsed,
-hash-bound JUnit evidence is implemented; a fifth candidate is pending.
+hash-bound JUnit evidence was implemented in fifth candidate `6ecd840`. Its
+Agent review then correctly rejected using a metadata test as if it were a real
+HARP runtime chain and identified the missing external-candidate CLI binding.
 
 ## Completed changes
 
@@ -53,13 +56,14 @@ hash-bound JUnit evidence is implemented; a fifth candidate is pending.
 - Rejected `ad783b1` and added manifest/unreachability host attestations, single-component path rejection, contract/candidate/test command binding, and per-stage producer/consumer/assertion bindings.
 - Rejected `826c814` and required the attested invocation to include the bound chain test path as an exact argv token; ancestor/source output overlap is also rejected.
 - Internally rejected `27316c4`; the command is now constrained to one pytest target plus JUnit, and the checker requires at least one testcase from that module with zero failures, errors, or skips.
+- Rejected `6ecd840`; this skill-only iteration now records a host-attested combined-chain unreachability proof instead of claiming a runtime chain, while future HARP runtime targets remain required to execute it. High-risk checker runs also require the externally frozen candidate SHA.
 
 ## Verification evidence
 
 - Pre-change repository HEAD is `d94d282c7982a6de7041343d12df9cee5cf8a7c1`.
 - The three source workspaces were inspected read-only and no repair command was executed.
-- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 98 passed after the second adversarial repairs.
-- `pytest -q`: 105 passed after the second adversarial repairs.
+- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 99 passed after the fifth adversarial repairs.
+- `pytest -q`: 106 passed after the fifth adversarial repairs.
 - `quick_validate.py skills/delivery-alignment-iteration`: `Skill is valid!`.
 - `validate_harp_chain_evidence.py` reports all three replay oracles and the combined receipt valid.
 - Durable evidence: `docs/evidence/delivery_alignment_combined_chain_replay_20260801/`.
@@ -73,7 +77,8 @@ hash-bound JUnit evidence is implemented; a fifth candidate is pending.
 - The earlier bubblewrap-blocked turn is retained as diagnostic evidence and is not counted as a gate.
 - Candidate `ad783b1` produced six reported attacks; five were repaired. The sixth is the unavoidable fact that a Git commit cannot contain its own SHA and is handled by the post-freeze contract/handoff binding checked against the immutable commit.
 - Candidate `826c814` produced one executable attack: a green sibling command could be attested while only hashing an unexecuted failing chain test. The argv-token binding repair closes it.
-- Fifth immutable candidate, clean independent output, zero-escape deterministic result, and final trusted attestations remain pending.
+- Candidate `6ecd840` produced two executable attacks; both are repaired by the honest applicability decision and external candidate binding.
+- Sixth immutable candidate, clean independent output, zero-escape deterministic result, and final trusted attestations remain pending.
 
 ## Open blockers and risks
 
@@ -83,7 +88,7 @@ hash-bound JUnit evidence is implemented; a fifth candidate is pending.
 
 ## Exact next action
 
-Freeze the fifth candidate, then rerun independent skill consumption plus
+Freeze the sixth candidate, then rerun independent skill consumption plus
 exact-diff counterexample review.
 
 ## Final claims allowed now

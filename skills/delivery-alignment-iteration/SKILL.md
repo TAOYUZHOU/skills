@@ -50,6 +50,7 @@ python3 scripts/check_delivery_contract.py \
   --contract /path/to/iteration_contract.yaml \
   --handoff /path/to/repo/docs/harp_iteration_handoff.md \
   --root /path/to/repo \
+  --expected-candidate <immutable-candidate-sha> \
   --require-current-schema
 ```
 

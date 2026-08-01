@@ -139,6 +139,14 @@ def test_high_risk_contract_cannot_skip() -> None:
     assert "high-risk diff requires decision: required" in result["adversarial_errors"]
 
 
+def test_high_risk_contract_binds_externally_frozen_candidate() -> None:
+    candidate = "a" * 40
+    contract = _v2_contract().replace("  candidate: def", f"  candidate: {candidate}")
+    assert checker.validate_expected_candidate(contract, candidate)["ok"]
+    assert not checker.validate_expected_candidate(contract, "b" * 40)["ok"]
+    assert not checker.validate_expected_candidate(contract, "")["ok"]
+
+
 def test_high_risk_contract_requires_both_lifecycle_gates() -> None:
     contract = _v2_contract()
     contract = contract.split("combined_chain_gate:\n", 1)[0]

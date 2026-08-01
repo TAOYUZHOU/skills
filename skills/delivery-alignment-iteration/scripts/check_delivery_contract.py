@@ -731,6 +731,27 @@ def validate_current_schema(result: dict) -> dict:
     }
 
 
+def validate_expected_candidate(text: str, expected: str) -> dict:
+    data, _ = _load_v2_mapping(text)
+    gate = data.get("adversarial_gate") if data else None
+    declared = gate.get("candidate") if isinstance(gate, dict) else ""
+    risk = gate.get("risk") if isinstance(gate, dict) else ""
+    if risk != "high":
+        return {"ok": True, "declared": declared, "expected": expected}
+    ok = bool(
+        re.fullmatch(r"[0-9a-f]{40}", str(expected or ""))
+        and declared == expected
+    )
+    return {
+        "ok": ok,
+        "declared": declared,
+        "expected": expected,
+        "error": "high-risk contract must match the externally frozen candidate"
+        if not ok
+        else "",
+    }
+
+
 def validate_handoff_binding(text: str, root: Path, supplied: Path) -> dict:
     data, _ = _load_v2_mapping(text)
     handoff = data.get("handoff") if data else None
@@ -1322,6 +1343,11 @@ def main() -> int:
     parser.add_argument("--handoff", required=True, help="Stable docs handoff SSOT path.")
     parser.add_argument("--root", default=".", help="Repository root for future path checks.")
     parser.add_argument(
+        "--expected-candidate",
+        default=os.environ.get("DELIVERY_ALIGNMENT_EXPECTED_CANDIDATE", ""),
+        help="Externally frozen candidate SHA required for high-risk promotion.",
+    )
+    parser.add_argument(
         "--require-current-schema",
         action="store_true",
         help="Deprecated compatibility alias; current schema is required by default.",
@@ -1356,6 +1382,11 @@ def main() -> int:
     result["handoff"] = handoff_result
     result["ok"] = bool(result["ok"] and handoff_result.get("ok"))
     if int(result.get("schema_version") or 0) == 2:
+        expected_candidate = validate_expected_candidate(
+            text, args.expected_candidate
+        )
+        result["expected_candidate"] = expected_candidate
+        result["ok"] = bool(result["ok"] and expected_candidate.get("ok"))
         lifecycle_evidence = validate_lifecycle_evidence(
             text, Path(args.root).resolve()
         )

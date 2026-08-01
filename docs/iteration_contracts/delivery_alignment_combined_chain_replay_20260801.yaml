@@ -148,9 +148,9 @@ handoff:
   policy: Update after every material implementation, verification, blocker, candidate identity, or evidence decision.
 
 sandbox:
-  scope: One complete HARP executor-result-to-post-repair-health lifecycle plus three historical negative replay profiles.
-  fixture: Sanitized read-only derivatives of the three observed generic live workspace histories.
-  invoke: Targeted pytest and validate_harp_chain_evidence.py over bundled replay assets and a generated full-chain receipt.
+  scope: Skill/checker consumption of the lifecycle-gate contract plus three historical negative replay profiles.
+  fixture: Sanitized read-only derivatives of the three observed generic live workspace histories and an exact-diff Agent prompt.
+  invoke: Targeted pytest, validate_harp_chain_evidence.py, and a real Codex forward/exact-diff turn over the frozen skill candidate.
   assert:
     - Partial or blocked executor results cannot silently become terminal success.
     - Result observation and ResultReviewRecorded identity agree with the completion consumer.
@@ -160,14 +160,16 @@ sandbox:
     - docs/evidence/delivery_alignment_combined_chain_replay_20260801
 
 combined_chain_gate:
-  decision: required
-  reason: The skill changes the mandatory verification lifecycle for control-state iterations.
-  scope: Executor handoff through post-repair workflow-health closure.
-  invoke: pytest -q tests/test_delivery_alignment_history_replay.py --junitxml=docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_junit.xml
-  assert:
-    - All mandatory lifecycle stages appear once in canonical order.
-    - Three historical negative cases remain open and typed until their owner/reviewer/closure conditions are satisfied.
-  evidence: docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_receipt.json
+  decision: not_applicable
+  reason: >-
+    This iteration changes the skill and checker contract, but this repository
+    has no HARP runtime executor/review/completion/health producers or consumers
+    on which a target-local ten-stage chain could run.
+  unreachability:
+    invoke: >-
+      python3 -c "from pathlib import Path; assert not Path('harp/runtime').exists()"
+    assert: No target HARP runtime producer/consumer package exists in this skill repository.
+    evidence: docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_unreachability.json
 
 historical_replay_gate:
   decision: required
@@ -185,7 +187,7 @@ adversarial_gate:
   decision: required
   reason: SKILL.md and the checker are authoritative Agent and delivery-gate behavior.
   base: d94d282c7982a6de7041343d12df9cee5cf8a7c1
-  candidate: 27316c4b011d0663aeaeb9a046ed16536dac2e1c
+  candidate: 6ecd8409ac1c0dc4cdf52673fa45a3c7eeae12b4
   attack_scope:
     - skills/delivery-alignment-iteration/SKILL.md
     - skills/delivery-alignment-iteration/agents/openai.yaml
@@ -201,6 +203,7 @@ adversarial_gate:
     - tests/test_delivery_alignment_contract_checker.py
     - tests/test_delivery_alignment_history_replay.py
     - docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_receipt.json
+    - docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_unreachability.json
     - docs/evidence/delivery_alignment_combined_chain_replay_20260801/historical_replay_validation.json
     - docs/iteration_contracts/delivery_alignment_combined_chain_replay_20260801.yaml
     - docs/harp_iteration_handoff.md

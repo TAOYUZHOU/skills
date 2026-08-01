@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "gate": "combined_chain_gate",
+  "reachable": false,
+  "command": "python3 -c \"from pathlib import Path; assert not Path('harp/runtime').exists()\"",
+  "assertion": "No target HARP runtime producer/consumer package exists in this skill repository.",
+  "scope": "Current skill/checker repository only; future HARP runtime target repositories remain required to run the real ten-stage chain.",
+  "attestation_hmac_sha256": "dd2f1cdb0c13538e4f89ee085a7c8cb4b85a772fc869e7cfb92af2273d0c1174"
+}
