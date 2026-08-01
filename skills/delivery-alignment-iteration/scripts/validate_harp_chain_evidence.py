@@ -685,7 +685,12 @@ def validate_replay_manifest(
     return result
 
 
-def validate_chain_receipt(path: Path, replay_manifest: Path) -> dict[str, Any]:
+def validate_chain_receipt(
+    path: Path,
+    replay_manifest: Path,
+    *,
+    allow_meta_validation: bool = False,
+) -> dict[str, Any]:
     result: dict[str, Any] = {"ok": False, "path": path.name, "errors": []}
     try:
         receipt = _load(path)
@@ -747,25 +752,40 @@ def validate_chain_receipt(path: Path, replay_manifest: Path) -> dict[str, Any]:
         r"[0-9a-f]{64}", str(receipt.get("junit_sha256") or "")
     ):
         result["errors"].append("combined chain JUnit binding is invalid")
-    if receipt.get("boundary_mode") not in {
-        "skill_gate_meta_validation",
-        "target_local_real_producers_consumers",
-    }:
-        result["errors"].append("combined chain boundary mode is invalid")
+    boundary_mode = receipt.get("boundary_mode")
+    if boundary_mode != "target_local_real_producers_consumers" and not (
+        allow_meta_validation and boundary_mode == "skill_gate_meta_validation"
+    ):
+        result["errors"].append(
+            "required combined chain must use target-local real producers and consumers"
+        )
     bindings = receipt.get("stage_bindings")
     if not isinstance(bindings, dict) or set(bindings) != set(CHAIN_STAGES):
         result["errors"].append("combined chain stage bindings are incomplete")
     else:
+        testcase_names: set[str] = set()
         for stage, binding in bindings.items():
+            expected_binding_keys = {"producer", "consumer", "assertion"}
+            if boundary_mode == "target_local_real_producers_consumers":
+                expected_binding_keys.add("testcase")
             if (
                 not isinstance(binding, dict)
-                or set(binding) != {"producer", "consumer", "assertion"}
+                or set(binding) != expected_binding_keys
                 or any(not str(value).strip() for value in binding.values())
             ):
                 result["errors"].append(
                     f"combined chain stage binding is invalid: {stage}"
                 )
                 break
+            if "testcase" in binding:
+                testcase_names.add(str(binding["testcase"]))
+        if (
+            boundary_mode == "target_local_real_producers_consumers"
+            and len(testcase_names) != len(CHAIN_STAGES)
+        ):
+            result["errors"].append(
+                "target-local stage bindings require one unique testcase per stage"
+            )
     if not _host_attestation_ok(receipt):
         result["errors"].append("combined chain host attestation is invalid")
     result["ok"] = not result["errors"]
@@ -776,6 +796,11 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--replay-manifest", required=True, type=Path)
     parser.add_argument("--chain-receipt", type=Path)
+    parser.add_argument(
+        "--allow-meta-validation",
+        action="store_true",
+        help="Diagnostic only; never satisfies a required combined-chain gate.",
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     payload: dict[str, Any] = {
@@ -783,7 +808,9 @@ def main() -> int:
     }
     if args.chain_receipt:
         payload["combined_chain"] = validate_chain_receipt(
-            args.chain_receipt, args.replay_manifest
+            args.chain_receipt,
+            args.replay_manifest,
+            allow_meta_validation=args.allow_meta_validation,
         )
     payload["ok"] = all(
         value.get("ok") is True

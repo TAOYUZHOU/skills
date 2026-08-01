@@ -74,8 +74,12 @@ For high-risk control-lifecycle iterations, both lifecycle gates are mandatory:
   re-evaluates path and semantic boundary signals across the current code
   inventory. It fails closed for code outside the skill-catalog layout and
   unions lifecycle signals across modules within one package, so split queue,
-  review, completion, and health files cannot evade it. A copied signed record
-  fails when the current root makes the predicate false.
+  review, completion, and health files cannot evade it. It also unions signals
+  from every code file changed by immutable `base..candidate`, including across
+  packages and evidence directories. `combined_chain_gate` cannot substitute
+  `all_paths_absent`; that predicate remains available only for other supported
+  unreachability classes. A copied signed record fails when the current root
+  makes the predicate false.
   The signed record also binds `candidate_revision`, `repository_scope`, and
   `command_cwd`; it cannot be replayed for a later candidate.
   Existing mocks, unit tests, cost, prose, or an unavailable provider do not
@@ -90,9 +94,14 @@ For high-risk control-lifecycle iterations, both lifecycle gates are mandatory:
 - A required combined receipt must carry a valid host-controlled HMAC
   attestation and bind the exact contract invocation, candidate revision,
   target-local test path/hash, and all stage producer/consumer/assertion rows.
+  Every target-local stage row also binds one unique JUnit testcase from that
+  module.
   The invocation must use the constrained pytest form with that sole test path
   and a hash-bound JUnit report proving the module ran with no failure, error,
-  or skip.
+  or skip in both aggregate counters and testcase nodes.
+- Its `boundary_mode` must be `target_local_real_producers_consumers`.
+  Skill-gate meta-validation may be retained as diagnostic evidence but is not
+  accepted by the required lifecycle gate.
 - The chain is additive to the atomic sandbox and exact-diff adversarial gate.
   Required gates without passing evidence keep the iteration non-complete.
 

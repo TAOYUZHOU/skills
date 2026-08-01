@@ -8,6 +8,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
 
 CHECKER = (
     Path(__file__).parents[1]
@@ -274,12 +276,21 @@ def test_required_lifecycle_evidence_is_recomputed(
         encoding="utf-8",
     )
     target_test = tmp_path / "target_chain_test.py"
-    target_test.write_text("def test_chain():\n    assert True\n", encoding="utf-8")
+    target_test.write_text(
+        "\n".join(
+            f"def test_{stage}():\n    assert True\n"
+            for stage in checker._load_chain_validator().CHAIN_STAGES
+        ),
+        encoding="utf-8",
+    )
     junit = tmp_path / "chain.xml"
     junit.write_text(
-        '<testsuites><testsuite tests="1" failures="0" errors="0" skipped="0">'
-        '<testcase classname="target_chain_test" name="test_chain" />'
-        "</testsuite></testsuites>",
+        '<testsuites><testsuite tests="10" failures="0" errors="0" skipped="0">'
+        + "".join(
+            f'<testcase classname="target_chain_test" name="test_{stage}" />'
+            for stage in checker._load_chain_validator().CHAIN_STAGES
+        )
+        + "</testsuite></testsuites>",
         encoding="utf-8",
     )
     test_candidate = "a" * 40
@@ -297,9 +308,10 @@ def test_required_lifecycle_evidence_is_recomputed(
         "stages": validator.CHAIN_STAGES,
         "stage_bindings": {
             stage: {
-                "producer": f"producer for {stage}",
-                "consumer": f"consumer for {stage}",
-                "assertion": f"assertion for {stage}",
+                    "producer": f"producer for {stage}",
+                    "consumer": f"consumer for {stage}",
+                    "assertion": f"assertion for {stage}",
+                    "testcase": f"test_{stage}",
             }
             for stage in validator.CHAIN_STAGES
         },
@@ -550,6 +562,108 @@ def test_split_module_runtime_cannot_evade_repository_inventory(tmp_path: Path) 
     assert {f"src/control/{name}" for name in (
         "queue.py", "reviews.py", "completion.py", "health.py"
     )}.issubset(set(observation["runtime_boundary_candidates"]))
+
+
+@pytest.mark.parametrize(
+    "parents",
+    [
+        ["docs/evidence/runtime_parts"] * 4,
+        [
+            "skills/queue-adapter",
+            "skills/review-adapter",
+            "skills/completion-adapter",
+            "skills/health-adapter",
+        ],
+    ],
+)
+def test_split_runtime_is_detected_across_evidence_or_skill_packages(
+    tmp_path: Path, parents: list[str]
+) -> None:
+    files = []
+    for index, (parent, token) in enumerate(
+        zip(parents, ("queue", "review", "completion", "health")), 1
+    ):
+        path = tmp_path / parent / f"part{index}.py"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"def {token}(): return True\n", encoding="utf-8")
+        files.append(path.relative_to(tmp_path).as_posix())
+    observation, errors = checker._runtime_boundary_inventory(tmp_path)
+    assert errors
+    assert set(files).issubset(set(observation["runtime_boundary_candidates"]))
+
+
+def test_combined_chain_na_cannot_use_author_selected_absent_path(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    key = tmp_path / "receipt.key"
+    key.write_bytes(b"k" * 32)
+    monkeypatch.setenv("DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE", str(key))
+    evidence = tmp_path / "proof.json"
+    gate = {
+        "unreachability": {
+            "predicate": {
+                "kind": "all_paths_absent",
+                "paths": ["unused/nonexistent/path"],
+            },
+            "invoke": "check selected absent path",
+            "assert": "combined lifecycle is unreachable",
+            "evidence": "proof.json",
+        }
+    }
+    record = {
+        "ok": True,
+        "gate": "combined_chain_gate",
+        "reachable": False,
+        "predicate": gate["unreachability"]["predicate"],
+        "observation": {"unused/nonexistent/path": "absent"},
+        "command": gate["unreachability"]["invoke"],
+        "assertion": gate["unreachability"]["assert"],
+        "candidate_revision": "b" * 40,
+        "repository_scope": "contract-root",
+        "command_cwd": "contract-root",
+    }
+    payload = json.dumps(
+        record, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
+    record["attestation_hmac_sha256"] = hmac.new(
+        key.read_bytes(), payload, hashlib.sha256
+    ).hexdigest()
+    evidence.write_text(json.dumps(record), encoding="utf-8")
+    ok, errors, _record = checker._validate_unreachability(
+        tmp_path,
+        "combined_chain_gate",
+        gate,
+        "a" * 40,
+        "b" * 40,
+    )
+    assert not ok
+    assert any("requires no_harp_runtime_boundaries" in error for error in errors)
+
+
+def test_junit_aggregate_counters_and_stage_cases_are_enforced(
+    tmp_path: Path,
+) -> None:
+    junit = tmp_path / "chain.xml"
+    junit.write_text(
+        '<testsuite tests="1" failures="1" errors="0" skipped="0">'
+        '<testcase classname="target_chain_test" name="test_executor_handoff" />'
+        "</testsuite>",
+        encoding="utf-8",
+    )
+    assert not checker._junit_matches_test(
+        junit, "target_chain_test.py", {"test_executor_handoff"}
+    )
+    junit.write_text(
+        '<testsuite tests="1" failures="0" errors="0" skipped="0">'
+        '<testcase classname="target_chain_test" name="test_executor_handoff" />'
+        "</testsuite>",
+        encoding="utf-8",
+    )
+    assert not checker._junit_matches_test(
+        junit,
+        "target_chain_test.py",
+        {"test_executor_handoff", "test_completion_fact"},
+    )
 
 
 def test_new_v1_contract_cannot_bypass_v2_rules() -> None:

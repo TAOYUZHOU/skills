@@ -62,6 +62,7 @@ def _valid_receipt(manifest: Path) -> dict:
                 "producer": f"target producer for {stage}",
                 "consumer": f"target consumer for {stage}",
                 "assertion": f"target postcondition for {stage}",
+                "testcase": f"test_{stage}",
             }
             for stage in validator.CHAIN_STAGES
         },
@@ -119,6 +120,20 @@ def test_combined_receipt_requires_all_ordered_stages_and_closure_oracles(
         encoding="utf-8",
     )
     assert validator.validate_chain_receipt(receipt, manifest)["ok"]
+
+    meta = _valid_receipt(manifest)
+    meta["boundary_mode"] = "skill_gate_meta_validation"
+    for binding in meta["stage_bindings"].values():
+        binding.pop("testcase")
+    receipt.write_text(
+        json.dumps(_sign(meta, key), indent=2) + "\n", encoding="utf-8"
+    )
+    result = validator.validate_chain_receipt(receipt, manifest)
+    assert not result["ok"]
+    assert any("target-local real producers" in error for error in result["errors"])
+    assert validator.validate_chain_receipt(
+        receipt, manifest, allow_meta_validation=True
+    )["ok"]
 
     missing_stage = copy.deepcopy(_valid_receipt(manifest))
     missing_stage["stages"].remove("result_review_recorded")

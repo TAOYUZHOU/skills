@@ -1,10 +1,10 @@
 # HARP Iteration Handoff
 
 status: partial
-updated_at_utc: 2026-08-01T07:43:00Z
+updated_at_utc: 2026-08-01T08:02:00Z
 iteration: delivery-alignment-combined-chain-replay
 contract: docs/iteration_contracts/delivery_alignment_combined_chain_replay_20260801.yaml
-candidate: fb93b105d41cf81246065a312b4fd23e75a7df55
+candidate: ca0359e4d4128f97950c8be63825dbeadd742969
 
 ## Intent
 
@@ -32,7 +32,8 @@ workspace mocks with sanitized replays derived from three real workspace histori
 - Rejected seventh candidate: `e606effd18de22e5da890fdea6bbbed1295e6c0b`;
 - Rejected eighth candidate: `1269274d743d8ba47ee6b35bbdc6045500986d3b`;
 - Rejected ninth candidate: `fb93b105d41cf81246065a312b4fd23e75a7df55`.
-- Tenth candidate pending freeze.
+- Rejected tenth candidate: `ca0359e4d4128f97950c8be63825dbeadd742969`;
+  eleventh pending freeze.
 - Three read-only source histories exhibit distinct classes: accepted-review projection mismatch, blocked missing-artifact dependency, and partial-result materialization.
 - The working tree already contains unrelated untracked evidence and skills; they are outside this iteration.
 
@@ -63,6 +64,12 @@ split across four modules and that a `missing` assessment could still claim
 zero missing artifacts. Repository inventory now unions signals per package and
 fails closed on code outside the skill-catalog layout; the blocked-artifact
 oracle now requires positive missing count and `checked < expected`.
+The tenth candidate's exact-diff review found that a required gate still
+accepted meta-validation, that combined N/A could fall back to an arbitrary
+absent path, and that lifecycle modules could split across evidence directories
+or skill packages. Required receipts now demand the target-local boundary mode,
+combined N/A accepts only the fixed inventory, and immutable-diff signals are
+unioned repository-wide.
 
 ## Completed changes
 
@@ -77,6 +84,9 @@ oracle now requires positive missing count and `checked < expected`.
 - Added a trusted capture receipt and a fixed current-root runtime-boundary
   inventory; neither replay provenance nor chain applicability now depends on a
   candidate-authored path or unsigned capture claim.
+- Required target-local receipts now bind one unique JUnit testcase to every
+  lifecycle stage and reject nonzero aggregate suite counters; meta-validation
+  remains explicitly diagnostic.
 - Rejected candidate `84f7ddeb2c7c1e8c14c9bbf48325f93754627485` after independent review found a fixture-path mismatch and the real exact-diff Agent generated eight executable escapes.
 - Repaired self-authored receipts, prose-only unreachability, risk self-downgrade, profile-field injection, stale event digests, source-directory output, torn multi-file snapshots, and absolute evidence paths.
 - Rejected `ad783b1` and added manifest/unreachability host attestations, single-component path rejection, contract/candidate/test command binding, and per-stage producer/consumer/assertion bindings.
@@ -89,10 +99,12 @@ oracle now requires positive missing count and `checked < expected`.
 
 - Pre-change repository HEAD is `d94d282c7982a6de7041343d12df9cee5cf8a7c1`.
 - The three source workspaces were inspected read-only and no repair command was executed.
-- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 105 passed after the ninth adversarial repairs.
-- `pytest -q`: 112 passed after the ninth adversarial repairs.
+- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 109 passed after the tenth adversarial repairs.
+- `pytest -q`: 116 passed after the tenth adversarial repairs.
 - `quick_validate.py skills/delivery-alignment-iteration`: `Skill is valid!`.
-- `validate_harp_chain_evidence.py` reports all three replay oracles and the combined receipt valid.
+- `validate_harp_chain_evidence.py` reports all three replay oracles valid. The
+  supplemental meta receipt validates only with the explicit diagnostic
+  `--allow-meta-validation` flag and cannot satisfy a required runtime gate.
 - Durable evidence: `docs/evidence/delivery_alignment_combined_chain_replay_20260801/`.
 - `git diff --check`: passed before candidate freeze.
 
@@ -113,8 +125,11 @@ oracle now requires positive missing count and `checked < expected`.
   a separately attested capture witness.
 - Candidate `fb93b10` produced two executable attacks; they are repaired by
   package-level signal union and the cross-field blocked-artifact invariant.
-- Tenth immutable candidate, clean independent output, zero-escape deterministic
-  result, and final trusted attestations remain pending.
+- Candidate `ca0359e` produced four executable attacks; they are repaired by
+  target-local-only required receipts, the fixed combined-N/A predicate, and
+  immutable-diff repository-wide signal union.
+- Eleventh immutable candidate, clean independent output, zero-escape
+  deterministic result, and final trusted attestations remain pending.
 
 ## Open blockers and risks
 
@@ -124,7 +139,7 @@ oracle now requires positive missing count and `checked < expected`.
 
 ## Exact next action
 
-Freeze the tenth candidate, then rerun independent skill consumption plus
+Freeze the eleventh candidate, then rerun independent skill consumption plus
 exact-diff counterexample review with its forward-binding patch.
 
 ## Final claims allowed now

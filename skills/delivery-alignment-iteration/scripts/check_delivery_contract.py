@@ -934,12 +934,31 @@ RUNTIME_META_FILES = {
 }
 
 
-def _runtime_boundary_inventory(root: Path) -> tuple[dict, list[str]]:
+def _runtime_boundary_inventory(
+    root: Path, base: str = "", candidate: str = ""
+) -> tuple[dict, list[str]]:
     """Inventory current code with a fixed, candidate-independent HARP classifier."""
 
     rows: list[tuple[str, str]] = []
     candidates: list[str] = []
     grouped_signals: dict[str, dict[str, set[str]]] = {}
+    repository_signals = {
+        token: set() for token in ("queue", "review", "completion", "health")
+    }
+    changed_paths: set[str] | None = None
+    if re.fullmatch(r"[0-9a-f]{40}", base) and re.fullmatch(
+        r"[0-9a-f]{40}", candidate
+    ):
+        try:
+            changed_paths = {
+                line
+                for line in _git(
+                    root, "diff", "--name-only", base, candidate, "--"
+                ).splitlines()
+                if line
+            }
+        except RuntimeError:
+            changed_paths = None
     for path in sorted(root.rglob("*")):
         if ".git" in path.parts or not path.is_file():
             continue
@@ -976,7 +995,7 @@ def _runtime_boundary_inventory(root: Path) -> tuple[dict, list[str]]:
             semantic_signal = len(signals) == 4
             parts = Path(relative).parts
             if parts[:2] == ("docs", "evidence"):
-                group = ""
+                group = "docs/evidence"
             elif parts and parts[0] == "skills" and len(parts) > 1:
                 group = "/".join(parts[:2])
             elif parts and parts[0] == "tests":
@@ -991,17 +1010,28 @@ def _runtime_boundary_inventory(root: Path) -> tuple[dict, list[str]]:
                 )
                 for token in signals:
                     bucket[token].add(relative)
+                    if changed_paths is None or relative in changed_paths:
+                        repository_signals[token].add(relative)
         if path_signal or semantic_signal:
             candidates.append(relative)
     for signals in grouped_signals.values():
         if all(signals[token] for token in ("queue", "review", "completion", "health")):
             for paths in signals.values():
                 candidates.extend(paths)
+    if all(
+        repository_signals[token]
+        for token in ("queue", "review", "completion", "health")
+    ):
+        for paths in repository_signals.values():
+            candidates.extend(paths)
     inventory_sha = hashlib.sha256(
         json.dumps(rows, ensure_ascii=False, separators=(",", ":")).encode()
     ).hexdigest()
     observation = {
         "scanned_code_file_count": len(rows),
+        "changed_code_file_count": len(rows)
+        if changed_paths is None
+        else sum(relative in changed_paths for relative, _digest in rows),
         "inventory_sha256": inventory_sha,
         "runtime_boundary_candidates": sorted(set(candidates)),
     }
@@ -1014,7 +1044,7 @@ def _runtime_boundary_inventory(root: Path) -> tuple[dict, list[str]]:
 
 
 def _validate_unreachability(
-    root: Path, gate_name: str, gate: dict, candidate: str
+    root: Path, gate_name: str, gate: dict, base: str, candidate: str
 ) -> tuple[bool, list[str], dict]:
     errors: list[str] = []
     proof = gate.get("unreachability")
@@ -1033,6 +1063,13 @@ def _validate_unreachability(
     predicate = proof.get("predicate")
     predicate_errors: list[str] = []
     observation: dict = {}
+    if gate_name == "combined_chain_gate" and (
+        not isinstance(predicate, dict)
+        or predicate.get("kind") != "no_harp_runtime_boundaries"
+    ):
+        predicate_errors.append(
+            "combined_chain_gate not_applicable requires no_harp_runtime_boundaries"
+        )
     if not isinstance(predicate, dict) or "kind" not in predicate:
         predicate_errors.append(
             f"{gate_name} unreachability predicate must be a supported mapping"
@@ -1043,7 +1080,9 @@ def _validate_unreachability(
                 f"{gate_name} no_harp_runtime_boundaries predicate accepts no author-selected fields"
             )
         else:
-            observation, inventory_errors = _runtime_boundary_inventory(root)
+            observation, inventory_errors = _runtime_boundary_inventory(
+                root, base, candidate
+            )
             predicate_errors.extend(inventory_errors)
     elif predicate.get("kind") != "all_paths_absent":
         predicate_errors.append(
@@ -1116,24 +1155,45 @@ def _validate_unreachability(
     return not errors, errors, record if isinstance(record, dict) else {}
 
 
-def _junit_matches_test(path: Path, test_path: str) -> bool:
+def _junit_matches_test(
+    path: Path, test_path: str, required_testcases: set[str] | None = None
+) -> bool:
     try:
         root = ET.parse(path).getroot()
     except (OSError, ET.ParseError):
         return False
+    suites = ([root] if root.tag.endswith("testsuite") else []) + root.findall(
+        ".//testsuite"
+    )
+    for suite in suites:
+        try:
+            tests = int(suite.get("tests") or 0)
+            failures = int(suite.get("failures") or 0)
+            errors = int(suite.get("errors") or 0)
+            skipped = int(suite.get("skipped") or 0)
+        except ValueError:
+            return False
+        if tests <= 0 or failures or errors or skipped:
+            return False
     cases = root.findall(".//testcase")
     if not cases:
         return False
     module = Path(test_path).with_suffix("").as_posix().replace("/", ".")
-    if not any(
-        str(case.get("classname") or "") == module
-        or str(case.get("classname") or "").startswith(module + ".")
+    matching = [
+        case
         for case in cases
+        if str(case.get("classname") or "") == module
+        or str(case.get("classname") or "").startswith(module + ".")
+    ]
+    if not matching:
+        return False
+    if required_testcases and not required_testcases.issubset(
+        {str(case.get("name") or "") for case in matching}
     ):
         return False
     return not any(
         case.find(kind) is not None
-        for case in cases
+        for case in matching
         for kind in ("failure", "error", "skipped")
     )
 
@@ -1159,6 +1219,11 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
         if isinstance(adversarial, dict)
         else ""
     )
+    base = (
+        str(adversarial.get("base") or "")
+        if isinstance(adversarial, dict)
+        else ""
+    )
     if not isinstance(combined, dict):
         result["errors"].append("combined_chain_gate is required")
     if not isinstance(historical, dict):
@@ -1181,7 +1246,7 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
         result["historical_replay"] = {"ok": False, "decision": decision}
         if decision == "not_applicable":
             ok, errors, record = _validate_unreachability(
-                root, "historical_replay_gate", historical, candidate
+                root, "historical_replay_gate", historical, base, candidate
             )
             result["historical_replay"]["ok"] = ok
             result["historical_replay"]["proof"] = record
@@ -1254,7 +1319,7 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
         result["combined_chain"] = {"ok": False, "decision": decision}
         if decision == "not_applicable":
             ok, errors, record = _validate_unreachability(
-                root, "combined_chain_gate", combined, candidate
+                root, "combined_chain_gate", combined, base, candidate
             )
             result["combined_chain"]["ok"] = ok
             result["combined_chain"]["proof"] = record
@@ -1310,7 +1375,15 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
                     and receipt_record.get("junit_sha256") == _sha256_file(junit_path),
                     "junit_test_result": junit_path is not None
                     and _junit_matches_test(
-                        junit_path, str(receipt_record.get("test_path") or "")
+                        junit_path,
+                        str(receipt_record.get("test_path") or ""),
+                        {
+                            str(binding.get("testcase") or "")
+                            for binding in (
+                                receipt_record.get("stage_bindings") or {}
+                            ).values()
+                            if isinstance(binding, dict)
+                        },
                     ),
                 }
                 result["combined_chain"]["binding_checks"] = binding_checks

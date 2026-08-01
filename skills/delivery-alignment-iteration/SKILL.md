@@ -515,10 +515,18 @@ completion, retry/resume, or workflow-health routing is reachable.
   boundary candidate into the signed observation. In the skill-catalog profile,
   any code outside the known skill/test/evidence layout is reachable by default,
   and queue/review/completion/health signals are unioned across each skill
-  package rather than tested one file at a time.
+  package rather than tested one file at a time. Signals in the immutable
+  `base..candidate` code diff are also unioned repository-wide, so one runtime
+  split across packages cannot disappear into unrelated baseline tools.
 - A required combined receipt needs host-controlled attestation in addition to
   exact contract invocation, candidate/test hashes, stage producer/consumer
-  bindings, fixture binding, and closure assertions.
+  bindings, fixture binding, and closure assertions. Every stage binding names
+  a unique testcase from the bound module; JUnit aggregate counters and child
+  results must all be green.
+- A required receipt must use `target_local_real_producers_consumers`.
+  `skill_gate_meta_validation` is diagnostic only and can never close a
+  reachable runtime gate. Combined-chain `not_applicable` accepts only the fixed
+  runtime-boundary inventory, never an author-selected absent path.
 
 Follow
 [`references/harp_combined_chain_replay.md`](references/harp_combined_chain_replay.md)

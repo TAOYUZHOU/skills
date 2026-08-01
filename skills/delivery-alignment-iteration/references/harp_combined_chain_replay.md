@@ -121,7 +121,12 @@ a valid host-controlled HMAC attestation from outside the candidate repository. 
 attested command must use the constrained pytest form, name the bound test path
 as its only test target, and emit a hash-bound JUnit report. The checker must
 find at least one testcase from that module and zero failures, errors, or skips;
-a passing sibling test plus an unrelated hashed chain test is invalid. The
+a required target-local receipt binds one unique testcase to each of the ten
+stage rows, and aggregate JUnit counters must also be green. A passing sibling
+test plus an unrelated hashed chain test is invalid. The
+`boundary_mode` must be `target_local_real_producers_consumers`;
+`skill_gate_meta_validation` is diagnostic only and never satisfies a required
+runtime gate. The
 validator must fail closed for a missing stage, changed fixture hash, leaked
 absolute path, missing source provenance, absent archetype, incomplete closure
 assertion, or nonzero repeated zero-work wakeups.
@@ -130,9 +135,12 @@ If a gate is deterministically unreachable, use `decision: not_applicable` and
 include an `unreachability` mapping with a declarative `predicate`, `invoke`,
 `assert`, and a durable machine-readable, host-attested `evidence` record bound
 to that oracle, frozen candidate, repository scope, and command working
-directory. The checker re-evaluates the predicate in the current contract root;
-signing a past observation does not establish current unreachability. Cost,
-missing time, existing green
+directory. The checker re-evaluates the predicate in the current contract root.
+For the combined gate, only the fixed runtime inventory predicate is accepted;
+an author-selected absent path is not enough. The inventory unions lifecycle
+signals from all code changed by immutable `base..candidate`, including across
+packages and evidence directories. Signing a past observation does not
+establish current unreachability. Cost, missing time, existing green
 unit tests, or a one-hop mock is not an unreachability proof. A required gate
 without passing evidence keeps the iteration `partial` or `blocked`.
 
