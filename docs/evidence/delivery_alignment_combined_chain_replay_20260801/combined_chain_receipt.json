@@ -1,16 +1,103 @@
 {
-  "schema_version": 1,
-  "evidence_scope": "delivery-alignment skill gate meta-validation",
-  "status": "passed",
-  "exit_code": 0,
-  "command": "pytest -q tests/test_delivery_alignment_history_replay.py --junitxml=docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_junit.xml",
-  "candidate_revision": "333966b13340b9ada510ff068d2db1aa0205f16d",
+  "attestation_hmac_sha256": "a105df67bcf7f221ada97cbd9f566159de98eb87c87b897a9148717c798fe37a",
   "boundary_mode": "skill_gate_meta_validation",
-  "test_path": "tests/test_delivery_alignment_history_replay.py",
-  "test_sha256": "525b400506de00c14512e576b23f91389c39231c3690e51e9d85beede21c2452",
+  "candidate_revision": "dff8bfb36017f2a5784411114083f699b57d7c91",
+  "command": "pytest -q tests/test_delivery_alignment_history_replay.py --junitxml=docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_junit.xml",
+  "evidence_scope": "delivery-alignment skill gate meta-validation",
+  "exit_code": 0,
+  "happy_path": {
+    "artifact_gate_passed": true,
+    "completion_true": true,
+    "health_restored": true,
+    "identity_preserved": true,
+    "repeated_zero_work_wakeups": 0,
+    "review_accepted": true
+  },
   "junit_path": "docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_junit.xml",
   "junit_sha256": "080d24da2d6a2e41f29d07c5f13711a661c58ac71bca5ef79896ba3f8b1b742b",
+  "limitations": [
+    "This receipt validates the skill's required chain contract and replay oracles; each future HARP runtime change must emit its own target-local receipt from real runtime producers and consumers."
+  ],
   "replay_manifest_sha256": "3528a3ce9b09758f00a497cbd1acf906dcc8c4594d3ca528e0749e22cf712ac4",
+  "replay_results": [
+    {
+      "archetype": "blocked_artifact_dependency",
+      "detected": true,
+      "later_health_audit_required": true,
+      "owner_routed": true,
+      "premature_completion_rejected": true,
+      "review_required_when_applicable": true
+    },
+    {
+      "archetype": "partial_result_materialization",
+      "detected": true,
+      "later_health_audit_required": true,
+      "owner_routed": true,
+      "premature_completion_rejected": true,
+      "review_required_when_applicable": true
+    },
+    {
+      "archetype": "review_projection_mismatch",
+      "detected": true,
+      "later_health_audit_required": true,
+      "owner_routed": true,
+      "premature_completion_rejected": true,
+      "review_required_when_applicable": true
+    }
+  ],
+  "schema_version": 1,
+  "stage_bindings": {
+    "artifact_gate": {
+      "assertion": "missing artifact blocks completion",
+      "consumer": "completion replay oracle",
+      "producer": "sanitized artifact gate fact"
+    },
+    "completion_fact": {
+      "assertion": "negative profiles remain incomplete",
+      "consumer": "three archetype oracles",
+      "producer": "sanitized completion projection"
+    },
+    "executor_handoff": {
+      "assertion": "executor result class remains visible",
+      "consumer": "archetype oracle",
+      "producer": "sanitized replay queue fact"
+    },
+    "output_assessment": {
+      "assertion": "missing expected output remains blocking",
+      "consumer": "blocked-artifact oracle",
+      "producer": "sanitized output assessment"
+    },
+    "post_repair_health_audit": {
+      "assertion": "future runtime candidates must bind their later audit",
+      "consumer": "ordered stage validator",
+      "producer": "combined target-local receipt contract"
+    },
+    "queue_terminal_projection": {
+      "assertion": "partial result cannot silently become complete",
+      "consumer": "partial-result oracle",
+      "producer": "sanitized queue terminal fact"
+    },
+    "result_observation_recorded": {
+      "assertion": "observation event is identity-shaped and digest-bound",
+      "consumer": "selected-event provenance validator",
+      "producer": "sanitized observation event"
+    },
+    "result_review_admission": {
+      "assertion": "accepted review requires preserved identity",
+      "consumer": "review-projection oracle",
+      "producer": "queue review verdict fact"
+    },
+    "result_review_recorded": {
+      "assertion": "review identity absence remains detectable",
+      "consumer": "review-projection oracle",
+      "producer": "sanitized review event"
+    },
+    "workflow_health_routing": {
+      "assertion": "unresolved control facts remain health-visible",
+      "consumer": "closure assertion validator",
+      "producer": "sanitized workflow health fact"
+    }
+  },
   "stages": [
     "executor_handoff",
     "output_assessment",
@@ -23,94 +110,7 @@
     "workflow_health_routing",
     "post_repair_health_audit"
   ],
-  "stage_bindings": {
-    "executor_handoff": {
-      "producer": "sanitized replay queue fact",
-      "consumer": "archetype oracle",
-      "assertion": "executor result class remains visible"
-    },
-    "output_assessment": {
-      "producer": "sanitized output assessment",
-      "consumer": "blocked-artifact oracle",
-      "assertion": "missing expected output remains blocking"
-    },
-    "result_review_admission": {
-      "producer": "queue review verdict fact",
-      "consumer": "review-projection oracle",
-      "assertion": "accepted review requires preserved identity"
-    },
-    "result_observation_recorded": {
-      "producer": "sanitized observation event",
-      "consumer": "selected-event provenance validator",
-      "assertion": "observation event is identity-shaped and digest-bound"
-    },
-    "result_review_recorded": {
-      "producer": "sanitized review event",
-      "consumer": "review-projection oracle",
-      "assertion": "review identity absence remains detectable"
-    },
-    "queue_terminal_projection": {
-      "producer": "sanitized queue terminal fact",
-      "consumer": "partial-result oracle",
-      "assertion": "partial result cannot silently become complete"
-    },
-    "artifact_gate": {
-      "producer": "sanitized artifact gate fact",
-      "consumer": "completion replay oracle",
-      "assertion": "missing artifact blocks completion"
-    },
-    "completion_fact": {
-      "producer": "sanitized completion projection",
-      "consumer": "three archetype oracles",
-      "assertion": "negative profiles remain incomplete"
-    },
-    "workflow_health_routing": {
-      "producer": "sanitized workflow health fact",
-      "consumer": "closure assertion validator",
-      "assertion": "unresolved control facts remain health-visible"
-    },
-    "post_repair_health_audit": {
-      "producer": "combined target-local receipt contract",
-      "consumer": "ordered stage validator",
-      "assertion": "future runtime candidates must bind their later audit"
-    }
-  },
-  "replay_results": [
-    {
-      "archetype": "blocked_artifact_dependency",
-      "detected": true,
-      "owner_routed": true,
-      "review_required_when_applicable": true,
-      "premature_completion_rejected": true,
-      "later_health_audit_required": true
-    },
-    {
-      "archetype": "partial_result_materialization",
-      "detected": true,
-      "owner_routed": true,
-      "review_required_when_applicable": true,
-      "premature_completion_rejected": true,
-      "later_health_audit_required": true
-    },
-    {
-      "archetype": "review_projection_mismatch",
-      "detected": true,
-      "owner_routed": true,
-      "review_required_when_applicable": true,
-      "premature_completion_rejected": true,
-      "later_health_audit_required": true
-    }
-  ],
-  "happy_path": {
-    "identity_preserved": true,
-    "review_accepted": true,
-    "artifact_gate_passed": true,
-    "completion_true": true,
-    "health_restored": true,
-    "repeated_zero_work_wakeups": 0
-  },
-  "limitations": [
-    "This receipt validates the skill's required chain contract and replay oracles; each future HARP runtime change must emit its own target-local receipt from real runtime producers and consumers."
-  ],
-  "attestation_hmac_sha256": "54b0ecc7eb4b1540824c3cb0de35321a2d74539703c2077950412d5821a55757"
+  "status": "passed",
+  "test_path": "tests/test_delivery_alignment_history_replay.py",
+  "test_sha256": "525b400506de00c14512e576b23f91389c39231c3690e51e9d85beede21c2452"
 }

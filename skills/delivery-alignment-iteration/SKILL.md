@@ -51,8 +51,18 @@ python3 scripts/check_delivery_contract.py \
   --handoff /path/to/repo/docs/harp_iteration_handoff.md \
   --root /path/to/repo \
   --expected-candidate <immutable-candidate-sha> \
+  --expected-forward-patch-sha256 <reviewed-candidate-to-worktree-sha256> \
   --require-current-schema
 ```
+
+For a high-risk promotion, do not execute the checker from mutable worktree
+bytes. The trusted runner first hashes the complete tracked
+`candidate..worktree` patch using `git diff --binary --full-index`, compares it
+with the patch reviewed by the exact-diff Agent, extracts the checker and
+lifecycle validator from the immutable candidate Git tree, and runs those
+candidate blobs with the same externally frozen forward-patch digest. The
+checker repeats both origin and patch checks. Untracked gate evidence remains
+separately hash-bound and host-attested; it is not executable checker code.
 
 12. Before the final response, reconcile the handoff against the actual diff and
     verification artifacts. Set `status` to `complete`, `partial`, or `blocked`,

@@ -180,6 +180,7 @@ python3 skills/delivery-alignment-iteration/scripts/check_delivery_contract.py \
   --contract docs/iteration_contracts/<iteration>.yaml \
   --handoff docs/harp_iteration_handoff.md --root . \
   --expected-candidate <sha> \
+  --expected-forward-patch-sha256 <sha256> \
   --scope-classification <outside-repo-signed-json> \
   --chain-observer-receipt <outside-repo-signed-json>
 ```
@@ -188,3 +189,12 @@ python3 skills/delivery-alignment-iteration/scripts/check_delivery_contract.py \
 `--chain-observer-receipt` is required for a target-local combined-chain pass.
 The unused option may be omitted. Neither record may live beneath the candidate
 root.
+
+Before any candidate code runs, the trusted runner computes the complete
+tracked `candidate..worktree` patch with `git diff --binary --full-index`,
+requires its SHA-256 to equal the patch reviewed by the exact-diff Agent,
+extracts the checker and lifecycle validator from the immutable candidate Git
+tree, and runs those candidate bytes against the contract root. The candidate
+checker repeats the forward-patch comparison and reports both candidate-blob
+tool hashes. A worktree checker, an unreviewed post-freeze edit, or a signed
+receipt without this exact forward binding cannot promote.

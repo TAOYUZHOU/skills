@@ -166,6 +166,75 @@ def test_handoff_candidate_binds_contract_and_external_freeze() -> None:
     assert mismatch["checks"] == {"contract": False, "external": False}
 
 
+def test_forward_patch_is_bound_to_external_digest(tmp_path: Path) -> None:
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"], cwd=tmp_path, check=True
+    )
+    tracked = tmp_path / "contract.yaml"
+    tracked.write_text("candidate placeholder\n", encoding="utf-8")
+    subprocess.run(["git", "add", "contract.yaml"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "candidate"], cwd=tmp_path, check=True)
+    candidate = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    tracked.write_text(f"candidate {candidate}\n", encoding="utf-8")
+    expected = hashlib.sha256(checker._git_diff_bytes(tmp_path, candidate)).hexdigest()
+    contract = _v2_contract().replace("  candidate: def", f"  candidate: {candidate}")
+    result = checker.validate_forward_patch_binding(
+        contract, tmp_path, candidate, expected
+    )
+    assert result["ok"], result
+    tracked.write_text(f"candidate {candidate}\nbypass: true\n", encoding="utf-8")
+    substituted = checker.validate_forward_patch_binding(
+        contract, tmp_path, candidate, expected
+    )
+    assert not substituted["ok"]
+
+
+def test_checker_origin_binds_immutable_candidate_blobs(tmp_path: Path) -> None:
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"], cwd=tmp_path, check=True
+    )
+    scripts = tmp_path / "skills" / "delivery-alignment-iteration" / "scripts"
+    scripts.mkdir(parents=True)
+    shutil.copy2(CHECKER, scripts / "check_delivery_contract.py")
+    shutil.copy2(
+        CHECKER.with_name("validate_harp_chain_evidence.py"),
+        scripts / "validate_harp_chain_evidence.py",
+    )
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "candidate tools"], cwd=tmp_path, check=True)
+    candidate = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    result = checker.validate_checker_origin(tmp_path, candidate)
+    assert result["ok"], result
+    (scripts / "check_delivery_contract.py").write_text(
+        "# substituted\n", encoding="utf-8"
+    )
+    # The executing module is still the independently loaded checker, so a
+    # worktree substitution cannot change the candidate-origin result.
+    assert checker.validate_checker_origin(tmp_path, candidate)["ok"]
+    subprocess.run(
+        ["git", "add", "skills/delivery-alignment-iteration/scripts/check_delivery_contract.py"],
+        cwd=tmp_path,
+        check=True,
+    )
+    subprocess.run(["git", "commit", "-qm", "substituted tool"], cwd=tmp_path, check=True)
+    substituted_candidate = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    assert not checker.validate_checker_origin(tmp_path, substituted_candidate)["ok"]
+
+
 def test_high_risk_contract_requires_both_lifecycle_gates() -> None:
     contract = _v2_contract()
     contract = contract.split("combined_chain_gate:\n", 1)[0]

@@ -4,7 +4,7 @@ status: partial
 updated_at_utc: 2026-08-01T09:11:00Z
 iteration: delivery-alignment-combined-chain-replay
 contract: docs/iteration_contracts/delivery_alignment_combined_chain_replay_20260801.yaml
-candidate: 333966b13340b9ada510ff068d2db1aa0205f16d
+candidate: dff8bfb36017f2a5784411114083f699b57d7c91
 
 ## Intent
 
@@ -36,6 +36,7 @@ workspace mocks with sanitized replays derived from three real workspace histori
 - Rejected eleventh candidate: `258047c1d4f5f0cbb4f8c7df0c7b15b4a22f7282`;
 - Rejected twelfth candidate: `7d13ec84e5f2cdb581d4131b420e9a9f7fcb64ed`;
 - Rejected thirteenth candidate: `333966b13340b9ada510ff068d2db1aa0205f16d`.
+- Rejected fourteenth candidate: `dff8bfb36017f2a5784411114083f699b57d7c91`.
 - Three read-only source histories exhibit distinct classes: accepted-review projection mismatch, blocked missing-artifact dependency, and partial-result materialization.
 - The working tree already contains unrelated untracked evidence and skills; they are outside this iteration.
 
@@ -90,6 +91,12 @@ call-boundary observation of actual producer/consumer values. Combined-chain
 N/A now needs an independently signed outside-tree classification bound to the
 exact repository identity, immutable diff, and complete changed-path set; the
 lexical inventory can only contradict that classification.
+The fourteenth candidate's exact-diff review showed that the reviewed
+post-freeze patch hash was not enforced against the tracked worktree bytes that
+the checker executed. High-risk promotion now freezes the complete tracked
+forward patch before execution, runs checker/validator blobs extracted from the
+immutable candidate, and binds those tool hashes plus the same forward digest
+through checker output, provider receipt, and deterministic gate result.
 
 ## Completed changes
 
@@ -116,12 +123,14 @@ lexical inventory can only contradict that classification.
 - Rejected `876153f`; unreachability evidence now binds candidate/repository/cwd, and nested workflow/plan/enum maps are strict rather than free-form.
 - Rejected `333966b`; candidate-generated causal traces are no longer treated
   as observations, and a clean lexical inventory can no longer grant N/A.
+- Rejected `dff8bfb`; the exact Agent-reviewed forward patch and immutable
+  candidate checker/validator are now mandatory trusted-runner inputs.
 
 ## Verification evidence
 
 - Pre-change repository HEAD is `d94d282c7982a6de7041343d12df9cee5cf8a7c1`.
 - The three source workspaces were inspected read-only and no repair command was executed.
-- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 113 passed after the thirteenth adversarial repairs.
+- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 115 passed after the fourteenth adversarial repair.
 - `pytest -q`: 119 passed after the twelfth adversarial repairs.
 - `quick_validate.py skills/delivery-alignment-iteration`: `Skill is valid!`.
 - `validate_harp_chain_evidence.py` reports all three replay oracles valid. The
@@ -156,7 +165,10 @@ lexical inventory can only contradict that classification.
   a same-run causal trace plus full candidate-tree and base-deletion inventory.
 - Candidate `333966b` produced two executable attacks; they are repaired by an
   external call-boundary observer and an external exact-diff non-HARP scope
-  classification. A new immutable candidate, clean independent output,
+  classification.
+- Candidate `dff8bfb` produced one executable attack; it is repaired by
+  independently freezing the complete forward patch and executing immutable
+  candidate checker/validator blobs. A new immutable candidate, clean independent output,
   zero-escape deterministic result, and final trusted attestations remain pending.
 
 ## Open blockers and risks

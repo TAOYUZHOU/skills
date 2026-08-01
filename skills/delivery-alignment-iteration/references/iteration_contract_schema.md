@@ -47,6 +47,14 @@ For `adversarial_gate`:
   attack manifest, deterministic commands/results, and zero escaped attacks.
   Its top-level `candidate` metadata must exactly match both the contract and,
   for high-risk promotion, the externally supplied frozen candidate.
+  The trusted runner also freezes the complete tracked
+  `candidate..worktree` binary/full-index patch, submits that exact patch to the
+  Agent, and passes its SHA-256 as `--expected-forward-patch-sha256`. It must
+  execute the checker and lifecycle validator extracted from the immutable
+  candidate tree, not their mutable worktree copies. The checker re-hashes the
+  tracked forward patch and both executing candidate blobs. The signed provider
+  receipt and deterministic gate result bind the same forward-patch digest;
+  substitution after review fails closed.
   The provider receipt must carry a valid HMAC attestation from a key outside
   the candidate repository, supplied to the checker through
   `DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE`. The deterministic gate result requires

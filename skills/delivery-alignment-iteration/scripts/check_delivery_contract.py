@@ -783,6 +783,97 @@ def validate_handoff_candidate(
     }
 
 
+def validate_forward_patch_binding(
+    text: str,
+    root: Path,
+    expected_candidate: str,
+    expected_forward_patch_sha256: str,
+) -> dict:
+    """Bind every tracked post-freeze byte to a host-frozen patch digest."""
+
+    data, _ = _load_v2_mapping(text)
+    gate = data.get("adversarial_gate") if data else None
+    risk = gate.get("risk") if isinstance(gate, dict) else ""
+    declared = str(gate.get("candidate") or "") if isinstance(gate, dict) else ""
+    result = {
+        "ok": False,
+        "candidate": declared,
+        "expected_candidate": expected_candidate,
+        "expected_sha256": expected_forward_patch_sha256,
+        "actual_sha256": "",
+        "changed_paths": [],
+    }
+    if risk != "high":
+        result["ok"] = True
+        return result
+    if (
+        declared != expected_candidate
+        or not re.fullmatch(r"[0-9a-f]{40}", expected_candidate)
+        or not re.fullmatch(
+            r"[0-9a-f]{64}", str(expected_forward_patch_sha256 or "")
+        )
+    ):
+        result["error"] = (
+            "high-risk forward patch requires external candidate and SHA-256"
+        )
+        return result
+    try:
+        patch = _git_diff_bytes(root, expected_candidate)
+        changed_paths = sorted(
+            line
+            for line in _git(
+                root, "diff", "--name-only", expected_candidate, "--"
+            ).splitlines()
+            if line
+        )
+    except RuntimeError as exc:
+        result["error"] = str(exc)
+        return result
+    actual = hashlib.sha256(patch).hexdigest()
+    result.update(
+        {
+            "actual_sha256": actual,
+            "changed_paths": changed_paths,
+            "ok": bool(changed_paths) and actual == expected_forward_patch_sha256,
+        }
+    )
+    if not result["ok"]:
+        result["error"] = (
+            "tracked post-freeze worktree does not match the externally frozen patch"
+        )
+    return result
+
+
+def validate_checker_origin(root: Path, candidate: str) -> dict:
+    """Prove this process is running the checker and validator from candidate blobs."""
+
+    relative_checker = (
+        "skills/delivery-alignment-iteration/scripts/check_delivery_contract.py"
+    )
+    relative_validator = (
+        "skills/delivery-alignment-iteration/scripts/validate_harp_chain_evidence.py"
+    )
+    checker_expected = _candidate_blob_sha(root, candidate, relative_checker)
+    validator_expected = _candidate_blob_sha(root, candidate, relative_validator)
+    checker_actual = _sha256_file(Path(__file__).resolve())
+    validator_path = Path(__file__).with_name("validate_harp_chain_evidence.py")
+    validator_actual = _sha256_file(validator_path) if validator_path.is_file() else ""
+    checks = {
+        "candidate": bool(re.fullmatch(r"[0-9a-f]{40}", candidate)),
+        "checker": bool(checker_expected) and checker_actual == checker_expected,
+        "validator": bool(validator_expected) and validator_actual == validator_expected,
+    }
+    return {
+        "ok": all(checks.values()),
+        "checks": checks,
+        "checker_sha256": checker_actual,
+        "checker_candidate_sha256": checker_expected,
+        "validator_sha256": validator_actual,
+        "validator_candidate_sha256": validator_expected,
+        "execution_mode": "immutable_candidate_blob"
+        if all(checks.values())
+        else "untrusted_worktree_or_mismatch",
+    }
 def validate_handoff_binding(text: str, root: Path, supplied: Path) -> dict:
     data, _ = _load_v2_mapping(text)
     handoff = data.get("handoff") if data else None
@@ -916,9 +1007,23 @@ def _external_attested_json(
     return record, path, []
 
 
-def _git_diff_bytes(root: Path, base: str, candidate: str) -> bytes:
+def _git_diff_bytes(
+    root: Path,
+    base: str,
+    candidate: str = "",
+    paths: list[str] | None = None,
+) -> bytes:
+    revisions = [base] if not candidate else [base, candidate]
     proc = subprocess.run(
-        ["git", "diff", "--binary", "--full-index", base, candidate, "--"],
+        [
+            "git",
+            "diff",
+            "--binary",
+            "--full-index",
+            *revisions,
+            "--",
+            *(paths or []),
+        ],
         cwd=root,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -2008,7 +2113,9 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
     return result
 
 
-def validate_gate_evidence(text: str, root: Path) -> dict:
+def validate_gate_evidence(
+    text: str, root: Path, expected_forward_patch_sha256: str = ""
+) -> dict:
     import hashlib
 
     data, _ = _load_v2_mapping(text)
@@ -2056,11 +2163,21 @@ def validate_gate_evidence(text: str, root: Path) -> dict:
     scope = list(gate_contract.get("attack_scope") or [])
     try:
         literal_scope = [f":(literal){path}" for path in scope]
-        diff = _git(root, "diff", base, candidate, "--", *literal_scope)
+        diff = _git_diff_bytes(root, base, candidate, literal_scope)
     except RuntimeError as exc:
         result["errors"].append(str(exc))
         return result
-    expected_diff_sha = hashlib.sha256(diff.encode()).hexdigest()
+    expected_diff_sha = hashlib.sha256(diff).hexdigest()
+    checker_candidate_sha = _candidate_blob_sha(
+        root,
+        candidate,
+        "skills/delivery-alignment-iteration/scripts/check_delivery_contract.py",
+    )
+    validator_candidate_sha = _candidate_blob_sha(
+        root,
+        candidate,
+        "skills/delivery-alignment-iteration/scripts/validate_harp_chain_evidence.py",
+    )
     prompt_sha = _sha256_file(evidence_dir / "prompt.md")
     final_output_sha = _sha256_file(evidence_dir / "final_agent_output.json")
     manifest_attacks = manifest.get("attacks")
@@ -2084,6 +2201,10 @@ def validate_gate_evidence(text: str, root: Path) -> dict:
         "base": receipt.get("base") == base,
         "candidate": receipt.get("candidate") == candidate,
         "diff_sha256": receipt.get("diff_sha256") == expected_diff_sha,
+        "forward_patch_sha256": bool(
+            re.fullmatch(r"[0-9a-f]{64}", expected_forward_patch_sha256)
+        )
+        and receipt.get("forward_patch_sha256") == expected_forward_patch_sha256,
         "prompt_sha256": receipt.get("prompt_sha256") == prompt_sha,
         "final_output_sha256": receipt.get("final_output_sha256") == final_output_sha,
         "returncode": receipt.get("returncode") == 0,
@@ -2098,6 +2219,16 @@ def validate_gate_evidence(text: str, root: Path) -> dict:
         "base": gate.get("base") == base,
         "candidate": gate.get("candidate") == candidate,
         "diff_sha256": gate.get("diff_sha256") == expected_diff_sha,
+        "forward_patch_sha256": bool(
+            re.fullmatch(r"[0-9a-f]{64}", expected_forward_patch_sha256)
+        )
+        and gate.get("forward_patch_sha256") == expected_forward_patch_sha256,
+        "checker_execution_mode": gate.get("checker_execution_mode")
+        == "immutable_candidate_blob",
+        "checker_candidate_sha256": bool(checker_candidate_sha)
+        and gate.get("checker_candidate_sha256") == checker_candidate_sha,
+        "validator_candidate_sha256": bool(validator_candidate_sha)
+        and gate.get("validator_candidate_sha256") == validator_candidate_sha,
         "raw_output_sha256": gate.get("raw_output_sha256") == final_output_sha,
         "provider_thread_id": bool(str(gate.get("provider_thread_id") or "").strip()),
         "manifest_shape": isinstance(manifest_attacks, list),
@@ -2253,6 +2384,13 @@ def main() -> int:
         help="Externally frozen candidate SHA required for high-risk promotion.",
     )
     parser.add_argument(
+        "--expected-forward-patch-sha256",
+        default=os.environ.get(
+            "DELIVERY_ALIGNMENT_EXPECTED_FORWARD_PATCH_SHA256", ""
+        ),
+        help="Host-frozen SHA-256 of the complete tracked candidate..worktree patch.",
+    )
+    parser.add_argument(
         "--require-current-schema",
         action="store_true",
         help="Deprecated compatibility alias; current schema is required by default.",
@@ -2313,6 +2451,28 @@ def main() -> int:
         )
         result["expected_candidate"] = expected_candidate
         result["ok"] = bool(result["ok"] and expected_candidate.get("ok"))
+        parsed_contract, _ = _load_v2_mapping(text)
+        parsed_gate = (
+            parsed_contract.get("adversarial_gate")
+            if isinstance(parsed_contract, dict)
+            else None
+        )
+        if isinstance(parsed_gate, dict) and parsed_gate.get("risk") == "high":
+            checker_origin = validate_checker_origin(
+                Path(args.root).resolve(), args.expected_candidate
+            )
+        else:
+            checker_origin = {"ok": True, "execution_mode": "not_required"}
+        result["checker_origin"] = checker_origin
+        result["ok"] = bool(result["ok"] and checker_origin.get("ok"))
+        forward_patch = validate_forward_patch_binding(
+            text,
+            Path(args.root).resolve(),
+            args.expected_candidate,
+            args.expected_forward_patch_sha256,
+        )
+        result["forward_patch_binding"] = forward_patch
+        result["ok"] = bool(result["ok"] and forward_patch.get("ok"))
         handoff_candidate = validate_handoff_candidate(
             text, handoff_text if "handoff_text" in locals() else "", args.expected_candidate
         )
@@ -2326,7 +2486,11 @@ def main() -> int:
         diff_result = validate_diff_binding(text, Path(args.root).resolve())
         result["diff_binding"] = diff_result
         result["ok"] = bool(result["ok"] and diff_result.get("ok"))
-        gate_evidence = validate_gate_evidence(text, Path(args.root).resolve())
+        gate_evidence = validate_gate_evidence(
+            text,
+            Path(args.root).resolve(),
+            args.expected_forward_patch_sha256,
+        )
         result["gate_evidence"] = gate_evidence
         result["ok"] = bool(result["ok"] and gate_evidence.get("ok"))
     result["contract"] = args.contract

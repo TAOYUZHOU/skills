@@ -1,23 +1,56 @@
 {
-  "ok": true,
+  "assertion": "The external classification binds the exact candidate and the inventory finds no contradictory runtime boundary.",
+  "attestation_hmac_sha256": "72886b5cfff68935c075b7f5d3340ffe94234cf006b8a94edf2e6c2c91476a8c",
+  "candidate_revision": "dff8bfb36017f2a5784411114083f699b57d7c91",
+  "command": "checker host-selected exact-diff scope classification plus built-in contradiction inventory",
+  "command_cwd": "contract-root",
   "gate": "combined_chain_gate",
-  "reachable": false,
+  "observation": {
+    "contradiction_inventory": {
+      "candidate_changed_code_sha256": "118b382210e352546e1835382d46b8c10417bdd7623be272c6ac2c2d59d5972d",
+      "candidate_tree_code_sha256": "2d82f8321f7ab8e98cd81eb8d13c64996968134b8e9639e77f1b2be81970b931",
+      "changed_code_file_count": 5,
+      "inventory_sha256": "7d90aa448949ce2d0406b91a23c060b93650ce5536312d634b74174a80cab691",
+      "runtime_boundary_candidates": [],
+      "scanned_code_file_count": 110
+    },
+    "trusted_scope_classification": {
+      "authority": "independent_scope_reviewer",
+      "base_revision": "d94d282c7982a6de7041343d12df9cee5cf8a7c1",
+      "candidate_diff_sha256": "1f61cc584a8f55ec81ffe896bea89b9ce54481f65c84dff5d705d5abb684d428",
+      "candidate_revision": "dff8bfb36017f2a5784411114083f699b57d7c91",
+      "changed_paths": [
+        "docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_receipt.json",
+        "docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_unreachability.json",
+        "docs/evidence/delivery_alignment_combined_chain_replay_20260801/historical_replay_validation.json",
+        "docs/harp_iteration_handoff.md",
+        "docs/iteration_contracts/delivery_alignment_combined_chain_replay_20260801.yaml",
+        "skills/delivery-alignment-iteration/SKILL.md",
+        "skills/delivery-alignment-iteration/agents/openai.yaml",
+        "skills/delivery-alignment-iteration/assets/harp-history-replays/blocked_artifact_dependency.json",
+        "skills/delivery-alignment-iteration/assets/harp-history-replays/capture_receipt.json",
+        "skills/delivery-alignment-iteration/assets/harp-history-replays/manifest.json",
+        "skills/delivery-alignment-iteration/assets/harp-history-replays/partial_result_materialization.json",
+        "skills/delivery-alignment-iteration/assets/harp-history-replays/review_projection_mismatch.json",
+        "skills/delivery-alignment-iteration/references/harp_combined_chain_replay.md",
+        "skills/delivery-alignment-iteration/references/iteration_contract_schema.md",
+        "skills/delivery-alignment-iteration/scripts/capture_harp_history_replay.py",
+        "skills/delivery-alignment-iteration/scripts/check_delivery_contract.py",
+        "skills/delivery-alignment-iteration/scripts/validate_harp_chain_evidence.py",
+        "tests/test_delivery_alignment_contract_checker.py",
+        "tests/test_delivery_alignment_history_replay.py"
+      ],
+      "changed_paths_sha256": "ac58db63e691132aa09bd77db9f54db80e86c0a93ba78b5a5938115fbc5c2e32",
+      "classification": "non_harp_repository_change",
+      "repository_identity_sha256": "873697b8e233331585e19456233fabf209c6596ac323cc87c0880fced3c1ecc5",
+      "scope_classification_sha256": "7bc42360ac68c7600d1e3c21bc4bdf33ccb22d7ca840a1598cdc82824ebca55d"
+    }
+  },
+  "ok": true,
   "predicate": {
     "kind": "no_harp_runtime_boundaries"
   },
-  "observation": {
-    "scanned_code_file_count": 110,
-    "changed_code_file_count": 5,
-    "inventory_sha256": "c8d4d4a7eed88f1012ce3604b6c5412299a30ae84a5620f6bc04a94ef39eef39",
-    "candidate_tree_code_sha256": "0d28cbd6ac1e5b1dcbbcdfa51041bff1b2ba29505bab2f8f7964b5a4f60611cd",
-    "candidate_changed_code_sha256": "499617c7e7c1e5185ba5a7c4d40258d1c434d2eb0b32e9e08ff496001f1c0e6c",
-    "runtime_boundary_candidates": []
-  },
-  "command": "checker built-in no_harp_runtime_boundaries inventory over the current contract root",
-  "assertion": "No target HARP runtime producer/consumer package exists in this skill repository.",
-  "candidate_revision": "333966b13340b9ada510ff068d2db1aa0205f16d",
+  "reachable": false,
   "repository_scope": "contract-root",
-  "command_cwd": "contract-root",
-  "scope": "Current skill/checker repository only; future HARP runtime target repositories remain required to run the real ten-stage chain.",
-  "attestation_hmac_sha256": "6e8305c9e1f2fd470523456d0cfd7e51d5379672afc893abff3e972535d73026"
+  "scope": "Current skill/checker repository only; future HARP runtime target repositories remain required to run the real ten-stage chain."
 }
