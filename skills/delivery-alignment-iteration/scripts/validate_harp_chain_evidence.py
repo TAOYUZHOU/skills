@@ -486,8 +486,14 @@ def _pytest_command_ok(receipt: dict[str, Any]) -> bool:
     required = [test_path, f"--junitxml={junit_path}"]
     if receipt.get("boundary_mode") == "target_local_real_producers_consumers":
         coverage_path = str(receipt.get("coverage_path") or "")
+        trace_path = str(receipt.get("trace_path") or "")
         required.extend(
-            ["--cov=.", "--cov-context=test", f"--cov-report=json:{coverage_path}"]
+            [
+                "--cov=.",
+                "--cov-context=test",
+                f"--cov-report=json:{coverage_path}",
+                f"--harp-chain-trace={trace_path}",
+            ]
         )
     remaining = list(body)
     for token in required:
@@ -771,6 +777,14 @@ def validate_chain_receipt(
         )
     ):
         result["errors"].append("target-local coverage binding is invalid")
+    if boundary_mode == "target_local_real_producers_consumers" and (
+        not re.fullmatch(r"[0-9a-f]{32}", str(receipt.get("run_id") or ""))
+        or not str(receipt.get("trace_path") or "").strip()
+        or not re.fullmatch(
+            r"[0-9a-f]{64}", str(receipt.get("trace_sha256") or "")
+        )
+    ):
+        result["errors"].append("target-local causal trace binding is invalid")
     bindings = receipt.get("stage_bindings")
     if not isinstance(bindings, dict) or set(bindings) != set(CHAIN_STAGES):
         result["errors"].append("combined chain stage bindings are incomplete")

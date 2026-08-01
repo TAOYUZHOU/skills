@@ -946,7 +946,8 @@ def _runtime_boundary_inventory(
         token: set() for token in ("queue", "review", "completion", "health")
     }
     changed_paths: set[str] | None = None
-    candidate_rows: list[tuple[str, str]] = []
+    candidate_tree_rows: list[tuple[str, str]] = []
+    changed_blob_rows: list[tuple[str, str]] = []
     if re.fullmatch(r"[0-9a-f]{40}", base) and re.fullmatch(
         r"[0-9a-f]{40}", candidate
     ):
@@ -1020,12 +1021,20 @@ def _runtime_boundary_inventory(
             for paths in signals.values():
                 candidates.extend(paths)
     if changed_paths is not None:
-        for relative in sorted(changed_paths):
+        candidate_grouped: dict[str, dict[str, set[str]]] = {}
+        try:
+            candidate_files = {
+                line
+                for line in _git(
+                    root, "ls-tree", "-r", "--name-only", candidate
+                ).splitlines()
+                if line
+            }
+        except RuntimeError:
+            candidate_files = set()
+        for relative in sorted(candidate_files):
             candidate_path = Path(relative)
-            if (
-                candidate_path.suffix.lower() not in RUNTIME_CODE_SUFFIXES
-                or relative in RUNTIME_META_FILES
-            ):
+            if candidate_path.suffix.lower() not in RUNTIME_CODE_SUFFIXES:
                 continue
             proc = subprocess.run(
                 ["git", "show", f"{candidate}:{relative}"],
@@ -1037,17 +1046,76 @@ def _runtime_boundary_inventory(
             if proc.returncode != 0:
                 continue
             raw = proc.stdout
-            candidate_rows.append((relative, hashlib.sha256(raw).hexdigest()))
+            digest = hashlib.sha256(raw).hexdigest()
+            candidate_tree_rows.append((relative, digest))
+            if relative in changed_paths:
+                changed_blob_rows.append((f"candidate:{relative}", digest))
+            if relative in RUNTIME_META_FILES:
+                continue
             parts = candidate_path.parts
             lowered_parts = {part.lower() for part in parts}
+            if parts[:2] == ("docs", "evidence"):
+                group = "docs/evidence"
+            elif parts and parts[0] == "skills" and len(parts) > 1:
+                group = "/".join(parts[:2])
+            elif parts and parts[0] == "tests":
+                group = "tests"
+            else:
+                group = parts[0] if parts else ""
+                candidates.append(relative)
             if (
                 "runtime" in lowered_parts
                 or candidate_path.stem.lower() in RUNTIME_BOUNDARY_STEMS
                 or "harp" in lowered_parts
-                or (
-                    parts[:2] != ("docs", "evidence")
-                    and not (parts and parts[0] in {"skills", "tests"})
+            ):
+                candidates.append(relative)
+            text = raw.decode("utf-8", errors="ignore").lower()
+            signals = {
+                token
+                for token in ("queue", "review", "completion", "health")
+                if token in text
+            }
+            if group:
+                bucket = candidate_grouped.setdefault(
+                    group,
+                    {token: set() for token in ("queue", "review", "completion", "health")},
                 )
+                for token in signals:
+                    bucket[token].add(relative)
+            if relative in changed_paths:
+                for token in signals:
+                    repository_signals[token].add(relative)
+        for signals in candidate_grouped.values():
+            if all(
+                signals[token]
+                for token in ("queue", "review", "completion", "health")
+            ):
+                for paths in signals.values():
+                    candidates.extend(paths)
+        for relative in sorted(changed_paths - candidate_files):
+            deleted_path = Path(relative)
+            if (
+                deleted_path.suffix.lower() not in RUNTIME_CODE_SUFFIXES
+                or relative in RUNTIME_META_FILES
+            ):
+                continue
+            proc = subprocess.run(
+                ["git", "show", f"{base}:{relative}"],
+                cwd=root,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            if proc.returncode != 0:
+                continue
+            raw = proc.stdout
+            digest = hashlib.sha256(raw).hexdigest()
+            changed_blob_rows.append((f"deleted:{relative}", digest))
+            lowered_parts = {part.lower() for part in deleted_path.parts}
+            if (
+                "runtime" in lowered_parts
+                or deleted_path.stem.lower() in RUNTIME_BOUNDARY_STEMS
+                or "harp" in lowered_parts
             ):
                 candidates.append(relative)
             text = raw.decode("utf-8", errors="ignore").lower()
@@ -1067,11 +1135,16 @@ def _runtime_boundary_inventory(
         "scanned_code_file_count": len(rows),
         "changed_code_file_count": len(rows)
         if changed_paths is None
-        else len(candidate_rows),
+        else len(changed_blob_rows),
         "inventory_sha256": inventory_sha,
+        "candidate_tree_code_sha256": hashlib.sha256(
+            json.dumps(
+                candidate_tree_rows, ensure_ascii=False, separators=(",", ":")
+            ).encode()
+        ).hexdigest(),
         "candidate_changed_code_sha256": hashlib.sha256(
             json.dumps(
-                candidate_rows, ensure_ascii=False, separators=(",", ":")
+                changed_blob_rows, ensure_ascii=False, separators=(",", ":")
             ).encode()
         ).hexdigest(),
         "runtime_boundary_candidates": sorted(set(candidates)),
@@ -1197,7 +1270,10 @@ def _validate_unreachability(
 
 
 def _junit_matches_test(
-    path: Path, test_path: str, required_testcases: set[str] | None = None
+    path: Path,
+    test_path: str,
+    required_testcases: set[str] | None = None,
+    run_id: str = "",
 ) -> bool:
     try:
         root = ET.parse(path).getroot()
@@ -1216,6 +1292,11 @@ def _junit_matches_test(
             return False
         if tests <= 0 or failures or errors or skipped:
             return False
+    if run_id and not any(
+        prop.get("name") == "harp_run_id" and prop.get("value") == run_id
+        for prop in root.findall(".//property")
+    ):
+        return False
     cases = root.findall(".//testcase")
     if not cases:
         return False
@@ -1252,14 +1333,19 @@ def _candidate_blob_sha(root: Path, candidate: str, relative: str) -> str:
     return hashlib.sha256(proc.stdout).hexdigest() if proc.returncode == 0 else ""
 
 
-def _coverage_matches_stage_bindings(path: Path, bindings: dict) -> bool:
+def _coverage_matches_stage_bindings(
+    path: Path, bindings: dict, run_id: str
+) -> bool:
     try:
         coverage = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return False
     if not isinstance(coverage, dict) or not isinstance(coverage.get("files"), dict):
         return False
-    if (coverage.get("meta") or {}).get("show_contexts") is not True:
+    if (
+        (coverage.get("meta") or {}).get("show_contexts") is not True
+        or (coverage.get("meta") or {}).get("harp_run_id") != run_id
+    ):
         return False
     files = coverage["files"]
     for binding in bindings.values():
@@ -1287,6 +1373,79 @@ def _coverage_matches_stage_bindings(path: Path, bindings: dict) -> bool:
                 for context in observed
             ):
                 return False
+    return True
+
+
+def _trace_matches_stage_bindings(
+    path: Path, receipt: dict, bindings: dict
+) -> bool:
+    try:
+        trace = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    expected_keys = {
+        "schema_version",
+        "run_id",
+        "candidate_revision",
+        "test_path",
+        "stages",
+    }
+    if not isinstance(trace, dict) or set(trace) != expected_keys:
+        return False
+    if (
+        trace.get("schema_version") != 1
+        or trace.get("run_id") != receipt.get("run_id")
+        or trace.get("candidate_revision") != receipt.get("candidate_revision")
+        or trace.get("test_path") != receipt.get("test_path")
+    ):
+        return False
+    rows = trace.get("stages")
+    if not isinstance(rows, list) or [
+        row.get("stage") for row in rows if isinstance(row, dict)
+    ] != receipt.get("stages"):
+        return False
+    prior_output = ""
+    digest_re = re.compile(r"[0-9a-f]{64}")
+    row_keys = {
+        "stage",
+        "testcase",
+        "producer_path",
+        "consumer_path",
+        "input_sha256",
+        "producer_output_sha256",
+        "consumer_input_sha256",
+        "consumer_output_sha256",
+        "assertion_passed",
+    }
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict) or set(row) != row_keys:
+            return False
+        stage = str(row.get("stage") or "")
+        binding = bindings.get(stage)
+        if not isinstance(binding, dict):
+            return False
+        digests = [
+            str(row.get(key) or "")
+            for key in (
+                "input_sha256",
+                "producer_output_sha256",
+                "consumer_input_sha256",
+                "consumer_output_sha256",
+            )
+        ]
+        if (
+            any(not digest_re.fullmatch(value) for value in digests)
+            or row.get("producer_output_sha256")
+            != row.get("consumer_input_sha256")
+            or index > 0
+            and row.get("input_sha256") != prior_output
+            or row.get("testcase") != binding.get("testcase")
+            or row.get("producer_path") != binding.get("producer_path")
+            or row.get("consumer_path") != binding.get("consumer_path")
+            or row.get("assertion_passed") is not True
+        ):
+            return False
+        prior_output = str(row.get("consumer_output_sha256") or "")
     return True
 
 
@@ -1463,6 +1622,13 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
                 )
                 if coverage_error:
                     result["errors"].append(coverage_error)
+                trace_path, trace_error = _contained_file(
+                    root,
+                    receipt_record.get("trace_path"),
+                    "combined_chain_gate receipt trace_path",
+                )
+                if trace_error:
+                    result["errors"].append(trace_error)
                 stage_bindings = receipt_record.get("stage_bindings") or {}
                 stage_files_ok = isinstance(stage_bindings, dict)
                 for binding in (
@@ -1511,7 +1677,17 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
                     "coverage_contexts": coverage_path is not None
                     and isinstance(stage_bindings, dict)
                     and _coverage_matches_stage_bindings(
-                        coverage_path, stage_bindings
+                        coverage_path,
+                        stage_bindings,
+                        str(receipt_record.get("run_id") or ""),
+                    ),
+                    "trace_sha256": trace_path is not None
+                    and receipt_record.get("trace_sha256")
+                    == _sha256_file(trace_path),
+                    "causal_trace": trace_path is not None
+                    and isinstance(stage_bindings, dict)
+                    and _trace_matches_stage_bindings(
+                        trace_path, receipt_record, stage_bindings
                     ),
                     "junit_test_result": junit_path is not None
                     and _junit_matches_test(
@@ -1524,6 +1700,7 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
                             ).values()
                             if isinstance(binding, dict)
                         },
+                        str(receipt_record.get("run_id") or ""),
                     ),
                 }
                 result["combined_chain"]["binding_checks"] = binding_checks

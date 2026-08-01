@@ -48,7 +48,7 @@ def _valid_receipt(manifest: Path) -> dict:
         "schema_version": 1,
         "status": "passed",
         "exit_code": 0,
-        "command": "pytest -q tests/test_delivery_alignment_history_replay.py --junitxml=docs/evidence/chain.xml --cov=. --cov-context=test --cov-report=json:docs/evidence/coverage.json",
+        "command": "pytest -q tests/test_delivery_alignment_history_replay.py --junitxml=docs/evidence/chain.xml --cov=. --cov-context=test --cov-report=json:docs/evidence/coverage.json --harp-chain-trace=docs/evidence/trace.json",
         "candidate_revision": "1" * 40,
         "boundary_mode": "target_local_real_producers_consumers",
         "test_path": "tests/test_delivery_alignment_history_replay.py",
@@ -57,6 +57,9 @@ def _valid_receipt(manifest: Path) -> dict:
         "junit_sha256": "2" * 64,
         "coverage_path": "docs/evidence/coverage.json",
         "coverage_sha256": "3" * 64,
+        "run_id": "a" * 32,
+        "trace_path": "docs/evidence/trace.json",
+        "trace_sha256": "6" * 64,
         "replay_manifest_sha256": _sha256(manifest),
         "stages": validator.CHAIN_STAGES,
         "stage_bindings": {
@@ -135,6 +138,9 @@ def test_combined_receipt_requires_all_ordered_stages_and_closure_oracles(
     )
     meta.pop("coverage_path")
     meta.pop("coverage_sha256")
+    meta.pop("run_id")
+    meta.pop("trace_path")
+    meta.pop("trace_sha256")
     for binding in meta["stage_bindings"].values():
         for field in (
             "testcase",

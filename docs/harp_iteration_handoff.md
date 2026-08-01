@@ -1,10 +1,10 @@
 # HARP Iteration Handoff
 
 status: partial
-updated_at_utc: 2026-08-01T08:28:00Z
+updated_at_utc: 2026-08-01T08:50:00Z
 iteration: delivery-alignment-combined-chain-replay
 contract: docs/iteration_contracts/delivery_alignment_combined_chain_replay_20260801.yaml
-candidate: 258047c1d4f5f0cbb4f8c7df0c7b15b4a22f7282
+candidate: 7d13ec84e5f2cdb581d4131b420e9a9f7fcb64ed
 
 ## Intent
 
@@ -34,7 +34,8 @@ workspace mocks with sanitized replays derived from three real workspace histori
 - Rejected ninth candidate: `fb93b105d41cf81246065a312b4fd23e75a7df55`.
 - Rejected tenth candidate: `ca0359e4d4128f97950c8be63825dbeadd742969`;
 - Rejected eleventh candidate: `258047c1d4f5f0cbb4f8c7df0c7b15b4a22f7282`;
-  twelfth pending freeze.
+- Rejected twelfth candidate: `7d13ec84e5f2cdb581d4131b420e9a9f7fcb64ed`;
+  thirteenth pending freeze.
 - Three read-only source histories exhibit distinct classes: accepted-review projection mismatch, blocked missing-artifact dependency, and partial-result materialization.
 - The working tree already contains unrelated untracked evidence and skills; they are outside this iteration.
 
@@ -76,6 +77,11 @@ could still impersonate the chain and that immutable changed paths were scanned
 from mutable worktree bytes. Target-local receipts now bind candidate-tree
 producer/consumer file hashes plus per-test coverage contexts, while
 applicability reads changed code directly from candidate Git blobs.
+The twelfth candidate's exact-diff review showed that unrelated autouse calls
+could satisfy file coverage, unchanged runtime files could be deleted only from
+the worktree, and deleted lifecycle code was absent from candidate blobs. The
+required chain now carries a same-run ordered causal digest trace; applicability
+scans the complete candidate tree and base blobs for deletions.
 
 ## Completed changes
 
@@ -105,8 +111,8 @@ applicability reads changed code directly from candidate Git blobs.
 
 - Pre-change repository HEAD is `d94d282c7982a6de7041343d12df9cee5cf8a7c1`.
 - The three source workspaces were inspected read-only and no repair command was executed.
-- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 110 passed after the eleventh adversarial repairs.
-- `pytest -q`: 117 passed after the eleventh adversarial repairs.
+- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 112 passed after the twelfth adversarial repairs.
+- `pytest -q`: 119 passed after the twelfth adversarial repairs.
 - `quick_validate.py skills/delivery-alignment-iteration`: `Skill is valid!`.
 - `validate_harp_chain_evidence.py` reports all three replay oracles valid. The
   supplemental meta receipt validates only with the explicit diagnostic
@@ -136,7 +142,9 @@ applicability reads changed code directly from candidate Git blobs.
   immutable-diff repository-wide signal union.
 - Candidate `258047c` produced two executable attacks; they are repaired by
   immutable candidate-blob applicability and per-stage target-file coverage.
-- Twelfth immutable candidate, clean independent output, zero-escape
+- Candidate `7d13ec8` produced three executable attacks; they are repaired by
+  a same-run causal trace plus full candidate-tree and base-deletion inventory.
+- Thirteenth immutable candidate, clean independent output, zero-escape
   deterministic result, and final trusted attestations remain pending.
 
 ## Open blockers and risks
@@ -147,7 +155,7 @@ applicability reads changed code directly from candidate Git blobs.
 
 ## Exact next action
 
-Freeze the twelfth candidate, then rerun independent skill consumption plus
+Freeze the thirteenth candidate, then rerun independent skill consumption plus
 exact-diff counterexample review with its forward-binding patch.
 
 ## Final claims allowed now

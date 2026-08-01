@@ -305,9 +305,11 @@ def test_required_lifecycle_evidence_is_recomputed(
     test_candidate = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
     ).strip()
+    run_id = "a" * 32
     junit = tmp_path / "chain.xml"
     junit.write_text(
         '<testsuites><testsuite tests="10" failures="0" errors="0" skipped="0">'
+        f'<properties><property name="harp_run_id" value="{run_id}" /></properties>'
         + "".join(
             f'<testcase classname="target_chain_test" name="test_{stage}" />'
             for stage in checker._load_chain_validator().CHAIN_STAGES
@@ -322,7 +324,7 @@ def test_required_lifecycle_evidence_is_recomputed(
     coverage.write_text(
         json.dumps(
             {
-                "meta": {"show_contexts": True},
+                "meta": {"show_contexts": True, "harp_run_id": run_id},
                 "files": {
                     "producer.py": {
                         "executed_lines": [1, 2],
@@ -337,10 +339,42 @@ def test_required_lifecycle_evidence_is_recomputed(
         ),
         encoding="utf-8",
     )
+    prior = hashlib.sha256(b"seed").hexdigest()
+    trace_rows = []
+    for stage in validator.CHAIN_STAGES:
+        produced = hashlib.sha256(f"{prior}:{stage}:produced".encode()).hexdigest()
+        consumed = hashlib.sha256(f"{produced}:consumed".encode()).hexdigest()
+        trace_rows.append(
+            {
+                "stage": stage,
+                "testcase": f"test_{stage}",
+                "producer_path": "producer.py",
+                "consumer_path": "consumer.py",
+                "input_sha256": prior,
+                "producer_output_sha256": produced,
+                "consumer_input_sha256": produced,
+                "consumer_output_sha256": consumed,
+                "assertion_passed": True,
+            }
+        )
+        prior = consumed
+    trace = tmp_path / "trace.json"
+    trace.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "run_id": run_id,
+                "candidate_revision": test_candidate,
+                "test_path": "target_chain_test.py",
+                "stages": trace_rows,
+            }
+        ),
+        encoding="utf-8",
+    )
     receipt = {
         "status": "passed",
         "exit_code": 0,
-        "command": "pytest -q target_chain_test.py --junitxml=chain.xml --cov=. --cov-context=test --cov-report=json:coverage.json",
+        "command": "pytest -q target_chain_test.py --junitxml=chain.xml --cov=. --cov-context=test --cov-report=json:coverage.json --harp-chain-trace=trace.json",
         "candidate_revision": test_candidate,
         "boundary_mode": "target_local_real_producers_consumers",
         "test_path": "target_chain_test.py",
@@ -349,6 +383,9 @@ def test_required_lifecycle_evidence_is_recomputed(
         "junit_sha256": hashlib.sha256(junit.read_bytes()).hexdigest(),
         "coverage_path": "coverage.json",
         "coverage_sha256": hashlib.sha256(coverage.read_bytes()).hexdigest(),
+        "run_id": run_id,
+        "trace_path": "trace.json",
+        "trace_sha256": hashlib.sha256(trace.read_bytes()).hexdigest(),
         "replay_manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
         "stages": validator.CHAIN_STAGES,
         "stage_bindings": {
@@ -416,7 +453,7 @@ def test_required_lifecycle_evidence_is_recomputed(
         "  decision: required\n"
         "  reason: control lifecycle is reachable\n"
         "  scope: executor through post-repair audit\n"
-        "  invoke: pytest -q target_chain_test.py --junitxml=chain.xml --cov=. --cov-context=test --cov-report=json:coverage.json\n"
+        "  invoke: pytest -q target_chain_test.py --junitxml=chain.xml --cov=. --cov-context=test --cov-report=json:coverage.json --harp-chain-trace=trace.json\n"
         "  assert: all stages and closure oracles pass\n"
         "  evidence: chain_receipt.json\n",
     )
@@ -445,9 +482,39 @@ def test_required_lifecycle_evidence_is_recomputed(
     result = checker.validate_lifecycle_evidence(contract, tmp_path)
     assert result["ok"], result
 
+    trace_record = json.loads(trace.read_text(encoding="utf-8"))
+    trace_record["stages"][0]["consumer_input_sha256"] = "0" * 64
+    trace.write_text(json.dumps(trace_record), encoding="utf-8")
+    receipt["trace_sha256"] = hashlib.sha256(trace.read_bytes()).hexdigest()
+    receipt.pop("attestation_hmac_sha256")
+    payload = json.dumps(
+        receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
+    receipt["attestation_hmac_sha256"] = hmac.new(
+        key.read_bytes(), payload, hashlib.sha256
+    ).hexdigest()
+    chain_evidence.write_text(json.dumps(receipt), encoding="utf-8")
+    broken_trace = checker.validate_lifecycle_evidence(contract, tmp_path)
+    assert not broken_trace["ok"]
+    assert broken_trace["combined_chain"]["binding_checks"]["causal_trace"] is False
+
+    trace_record["stages"][0]["consumer_input_sha256"] = trace_record["stages"][0][
+        "producer_output_sha256"
+    ]
+    trace.write_text(json.dumps(trace_record), encoding="utf-8")
+    receipt["trace_sha256"] = hashlib.sha256(trace.read_bytes()).hexdigest()
+    receipt.pop("attestation_hmac_sha256")
+    payload = json.dumps(
+        receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
+    receipt["attestation_hmac_sha256"] = hmac.new(
+        key.read_bytes(), payload, hashlib.sha256
+    ).hexdigest()
+    chain_evidence.write_text(json.dumps(receipt), encoding="utf-8")
+
     receipt["command"] = (
         "pytest -q benign.py --junitxml=chain.xml --cov=. --cov-context=test "
-        "--cov-report=json:coverage.json"
+        "--cov-report=json:coverage.json --harp-chain-trace=trace.json"
     )
     receipt.pop("attestation_hmac_sha256")
     payload = json.dumps(
@@ -472,7 +539,8 @@ def test_required_lifecycle_evidence_is_recomputed(
 
     receipt["command"] = (
         "pytest -q target_chain_test.py --junitxml=chain.xml --cov=. "
-        "--cov-context=test --cov-report=json:coverage.json"
+        "--cov-context=test --cov-report=json:coverage.json "
+        "--harp-chain-trace=trace.json"
     )
     receipt.pop("attestation_hmac_sha256")
     payload = json.dumps(
@@ -678,6 +746,50 @@ def test_runtime_inventory_reads_immutable_candidate_blob(tmp_path: Path) -> Non
     assert errors
     assert "src/control.py" in observation["runtime_boundary_candidates"]
     assert observation["changed_code_file_count"] == 1
+
+
+@pytest.mark.parametrize("delete_in_candidate", [False, True])
+def test_runtime_inventory_reads_full_candidate_tree_and_base_deletions(
+    tmp_path: Path, delete_in_candidate: bool
+) -> None:
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"], cwd=tmp_path, check=True
+    )
+    runtime = tmp_path / "runtime_parts"
+    runtime.mkdir()
+    names = []
+    for index, token in enumerate(("queue", "review", "completion", "health"), 1):
+        path = runtime / f"part{index}.py"
+        path.write_text(f"def {token}(): return True\n", encoding="utf-8")
+        names.append(path.relative_to(tmp_path).as_posix())
+    (tmp_path / "README.md").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=tmp_path, check=True)
+    base = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    if delete_in_candidate:
+        subprocess.run(["git", "rm", "-qr", "runtime_parts"], cwd=tmp_path, check=True)
+    else:
+        (tmp_path / "README.md").write_text("candidate\n", encoding="utf-8")
+        subprocess.run(["git", "add", "README.md"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "candidate"], cwd=tmp_path, check=True)
+    candidate = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    if not delete_in_candidate:
+        for name in names:
+            (tmp_path / name).unlink()
+        runtime.rmdir()
+    observation, errors = checker._runtime_boundary_inventory(
+        tmp_path, base, candidate
+    )
+    assert errors
+    assert set(names).issubset(set(observation["runtime_boundary_candidates"]))
 
 
 def test_combined_chain_na_cannot_use_author_selected_absent_path(

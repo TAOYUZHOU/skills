@@ -75,13 +75,14 @@ For high-risk control-lifecycle iterations, both lifecycle gates are mandatory:
   inventory. It fails closed for code outside the skill-catalog layout and
   unions lifecycle signals across modules within one package, so split queue,
   review, completion, and health files cannot evade it. It also unions signals
-  from every code file changed by immutable `base..candidate`, including across
-  packages and evidence directories. `combined_chain_gate` cannot substitute
+  from the complete frozen candidate code tree, including across packages and
+  evidence directories, and reads base blobs for deletions.
+  `combined_chain_gate` cannot substitute
   `all_paths_absent`; that predicate remains available only for other supported
-  unreachability classes. Changed-path semantics are read directly from frozen
-  candidate Git blobs, so removing or replacing a working-tree file cannot hide
-  the candidate boundary. A copied signed record fails when the current root
-  makes the predicate false.
+  unreachability classes. Removing or replacing working-tree files, hiding
+  unchanged runtime files, or deleting producers cannot hide the candidate
+  boundary. A copied signed record fails when the current root makes the
+  predicate false.
   The signed record also binds `candidate_revision`, `repository_scope`, and
   `command_cwd`; it cannot be replayed for a later candidate.
   Existing mocks, unit tests, cost, prose, or an unavailable provider do not
@@ -99,7 +100,9 @@ For high-risk control-lifecycle iterations, both lifecycle gates are mandatory:
   Every target-local stage row also binds one unique JUnit testcase from that
   module plus candidate-tree producer/consumer paths and hashes. A hash-bound
   coverage JSON with per-test contexts must show that each testcase executed
-  both bound files.
+  both bound files. JUnit, coverage, and an ordered causal trace share a signed
+  run ID; every trace row requires producer output digest equal to consumer
+  input digest, and each consumer output becomes the next stage input.
   The invocation must use the constrained pytest form with that sole test path
   and a hash-bound JUnit report proving the module ran with no failure, error,
   or skip in both aggregate counters and testcase nodes.

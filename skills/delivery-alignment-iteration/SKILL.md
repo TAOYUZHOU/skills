@@ -518,14 +518,19 @@ completion, retry/resume, or workflow-health routing is reachable.
   package rather than tested one file at a time. Signals in the immutable
   `base..candidate` code diff are also unioned repository-wide, so one runtime
   split across packages cannot disappear into unrelated baseline tools. The
-  changed-file scan reads candidate Git blobs, never mutable worktree bytes.
+  scan reads the complete candidate Git tree plus base blobs for deletions,
+  never mutable worktree bytes. Removing unchanged runtime files or deleting a
+  producer cannot manufacture N/A.
 - A required combined receipt needs host-controlled attestation in addition to
   exact contract invocation, candidate/test hashes, stage producer/consumer
   bindings, fixture binding, and closure assertions. Every stage binding names
   a unique testcase from the bound module; JUnit aggregate counters and child
   results must all be green. Each stage also binds immutable-candidate producer
   and consumer paths/hashes, and per-test coverage contexts must show that its
-  testcase executed both files. Ten vacuous green tests are insufficient.
+  testcase executed both files. A same-run causal trace preserves the
+  producer-output/consumer-input digest at every stage and chains each consumer
+  output into the next stage input. Ten vacuous green tests or unrelated autouse
+  calls are insufficient.
 - A required receipt must use `target_local_real_producers_consumers`.
   `skill_gate_meta_validation` is diagnostic only and can never close a
   reachable runtime gate. Combined-chain `not_applicable` accepts only the fixed
