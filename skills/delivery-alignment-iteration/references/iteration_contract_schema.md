@@ -72,8 +72,10 @@ For high-risk control-lifecycle iterations, both lifecycle gates are mandatory:
   `all_paths_absent` predicate and the fixed `no_harp_runtime_boundaries`
   repository inventory. The latter accepts no author-selected fields and
   re-evaluates path and semantic boundary signals across the current code
-  inventory. A copied signed record fails when the current root makes the
-  predicate false.
+  inventory. It fails closed for code outside the skill-catalog layout and
+  unions lifecycle signals across modules within one package, so split queue,
+  review, completion, and health files cannot evade it. A copied signed record
+  fails when the current root makes the predicate false.
   The signed record also binds `candidate_revision`, `repository_scope`, and
   `command_cwd`; it cannot be replayed for a later candidate.
   Existing mocks, unit tests, cost, prose, or an unavailable provider do not

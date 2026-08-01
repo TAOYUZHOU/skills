@@ -512,7 +512,10 @@ completion, retry/resume, or workflow-health routing is reachable.
 - For HARP runtime absence, use the checker's fixed
   `no_harp_runtime_boundaries` repository inventory. It accepts no
   author-selected paths and binds the current code inventory and every detected
-  boundary candidate into the signed observation.
+  boundary candidate into the signed observation. In the skill-catalog profile,
+  any code outside the known skill/test/evidence layout is reachable by default,
+  and queue/review/completion/health signals are unioned across each skill
+  package rather than tested one file at a time.
 - A required combined receipt needs host-controlled attestation in addition to
   exact contract invocation, candidate/test hashes, stage producer/consumer
   bindings, fixture binding, and closure assertions.

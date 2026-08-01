@@ -1,10 +1,10 @@
 # HARP Iteration Handoff
 
 status: partial
-updated_at_utc: 2026-08-01T07:04:00Z
+updated_at_utc: 2026-08-01T07:43:00Z
 iteration: delivery-alignment-combined-chain-replay
 contract: docs/iteration_contracts/delivery_alignment_combined_chain_replay_20260801.yaml
-candidate: 1269274d743d8ba47ee6b35bbdc6045500986d3b
+candidate: fb93b105d41cf81246065a312b4fd23e75a7df55
 
 ## Intent
 
@@ -31,7 +31,8 @@ workspace mocks with sanitized replays derived from three real workspace histori
 - Rejected sixth candidate: `876153fc3dc8af5e6c2fa4723f4c9331ab1fb4af`.
 - Rejected seventh candidate: `e606effd18de22e5da890fdea6bbbed1295e6c0b`;
 - Rejected eighth candidate: `1269274d743d8ba47ee6b35bbdc6045500986d3b`;
-  ninth pending freeze.
+- Rejected ninth candidate: `fb93b105d41cf81246065a312b4fd23e75a7df55`.
+- Tenth candidate pending freeze.
 - Three read-only source histories exhibit distinct classes: accepted-review projection mismatch, blocked missing-artifact dependency, and partial-result materialization.
 - The working tree already contains unrelated untracked evidence and skills; they are outside this iteration.
 
@@ -57,6 +58,11 @@ repository, and a signed manifest without an independently bound capture
 witness. The validator now closes the nested schema, the checker owns a fixed
 repository-wide runtime-boundary inventory, and each real-history capture has a
 separately host-attested receipt binding its tool and source/profile digests.
+The ninth candidate's exact-diff review found that lifecycle signals could be
+split across four modules and that a `missing` assessment could still claim
+zero missing artifacts. Repository inventory now unions signals per package and
+fails closed on code outside the skill-catalog layout; the blocked-artifact
+oracle now requires positive missing count and `checked < expected`.
 
 ## Completed changes
 
@@ -83,8 +89,8 @@ separately host-attested receipt binding its tool and source/profile digests.
 
 - Pre-change repository HEAD is `d94d282c7982a6de7041343d12df9cee5cf8a7c1`.
 - The three source workspaces were inspected read-only and no repair command was executed.
-- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 103 passed after the eighth adversarial repairs.
-- `pytest -q`: 110 passed after the eighth adversarial repairs.
+- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 105 passed after the ninth adversarial repairs.
+- `pytest -q`: 112 passed after the ninth adversarial repairs.
 - `quick_validate.py skills/delivery-alignment-iteration`: `Skill is valid!`.
 - `validate_harp_chain_evidence.py` reports all three replay oracles and the combined receipt valid.
 - Durable evidence: `docs/evidence/delivery_alignment_combined_chain_replay_20260801/`.
@@ -105,7 +111,9 @@ separately host-attested receipt binding its tool and source/profile digests.
 - Candidate `1269274` produced three executable attacks; they are repaired by
   strict nested assessment scalars, a fixed repository inventory predicate, and
   a separately attested capture witness.
-- Ninth immutable candidate, clean independent output, zero-escape deterministic
+- Candidate `fb93b10` produced two executable attacks; they are repaired by
+  package-level signal union and the cross-field blocked-artifact invariant.
+- Tenth immutable candidate, clean independent output, zero-escape deterministic
   result, and final trusted attestations remain pending.
 
 ## Open blockers and risks
@@ -116,7 +124,7 @@ separately host-attested receipt binding its tool and source/profile digests.
 
 ## Exact next action
 
-Freeze the ninth candidate, then rerun independent skill consumption plus
+Freeze the tenth candidate, then rerun independent skill consumption plus
 exact-diff counterexample review with its forward-binding patch.
 
 ## Final claims allowed now

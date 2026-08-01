@@ -326,6 +326,43 @@ def test_capture_receipt_must_bind_real_snapshot_and_profile(tmp_path: Path) -> 
     )
 
 
+def test_blocked_artifact_requires_positive_missing_count(tmp_path: Path) -> None:
+    copied = tmp_path / "fixtures"
+    shutil.copytree(FIXTURES, copied)
+    manifest_path = copied / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    row = next(
+        item
+        for item in manifest["profiles"]
+        if item["archetype"] == "blocked_artifact_dependency"
+    )
+    profile_path = copied / row["path"]
+    profile = json.loads(profile_path.read_text(encoding="utf-8"))
+    for queue_row in profile["facts"]["queue"]:
+        if queue_row["output_assessment"]["status"] == "missing":
+            queue_row["output_assessment"]["missing_count"] = 0
+    profile_path.write_text(json.dumps(profile), encoding="utf-8")
+    row["sha256"] = _sha256(profile_path)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    capture_path = copied / "capture_receipt.json"
+    capture_receipt = json.loads(capture_path.read_text(encoding="utf-8"))
+    source = next(
+        item
+        for item in capture_receipt["sources"]
+        if item["archetype"] == "blocked_artifact_dependency"
+    )
+    source["profile_sha256"] = row["sha256"]
+    capture_path.write_text(json.dumps(capture_receipt), encoding="utf-8")
+    result = validator.validate_replay_manifest(
+        manifest_path, require_host_attestation=False
+    )
+    assert not result["ok"]
+    assert any(
+        "blocked missing-artifact dependency signature not reproduced" in error
+        for error in result["errors"]
+    )
+
+
 def test_capture_refuses_output_inside_a_historical_source(tmp_path: Path) -> None:
     sources = [tmp_path / f"source-{index}" for index in range(3)]
     for source in sources:

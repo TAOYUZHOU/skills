@@ -534,6 +534,24 @@ def test_unreachability_evidence_is_machine_bound(
     assert any("does not match its proof" in error for error in result["errors"])
 
 
+def test_split_module_runtime_cannot_evade_repository_inventory(tmp_path: Path) -> None:
+    control = tmp_path / "src" / "control"
+    control.mkdir(parents=True)
+    for name, token in (
+        ("queue.py", "queue"),
+        ("reviews.py", "review"),
+        ("completion.py", "completion"),
+        ("health.py", "health"),
+    ):
+        (control / name).write_text(f"def {token}(): return True\n", encoding="utf-8")
+    observation, errors = checker._runtime_boundary_inventory(tmp_path)
+    assert errors
+    assert observation["runtime_boundary_candidates"]
+    assert {f"src/control/{name}" for name in (
+        "queue.py", "reviews.py", "completion.py", "health.py"
+    )}.issubset(set(observation["runtime_boundary_candidates"]))
+
+
 def test_new_v1_contract_cannot_bypass_v2_rules() -> None:
     result = checker.validate(_legacy_contract())
     assert not result["ok"]

@@ -939,6 +939,7 @@ def _runtime_boundary_inventory(root: Path) -> tuple[dict, list[str]]:
 
     rows: list[tuple[str, str]] = []
     candidates: list[str] = []
+    grouped_signals: dict[str, dict[str, set[str]]] = {}
     for path in sorted(root.rglob("*")):
         if ".git" in path.parts or not path.is_file():
             continue
@@ -947,6 +948,10 @@ def _runtime_boundary_inventory(root: Path) -> tuple[dict, list[str]]:
         except ValueError:
             continue
         if path.suffix.lower() not in RUNTIME_CODE_SUFFIXES:
+            continue
+        if path.is_symlink():
+            candidates.append(relative)
+            rows.append((relative, "symlink"))
             continue
         try:
             raw = path.read_bytes()
@@ -963,11 +968,35 @@ def _runtime_boundary_inventory(root: Path) -> tuple[dict, list[str]]:
         semantic_signal = False
         if relative not in RUNTIME_META_FILES:
             text = raw.decode("utf-8", errors="ignore").lower()
-            semantic_signal = all(
-                token in text for token in ("queue", "review", "completion", "health")
-            )
+            signals = {
+                token
+                for token in ("queue", "review", "completion", "health")
+                if token in text
+            }
+            semantic_signal = len(signals) == 4
+            parts = Path(relative).parts
+            if parts[:2] == ("docs", "evidence"):
+                group = ""
+            elif parts and parts[0] == "skills" and len(parts) > 1:
+                group = "/".join(parts[:2])
+            elif parts and parts[0] == "tests":
+                group = "tests"
+            else:
+                group = parts[0] if parts else ""
+                candidates.append(relative)
+            if group:
+                bucket = grouped_signals.setdefault(
+                    group,
+                    {token: set() for token in ("queue", "review", "completion", "health")},
+                )
+                for token in signals:
+                    bucket[token].add(relative)
         if path_signal or semantic_signal:
             candidates.append(relative)
+    for signals in grouped_signals.values():
+        if all(signals[token] for token in ("queue", "review", "completion", "health")):
+            for paths in signals.values():
+                candidates.extend(paths)
     inventory_sha = hashlib.sha256(
         json.dumps(rows, ensure_ascii=False, separators=(",", ":")).encode()
     ).hexdigest()

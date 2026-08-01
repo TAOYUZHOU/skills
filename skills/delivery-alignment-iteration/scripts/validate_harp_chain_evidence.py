@@ -527,6 +527,9 @@ def _archetype_oracle(profile: dict[str, Any]) -> tuple[bool, list[str]]:
             for row in queue.values()
             if row.get("status") == "blocked"
             and (row.get("output_assessment") or {}).get("status") == "missing"
+            and (row.get("output_assessment") or {}).get("missing_count", 0) > 0
+            and row.get("expected_output_count", 0)
+            > (row.get("output_assessment") or {}).get("checked_count", 0)
         ]
         blockers = set(completion.get("blockers") or [])
         if not missing or "execution_queue_blocked_items_present" not in blockers:

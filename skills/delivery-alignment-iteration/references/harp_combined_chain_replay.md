@@ -97,6 +97,12 @@ digest sets, and each derived profile hash. The manifest names this receipt and
 the iteration contract binds its path; a plausible synthetic manifest without
 that capture witness is not acceptable provenance.
 
+Replay oracles must preserve cross-field meaning, not merely enum shape. In the
+blocked-artifact archetype, at least one blocked row must report
+`output_assessment.status: missing`, a positive `missing_count`, and fewer
+checked outputs than expected. A signed zero-missing row is not a blocked
+artifact dependency.
+
 ## Evidence Contract
 
 For an applicable high-risk iteration, the machine contract declares:
