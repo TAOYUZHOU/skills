@@ -214,6 +214,18 @@ def test_required_lifecycle_evidence_is_recomputed(
     fixtures = tmp_path / "fixtures"
     shutil.copytree(source, fixtures)
     manifest = fixtures / "manifest.json"
+    key = tmp_path / "receipt.key"
+    key.write_bytes(b"k" * 32)
+    monkeypatch.setenv("DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE", str(key))
+    manifest_record = json.loads(manifest.read_text(encoding="utf-8"))
+    manifest_record.pop("attestation_hmac_sha256", None)
+    manifest_payload = json.dumps(
+        manifest_record, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
+    manifest_record["attestation_hmac_sha256"] = hmac.new(
+        key.read_bytes(), manifest_payload, hashlib.sha256
+    ).hexdigest()
+    manifest.write_text(json.dumps(manifest_record), encoding="utf-8")
     validator = checker._load_chain_validator()
     replay = validator.validate_replay_manifest(manifest)
     history_evidence = tmp_path / "history_validation.json"
@@ -221,12 +233,27 @@ def test_required_lifecycle_evidence_is_recomputed(
         json.dumps({"ok": replay["ok"], "replay": replay}, indent=2) + "\n",
         encoding="utf-8",
     )
+    target_test = tmp_path / "target_chain_test.py"
+    target_test.write_text("def test_chain():\n    assert True\n", encoding="utf-8")
+    test_candidate = "a" * 40
     receipt = {
         "status": "passed",
         "exit_code": 0,
-        "command": "pytest -q tests/test_target_combined_lifecycle_chain.py",
+        "command": "pytest target chain",
+        "candidate_revision": test_candidate,
+        "boundary_mode": "target_local_real_producers_consumers",
+        "test_path": "target_chain_test.py",
+        "test_sha256": hashlib.sha256(target_test.read_bytes()).hexdigest(),
         "replay_manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
         "stages": validator.CHAIN_STAGES,
+        "stage_bindings": {
+            stage: {
+                "producer": f"producer for {stage}",
+                "consumer": f"consumer for {stage}",
+                "assertion": f"assertion for {stage}",
+            }
+            for stage in validator.CHAIN_STAGES
+        },
         "replay_results": [
             {
                 "archetype": archetype,
@@ -247,15 +274,12 @@ def test_required_lifecycle_evidence_is_recomputed(
             "repeated_zero_work_wakeups": 0,
         },
     }
-    key = tmp_path / "receipt.key"
-    key.write_bytes(b"k" * 32)
     payload = json.dumps(
         receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     ).encode()
     receipt["attestation_hmac_sha256"] = hmac.new(
         key.read_bytes(), payload, hashlib.sha256
     ).hexdigest()
-    monkeypatch.setenv("DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE", str(key))
     chain_evidence = tmp_path / "chain_receipt.json"
     chain_evidence.write_text(json.dumps(receipt), encoding="utf-8")
     contract = _v2_contract().replace(
@@ -267,6 +291,7 @@ def test_required_lifecycle_evidence_is_recomputed(
         "  assert: recomputed evidence matches\n"
         "  record: tmp test outputs\n",
     )
+    contract = contract.replace("  candidate: def", f"  candidate: {test_candidate}")
     contract = contract.replace(
         "combined_chain_gate:\n"
         "  decision: not_applicable\n"
@@ -304,6 +329,29 @@ def test_required_lifecycle_evidence_is_recomputed(
     result = checker.validate_lifecycle_evidence(contract, tmp_path)
     assert result["ok"], result
 
+    receipt["command"] = "true"
+    receipt.pop("attestation_hmac_sha256")
+    payload = json.dumps(
+        receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
+    receipt["attestation_hmac_sha256"] = hmac.new(
+        key.read_bytes(), payload, hashlib.sha256
+    ).hexdigest()
+    chain_evidence.write_text(json.dumps(receipt), encoding="utf-8")
+    mismatched = checker.validate_lifecycle_evidence(contract, tmp_path)
+    assert not mismatched["ok"]
+    assert any("not bound to contract" in error for error in mismatched["errors"])
+
+    receipt["command"] = "pytest target chain"
+    receipt.pop("attestation_hmac_sha256")
+    payload = json.dumps(
+        receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
+    receipt["attestation_hmac_sha256"] = hmac.new(
+        key.read_bytes(), payload, hashlib.sha256
+    ).hexdigest()
+    chain_evidence.write_text(json.dumps(receipt), encoding="utf-8")
+
     profile = fixtures / "blocked_artifact_dependency.json"
     profile.write_text(profile.read_text(encoding="utf-8") + "\n", encoding="utf-8")
     tampered = checker.validate_lifecycle_evidence(contract, tmp_path)
@@ -338,8 +386,11 @@ def test_low_risk_self_classification_cannot_omit_lifecycle_declarations() -> No
 
 
 def test_unreachability_evidence_is_machine_bound(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch,
 ) -> None:
+    key = tmp_path / "receipt.key"
+    key.write_bytes(b"k" * 32)
+    monkeypatch.setenv("DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE", str(key))
     for gate, filename, command, assertion in (
         (
             "combined_chain_gate",
@@ -356,18 +407,20 @@ def test_unreachability_evidence_is_machine_bound(
     ):
         evidence = tmp_path / "docs" / "evidence" / filename
         evidence.parent.mkdir(parents=True, exist_ok=True)
-        evidence.write_text(
-            json.dumps(
-                {
-                    "ok": True,
-                    "gate": gate,
-                    "reachable": False,
-                    "command": command,
-                    "assertion": assertion,
-                }
-            ),
-            encoding="utf-8",
-        )
+        record = {
+            "ok": True,
+            "gate": gate,
+            "reachable": False,
+            "command": command,
+            "assertion": assertion,
+        }
+        payload = json.dumps(
+            record, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode()
+        record["attestation_hmac_sha256"] = hmac.new(
+            key.read_bytes(), payload, hashlib.sha256
+        ).hexdigest()
+        evidence.write_text(json.dumps(record), encoding="utf-8")
     contract = _v2_contract()
     result = checker.validate_lifecycle_evidence(contract, tmp_path)
     assert result["ok"], result

@@ -88,6 +88,9 @@ free-form Agent output, scientific artifacts, credentials, raw database pages,
 workspace names, and user data. Replay only from a copied fixture in an
 isolated temporary directory. The replay must have no write handle to the
 historical source.
+After capture, the trusted runner outside the candidate repository signs the
+manifest with its pre-provisioned trust root. A developer-selected temporary
+key or unsigned manifest is diagnostic only and cannot authorize completion.
 
 ## Evidence Contract
 
@@ -98,8 +101,10 @@ For an applicable high-risk iteration, the machine contract declares:
 - `historical_replay_gate`: fixture manifest, read-only capture command,
   replay invocation, archetype assertions, and durable validation evidence.
 
-The combined receipt binds the fixture-manifest SHA-256, lists all ten stages,
-records all three archetype results, records the happy-path invariants, and has
+The combined receipt binds the contract invocation, immutable candidate,
+target-local test path and SHA-256, fixture-manifest SHA-256, and a
+producer/consumer/assertion triple for all ten stages. It records all three
+archetype results and happy-path invariants, and has
 a valid host-controlled HMAC attestation from outside the candidate repository. The
 validator must fail closed for a missing stage, changed fixture hash, leaked
 absolute path, missing source provenance, absent archetype, incomplete closure
@@ -107,7 +112,7 @@ assertion, or nonzero repeated zero-work wakeups.
 
 If a gate is deterministically unreachable, use `decision: not_applicable` and
 include an `unreachability` mapping with `invoke`, `assert`, and a durable
-machine-readable `evidence` record bound to that oracle. Cost, missing time, existing green
+machine-readable, host-attested `evidence` record bound to that oracle. Cost, missing time, existing green
 unit tests, or a one-hop mock is not an unreachability proof. A required gate
 without passing evidence keeps the iteration `partial` or `blocked`.
 

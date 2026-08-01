@@ -493,6 +493,8 @@ completion, retry/resume, or workflow-health routing is reachable.
   and replay copied fixtures in a temporary workspace. Never copy raw databases,
   prompts, free-form outputs, scientific artifacts, credentials, or paths; never
   mutate or repair a historical source.
+- Require the external trusted runner to attest the replay manifest; a
+  candidate-selected key or unsigned capture cannot authorize promotion.
 - Require the failure paths to be detected, owner-routed, prevented from early
   completion, and retained for later health audit. Also require one happy path
   to reach accepted review, passed artifact gate, true completion, restored
@@ -500,7 +502,8 @@ completion, retry/resume, or workflow-health routing is reachable.
 - `not_applicable` requires a machine-checked proof mapping with an invocation,
   deterministic assertion, and durable evidence; prose is insufficient.
 - A required combined receipt needs host-controlled attestation in addition to
-  its command, stages, fixture binding, and closure assertions.
+  exact contract invocation, candidate/test hashes, stage producer/consumer
+  bindings, fixture binding, and closure assertions.
 
 Follow
 [`references/harp_combined_chain_replay.md`](references/harp_combined_chain_replay.md)

@@ -49,8 +49,20 @@ def _valid_receipt(manifest: Path) -> dict:
         "status": "passed",
         "exit_code": 0,
         "command": "pytest -q tests/test_target_combined_lifecycle_chain.py",
+        "candidate_revision": "1" * 40,
+        "boundary_mode": "target_local_real_producers_consumers",
+        "test_path": "tests/test_delivery_alignment_history_replay.py",
+        "test_sha256": _sha256(Path(__file__)),
         "replay_manifest_sha256": _sha256(manifest),
         "stages": validator.CHAIN_STAGES,
+        "stage_bindings": {
+            stage: {
+                "producer": f"target producer for {stage}",
+                "consumer": f"target consumer for {stage}",
+                "assertion": f"target postcondition for {stage}",
+            }
+            for stage in validator.CHAIN_STAGES
+        },
         "replay_results": [
             {
                 "archetype": archetype,
@@ -84,7 +96,9 @@ def _sign(receipt: dict, key: Path) -> dict:
 
 
 def test_bundled_real_history_profiles_are_sanitized_and_reproducible() -> None:
-    result = validator.validate_replay_manifest(FIXTURES / "manifest.json")
+    result = validator.validate_replay_manifest(
+        FIXTURES / "manifest.json", require_host_attestation=False
+    )
     assert result["ok"], result
     assert {row["archetype"] for row in result["profiles"]} == validator.ARCHETYPES
     assert all(row["oracle_ok"] for row in result["profiles"])
@@ -170,7 +184,9 @@ def test_profile_extra_fields_cannot_smuggle_free_text(tmp_path: Path) -> None:
     profile_path.write_text(json.dumps(profile), encoding="utf-8")
     row["sha256"] = _sha256(profile_path)
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
-    result = validator.validate_replay_manifest(manifest_path)
+    result = validator.validate_replay_manifest(
+        manifest_path, require_host_attestation=False
+    )
     assert not result["ok"]
     assert any("profile keys mismatch" in error for error in result["errors"])
 
@@ -191,9 +207,51 @@ def test_selected_event_digest_is_recomputed(tmp_path: Path) -> None:
     profile_path.write_text(json.dumps(profile), encoding="utf-8")
     row["sha256"] = _sha256(profile_path)
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
-    result = validator.validate_replay_manifest(manifest_path)
+    result = validator.validate_replay_manifest(
+        manifest_path, require_host_attestation=False
+    )
     assert not result["ok"]
     assert any("selected event provenance mismatch" in error for error in result["errors"])
+
+
+def test_single_component_absolute_path_is_rejected(tmp_path: Path) -> None:
+    copied = tmp_path / "fixtures"
+    shutil.copytree(FIXTURES, copied)
+    manifest_path = copied / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    row = manifest["profiles"][0]
+    profile_path = copied / row["path"]
+    profile = json.loads(profile_path.read_text(encoding="utf-8"))
+    profile["facts"]["completion"]["blockers"].append("/secret")
+    profile_path.write_text(json.dumps(profile), encoding="utf-8")
+    row["sha256"] = _sha256(profile_path)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    result = validator.validate_replay_manifest(
+        manifest_path, require_host_attestation=False
+    )
+    assert not result["ok"]
+    assert any("absolute path leaked" in error for error in result["errors"])
+
+
+def test_zero_size_source_provenance_is_rejected(tmp_path: Path) -> None:
+    copied = tmp_path / "fixtures"
+    shutil.copytree(FIXTURES, copied)
+    manifest_path = copied / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for row in manifest["profiles"]:
+        profile_path = copied / row["path"]
+        profile = json.loads(profile_path.read_text(encoding="utf-8"))
+        for source in profile["source_provenance"]["state_files"].values():
+            source["sha256"] = "0" * 64
+            source["size_bytes"] = 0
+        profile_path.write_text(json.dumps(profile), encoding="utf-8")
+        row["sha256"] = _sha256(profile_path)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    result = validator.validate_replay_manifest(
+        manifest_path, require_host_attestation=False
+    )
+    assert not result["ok"]
+    assert any("provenance sizes are invalid" in error for error in result["errors"])
 
 
 def test_capture_refuses_output_inside_a_historical_source(tmp_path: Path) -> None:
@@ -231,6 +289,8 @@ def test_capture_rejects_a_torn_cross_file_snapshot(
 
 
 def test_validation_results_do_not_persist_absolute_paths() -> None:
-    result = validator.validate_replay_manifest(FIXTURES / "manifest.json")
+    result = validator.validate_replay_manifest(
+        FIXTURES / "manifest.json", require_host_attestation=False
+    )
     assert result["path"] == "manifest.json"
     assert "/" not in result["path"]

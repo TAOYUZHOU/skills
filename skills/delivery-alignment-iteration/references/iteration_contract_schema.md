@@ -66,8 +66,12 @@ For high-risk control-lifecycle iterations, both lifecycle gates are mandatory:
   gate, record `reachable: false`, and exactly bind the command and assertion.
   Existing mocks, unit tests, cost, prose, or an unavailable provider do not
   establish unreachability.
+- The historical manifest and unreachability record must be signed by the
+  pre-provisioned host trust root outside the candidate repository. A temporary
+  key selected by the candidate author is not promotion evidence.
 - A required combined receipt must carry a valid host-controlled HMAC
-  attestation from outside the candidate repository.
+  attestation and bind the exact contract invocation, candidate revision,
+  target-local test path/hash, and all stage producer/consumer/assertion rows.
 - The chain is additive to the atomic sandbox and exact-diff adversarial gate.
   Required gates without passing evidence keep the iteration non-complete.
 

@@ -31,7 +31,7 @@ CHAIN_STAGES = [
     "post_repair_health_audit",
 ]
 ABSOLUTE_PATH_RE = re.compile(
-    r"(?:^|[\s\"'])(?:/[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)+|[A-Za-z]:\\)"
+    r"(?:^|[\s\"'])(?:(?:/[A-Za-z0-9._-]+)+|[A-Za-z]:\\)"
 )
 SAFE_LABEL_RE = re.compile(r"generic-[a-z0-9-]{1,48}")
 PROFILE_KEYS = {
@@ -273,19 +273,23 @@ def _archetype_oracle(profile: dict[str, Any]) -> tuple[bool, list[str]]:
     return not errors, errors
 
 
-def validate_replay_manifest(path: Path) -> dict[str, Any]:
+def validate_replay_manifest(
+    path: Path, *, require_host_attestation: bool = True
+) -> dict[str, Any]:
     result: dict[str, Any] = {"ok": False, "path": path.name, "errors": [], "profiles": []}
     try:
         manifest = _load(path)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         result["errors"].append(str(exc))
         return result
+    if ABSOLUTE_PATH_RE.search(path.read_text(encoding="utf-8")):
+        result["errors"].append("absolute path leaked in manifest")
     rows = manifest.get("profiles")
     manifest_error = _key_error(
         manifest,
         {
             "schema_version", "captured_at_utc", "capture_mode", "authority",
-            "profile_count", "profiles"
+            "profile_count", "profiles", "attestation_hmac_sha256"
         },
         "manifest",
     )
@@ -299,6 +303,8 @@ def validate_replay_manifest(path: Path) -> dict[str, Any]:
         or not str(manifest.get("captured_at_utc") or "").strip()
     ):
         result["errors"].append("manifest authority or capture metadata is invalid")
+    if require_host_attestation and not _host_attestation_ok(manifest):
+        result["errors"].append("manifest host attestation is invalid")
     if not isinstance(rows, list) or len(rows) != 3:
         result["errors"].append("manifest must contain exactly three profiles")
         return result
@@ -307,6 +313,11 @@ def validate_replay_manifest(path: Path) -> dict[str, Any]:
         if not isinstance(row, dict):
             result["errors"].append("profile manifest row must be an object")
             continue
+        row_error = _key_error(
+            row, {"replay_id", "archetype", "path", "sha256"}, "manifest profile"
+        )
+        if row_error:
+            result["errors"].append(row_error)
         archetype = str(row.get("archetype") or "")
         replay_id = str(row.get("replay_id") or "")
         relative = str(row.get("path") or "")
@@ -362,6 +373,12 @@ def validate_replay_manifest(path: Path) -> dict[str, Any]:
         ] + [str(provenance.get("selected_event_digest") or "")]
         if len(digests) != 5 or any(not re.fullmatch(r"[0-9a-f]{64}", digest) for digest in digests):
             result["errors"].append(f"source provenance incomplete: {relative}")
+        if any(
+            int(value.get("size_bytes") or 0) <= 0
+            for value in (provenance.get("state_files") or {}).values()
+            if isinstance(value, dict)
+        ):
+            result["errors"].append(f"source provenance sizes are invalid: {relative}")
         events = (profile.get("facts") or {}).get("review_events") or []
         if (
             provenance.get("selected_event_digest") != _canonical_sha256(events)
@@ -431,6 +448,33 @@ def validate_chain_receipt(path: Path, replay_manifest: Path) -> dict[str, Any]:
         result["errors"].append("happy-path closure invariant failed")
     if not str(receipt.get("command") or "").strip():
         result["errors"].append("combined chain command is missing")
+    if not re.fullmatch(
+        r"[0-9a-f]{40}", str(receipt.get("candidate_revision") or "")
+    ):
+        result["errors"].append("combined chain candidate revision is invalid")
+    if not str(receipt.get("test_path") or "").strip() or not re.fullmatch(
+        r"[0-9a-f]{64}", str(receipt.get("test_sha256") or "")
+    ):
+        result["errors"].append("combined chain test binding is invalid")
+    if receipt.get("boundary_mode") not in {
+        "skill_gate_meta_validation",
+        "target_local_real_producers_consumers",
+    }:
+        result["errors"].append("combined chain boundary mode is invalid")
+    bindings = receipt.get("stage_bindings")
+    if not isinstance(bindings, dict) or set(bindings) != set(CHAIN_STAGES):
+        result["errors"].append("combined chain stage bindings are incomplete")
+    else:
+        for stage, binding in bindings.items():
+            if (
+                not isinstance(binding, dict)
+                or set(binding) != {"producer", "consumer", "assertion"}
+                or any(not str(value).strip() for value in binding.values())
+            ):
+                result["errors"].append(
+                    f"combined chain stage binding is invalid: {stage}"
+                )
+                break
     if not _host_attestation_ok(receipt):
         result["errors"].append("combined chain host attestation is invalid")
     result["ok"] = not result["errors"]

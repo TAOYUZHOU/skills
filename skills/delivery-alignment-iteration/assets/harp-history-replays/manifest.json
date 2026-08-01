@@ -1,5 +1,6 @@
 {
   "authority": "historical_observation_only",
+  "attestation_hmac_sha256": "3452b1c623fb72eb09aa96accd5616e865f93ac622fb34722450b87ac2897619",
   "capture_mode": "read_only_whitelist",
   "captured_at_utc": "2026-08-01T05:32:30.493176Z",
   "profile_count": 3,

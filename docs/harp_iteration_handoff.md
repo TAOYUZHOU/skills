@@ -1,7 +1,7 @@
 # HARP Iteration Handoff
 
 status: partial
-updated_at_utc: 2026-08-01T05:33:42Z
+updated_at_utc: 2026-08-01T05:44:02Z
 iteration: delivery-alignment-combined-chain-replay
 contract: docs/iteration_contracts/delivery_alignment_combined_chain_replay_20260801.yaml
 
@@ -22,15 +22,17 @@ workspace mocks with sanitized replays derived from three real workspace histori
 
 - Canonical skill: `skills/delivery-alignment-iteration/SKILL.md`.
 - Current immutable base: `d94d282c7982a6de7041343d12df9cee5cf8a7c1`.
-- Rejected first candidate: `84f7ddeb2c7c1e8c14c9bbf48325f93754627485`; replacement pending freeze.
+- Rejected first candidate: `84f7ddeb2c7c1e8c14c9bbf48325f93754627485`.
+- Rejected second candidate: `ad783b17d84b55e31fc3655f16586521807de83c`; next replacement pending freeze.
 - Three read-only source histories exhibit distinct classes: accepted-review projection mismatch, blocked missing-artifact dependency, and partial-result materialization.
 - The working tree already contains unrelated untracked evidence and skills; they are outside this iteration.
 
 ## Current phase
 
 The first frozen candidate failed independent forward and exact-diff review.
-All eight executable escapes plus the fixture-path mismatch are repaired and
-covered by regression tests. A replacement candidate and clean Agent rerun are pending.
+The second candidate's exact-diff review found five further actionable escapes
+plus the expected post-freeze SHA self-reference limitation. The five escapes
+are repaired and covered; a third candidate and clean Agent rerun are pending.
 
 ## Completed changes
 
@@ -44,13 +46,14 @@ covered by regression tests. A replacement candidate and clean Agent rerun are p
 - Added regression tests for missing declarations, evidence tampering, all three historical signatures, ordered chain stages, and manifest binding.
 - Rejected candidate `84f7ddeb2c7c1e8c14c9bbf48325f93754627485` after independent review found a fixture-path mismatch and the real exact-diff Agent generated eight executable escapes.
 - Repaired self-authored receipts, prose-only unreachability, risk self-downgrade, profile-field injection, stale event digests, source-directory output, torn multi-file snapshots, and absolute evidence paths.
+- Rejected `ad783b1` and added manifest/unreachability host attestations, single-component path rejection, contract/candidate/test command binding, and per-stage producer/consumer/assertion bindings.
 
 ## Verification evidence
 
 - Pre-change repository HEAD is `d94d282c7982a6de7041343d12df9cee5cf8a7c1`.
 - The three source workspaces were inspected read-only and no repair command was executed.
-- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 96 passed after adversarial repairs.
-- `pytest -q`: 103 passed after adversarial repairs.
+- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 98 passed after the second adversarial repairs.
+- `pytest -q`: 105 passed after the second adversarial repairs.
 - `quick_validate.py skills/delivery-alignment-iteration`: `Skill is valid!`.
 - `validate_harp_chain_evidence.py` reports all three replay oracles and the combined receipt valid.
 - Durable evidence: `docs/evidence/delivery_alignment_combined_chain_replay_20260801/`.
@@ -62,7 +65,8 @@ covered by regression tests. A replacement candidate and clean Agent rerun are p
 - Base is `d94d282c7982a6de7041343d12df9cee5cf8a7c1`.
 - Rejected candidate `84f7dde` had a real Codex exact-diff turn with fingerprint `8c03a4094819a5746cff943aabfd44511e5a7ae552771bb3649f621de33226ce`; it returned eight current attacks, so the gate correctly failed.
 - The earlier bubblewrap-blocked turn is retained as diagnostic evidence and is not counted as a gate.
-- Replacement immutable candidate, clean independent output, zero-escape deterministic result, and final trusted attestations remain pending.
+- Candidate `ad783b1` produced six reported attacks; five were repaired. The sixth is the unavoidable fact that a Git commit cannot contain its own SHA and is handled by the post-freeze contract/handoff binding checked against the immutable commit.
+- Third immutable candidate, clean independent output, zero-escape deterministic result, and final trusted attestations remain pending.
 
 ## Open blockers and risks
 
@@ -72,8 +76,8 @@ covered by regression tests. A replacement candidate and clean Agent rerun are p
 
 ## Exact next action
 
-Run an independent Agent forward test and exact-diff counterexample gate against
-the replacement candidate after freezing the nine reviewed repairs.
+Freeze the third candidate, update the forward binding, and rerun independent
+skill consumption plus exact-diff counterexample review.
 
 ## Final claims allowed now
 

@@ -890,6 +890,8 @@ def _validate_unreachability(
         record.get(key) != value for key, value in expected.items()
     ):
         errors.append(f"{gate_name} unreachability evidence does not match its proof")
+    if isinstance(record, dict) and not _host_attestation_ok(record):
+        errors.append(f"{gate_name} unreachability host attestation is invalid")
     return not errors, errors, record if isinstance(record, dict) else {}
 
 
@@ -1010,6 +1012,29 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
                 result["combined_chain"]["recomputed"] = chain_validation
                 if chain_validation.get("ok") is not True:
                     result["errors"].append("combined chain receipt is invalid")
+                try:
+                    receipt_record = json.loads(receipt.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    receipt_record = {}
+                test_path, test_error = _contained_file(
+                    root,
+                    receipt_record.get("test_path"),
+                    "combined_chain_gate receipt test_path",
+                )
+                if test_error:
+                    result["errors"].append(test_error)
+                binding_checks = {
+                    "command": receipt_record.get("command") == combined.get("invoke"),
+                    "candidate": receipt_record.get("candidate_revision")
+                    == (data.get("adversarial_gate") or {}).get("candidate"),
+                    "test_sha256": test_path is not None
+                    and receipt_record.get("test_sha256") == _sha256_file(test_path),
+                }
+                result["combined_chain"]["binding_checks"] = binding_checks
+                if not all(binding_checks.values()):
+                    result["errors"].append(
+                        "combined chain receipt is not bound to contract, candidate, and test"
+                    )
                 result["combined_chain"]["ok"] = chain_validation.get("ok") is True
 
     result["ok"] = bool(
