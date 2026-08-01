@@ -349,11 +349,23 @@ def main() -> int:
     output_dir = args.output_dir.resolve()
     for _label, _archetype, workspace in sources:
         workspace_root = workspace.resolve()
+        overlaps = False
         try:
             output_dir.relative_to(workspace_root)
         except ValueError:
-            continue
-        parser.error("output-dir must not be a historical source or its descendant")
+            pass
+        else:
+            overlaps = True
+        try:
+            workspace_root.relative_to(output_dir)
+        except ValueError:
+            pass
+        else:
+            overlaps = True
+        if overlaps:
+            parser.error(
+                "output-dir must not equal, contain, or descend from a historical source"
+            )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     profiles = []
     for label, archetype, workspace in sources:

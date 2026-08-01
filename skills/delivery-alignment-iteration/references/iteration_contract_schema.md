@@ -72,6 +72,7 @@ For high-risk control-lifecycle iterations, both lifecycle gates are mandatory:
 - A required combined receipt must carry a valid host-controlled HMAC
   attestation and bind the exact contract invocation, candidate revision,
   target-local test path/hash, and all stage producer/consumer/assertion rows.
+  The invocation must contain that test path as an exact argv token.
 - The chain is additive to the atomic sandbox and exact-diff adversarial gate.
   Required gates without passing evidence keep the iteration non-complete.
 

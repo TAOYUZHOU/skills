@@ -4,10 +4,10 @@
   "status": "passed",
   "exit_code": 0,
   "command": "pytest -q tests/test_delivery_alignment_history_replay.py",
-  "candidate_revision": "ad783b17d84b55e31fc3655f16586521807de83c",
+  "candidate_revision": "826c814ab0ece6cacac778089a219798220165ac",
   "boundary_mode": "skill_gate_meta_validation",
   "test_path": "tests/test_delivery_alignment_history_replay.py",
-  "test_sha256": "37bd7247e5d06ded2d0e2af7648ea7f69ec788c09714c7ec8a4bf1925d4e739b",
+  "test_sha256": "107cc9388608eea67275b3cf32ea3f0024ef915cca7a3e017a554fc9a81875b9",
   "replay_manifest_sha256": "6846f0dda2da7e7b78834bffdd8c5d1e43d74ac77a39d8aea4775482f254b848",
   "stages": [
     "executor_handoff",
@@ -107,7 +107,7 @@
     "health_restored": true,
     "repeated_zero_work_wakeups": 0
   },
-  "attestation_hmac_sha256": "371a49d3e461eca9f55ca00bce8c529fe937e2d5226cd4fca0d7d2aec19d567d",
+  "attestation_hmac_sha256": "c6d3d813ddc91f5a1556e705c70e248256aec73316b786b574ee348d096cc46f",
   "limitations": [
     "This receipt validates the skill's required chain contract and replay oracles; each future HARP runtime change must emit its own target-local receipt from real runtime producers and consumers."
   ]

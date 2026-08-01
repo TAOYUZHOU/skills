@@ -9,6 +9,7 @@ import hmac
 import json
 import os
 import re
+import shlex
 from pathlib import Path
 from typing import Any
 
@@ -448,6 +449,15 @@ def validate_chain_receipt(path: Path, replay_manifest: Path) -> dict[str, Any]:
         result["errors"].append("happy-path closure invariant failed")
     if not str(receipt.get("command") or "").strip():
         result["errors"].append("combined chain command is missing")
+    else:
+        try:
+            command_tokens = shlex.split(str(receipt.get("command")))
+        except ValueError:
+            command_tokens = []
+        if str(receipt.get("test_path") or "") not in command_tokens:
+            result["errors"].append(
+                "combined chain command does not execute the bound test path"
+            )
     if not re.fullmatch(
         r"[0-9a-f]{40}", str(receipt.get("candidate_revision") or "")
     ):

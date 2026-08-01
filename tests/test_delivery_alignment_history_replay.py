@@ -48,7 +48,7 @@ def _valid_receipt(manifest: Path) -> dict:
         "schema_version": 1,
         "status": "passed",
         "exit_code": 0,
-        "command": "pytest -q tests/test_target_combined_lifecycle_chain.py",
+        "command": "pytest -q tests/test_delivery_alignment_history_replay.py",
         "candidate_revision": "1" * 40,
         "boundary_mode": "target_local_real_producers_consumers",
         "test_path": "tests/test_delivery_alignment_history_replay.py",
@@ -269,8 +269,13 @@ def test_capture_refuses_output_inside_a_historical_source(tmp_path: Path) -> No
     args.extend(["--output-dir", str(output)])
     result = subprocess.run(args, text=True, capture_output=True, check=False)
     assert result.returncode == 2
-    assert "must not be a historical source" in result.stderr
+    assert "must not equal, contain, or descend" in result.stderr
     assert not output.exists()
+
+    args[-1] = str(tmp_path)
+    result = subprocess.run(args, text=True, capture_output=True, check=False)
+    assert result.returncode == 2
+    assert "must not equal, contain, or descend" in result.stderr
 
 
 def test_capture_rejects_a_torn_cross_file_snapshot(

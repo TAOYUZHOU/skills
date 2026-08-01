@@ -10,6 +10,7 @@ import importlib.util
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -492,6 +493,13 @@ def _structured_nonempty(value) -> bool:
     if isinstance(value, (list, dict, tuple, set)):
         return bool(value)
     return True
+
+
+def _shell_tokens(value: object) -> list[str]:
+    try:
+        return shlex.split(str(value or ""))
+    except ValueError:
+        return []
 
 
 def _conditional_gate_errors(
@@ -1025,6 +1033,10 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
                     result["errors"].append(test_error)
                 binding_checks = {
                     "command": receipt_record.get("command") == combined.get("invoke"),
+                    "command_includes_test_path": str(
+                        receipt_record.get("test_path") or ""
+                    )
+                    in _shell_tokens(receipt_record.get("command")),
                     "candidate": receipt_record.get("candidate_revision")
                     == (data.get("adversarial_gate") or {}).get("candidate"),
                     "test_sha256": test_path is not None

@@ -239,7 +239,7 @@ def test_required_lifecycle_evidence_is_recomputed(
     receipt = {
         "status": "passed",
         "exit_code": 0,
-        "command": "pytest target chain",
+        "command": "pytest target_chain_test.py",
         "candidate_revision": test_candidate,
         "boundary_mode": "target_local_real_producers_consumers",
         "test_path": "target_chain_test.py",
@@ -304,7 +304,7 @@ def test_required_lifecycle_evidence_is_recomputed(
         "  decision: required\n"
         "  reason: control lifecycle is reachable\n"
         "  scope: executor through post-repair audit\n"
-        "  invoke: pytest target chain\n"
+        "  invoke: pytest target_chain_test.py\n"
         "  assert: all stages and closure oracles pass\n"
         "  evidence: chain_receipt.json\n",
     )
@@ -329,7 +329,7 @@ def test_required_lifecycle_evidence_is_recomputed(
     result = checker.validate_lifecycle_evidence(contract, tmp_path)
     assert result["ok"], result
 
-    receipt["command"] = "true"
+    receipt["command"] = "pytest benign.py"
     receipt.pop("attestation_hmac_sha256")
     payload = json.dumps(
         receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
@@ -338,11 +338,22 @@ def test_required_lifecycle_evidence_is_recomputed(
         key.read_bytes(), payload, hashlib.sha256
     ).hexdigest()
     chain_evidence.write_text(json.dumps(receipt), encoding="utf-8")
-    mismatched = checker.validate_lifecycle_evidence(contract, tmp_path)
+    split_contract = contract.replace(
+        "  invoke: pytest target_chain_test.py",
+        "  invoke: pytest benign.py",
+    )
+    mismatched = checker.validate_lifecycle_evidence(split_contract, tmp_path)
     assert not mismatched["ok"]
     assert any("not bound to contract" in error for error in mismatched["errors"])
+    assert mismatched["combined_chain"]["binding_checks"]["command"] is True
+    assert (
+        mismatched["combined_chain"]["binding_checks"][
+            "command_includes_test_path"
+        ]
+        is False
+    )
 
-    receipt["command"] = "pytest target chain"
+    receipt["command"] = "pytest target_chain_test.py"
     receipt.pop("attestation_hmac_sha256")
     payload = json.dumps(
         receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
