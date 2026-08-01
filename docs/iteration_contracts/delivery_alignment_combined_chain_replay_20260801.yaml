@@ -75,7 +75,8 @@ acceptance_criteria:
   - id: A4
     description: >-
       The checker rejects high-risk contracts that omit either gate, accepts
-      not-applicable only with a deterministic unreachability explanation, and
+      combined-chain not-applicable only with an externally attested exact-diff
+      non-HARP classification plus contradiction scan, and
       validates required replay/chain evidence paths and receipt semantics.
   - id: A5
     description: >-
@@ -135,6 +136,8 @@ risks:
   - Historical snapshots can leak paths or task content unless extraction is whitelist-only and sanitization is tested.
   - Exact historical files are observations, not current authority; future tests must replay copies and never write the source workspace.
   - A generic receipt validator cannot replace the project-local test that invokes the real runtime producers and consumers.
+  - Candidate-generated causal digests are untrusted until an external call-boundary observer attests the actual producer and consumer values.
+  - Lexical runtime scans are contradiction detectors only; a clean scan cannot classify an exact candidate diff as non-HARP.
   - The working tree contains unrelated untracked evidence and skills; this iteration must stage and commit only its declared paths.
 
 final_claims_allowed:
@@ -163,14 +166,15 @@ combined_chain_gate:
   decision: not_applicable
   reason: >-
     This iteration changes the skill and checker contract, but this repository
-    has no HARP runtime executor/review/completion/health producers or consumers
-    on which a target-local ten-stage chain could run.
+    is independently classified for this exact frozen diff as a non-HARP skill
+    repository change with no target runtime producers or consumers on which a
+    target-local ten-stage chain could run.
   unreachability:
     predicate:
       kind: no_harp_runtime_boundaries
     invoke: >-
-      checker built-in no_harp_runtime_boundaries inventory over the current contract root
-    assert: No target HARP runtime producer/consumer package exists in this skill repository.
+      checker host-selected exact-diff scope classification plus built-in contradiction inventory
+    assert: The external classification binds the exact candidate and the inventory finds no contradictory runtime boundary.
     evidence: docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_unreachability.json
 
 historical_replay_gate:
@@ -190,7 +194,7 @@ adversarial_gate:
   decision: required
   reason: SKILL.md and the checker are authoritative Agent and delivery-gate behavior.
   base: d94d282c7982a6de7041343d12df9cee5cf8a7c1
-  candidate: 7d13ec84e5f2cdb581d4131b420e9a9f7fcb64ed
+  candidate: 333966b13340b9ada510ff068d2db1aa0205f16d
   attack_scope:
     - skills/delivery-alignment-iteration/SKILL.md
     - skills/delivery-alignment-iteration/agents/openai.yaml

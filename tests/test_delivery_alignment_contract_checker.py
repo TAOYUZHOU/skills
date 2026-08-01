@@ -386,6 +386,7 @@ def test_required_lifecycle_evidence_is_recomputed(
         "run_id": run_id,
         "trace_path": "trace.json",
         "trace_sha256": hashlib.sha256(trace.read_bytes()).hexdigest(),
+        "observer_mode": "external_python_call_boundary_observer_v1",
         "replay_manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
         "stages": validator.CHAIN_STAGES,
         "stage_bindings": {
@@ -421,6 +422,65 @@ def test_required_lifecycle_evidence_is_recomputed(
             "repeated_zero_work_wakeups": 0,
         },
     }
+    observer_rows = []
+    for index, row in enumerate(trace_rows):
+        observer_rows.append(
+            {
+                "stage": row["stage"],
+                "testcase": row["testcase"],
+                "producer_path": row["producer_path"],
+                "producer_sha256": hashlib.sha256(producer.read_bytes()).hexdigest(),
+                "producer_symbol": "producer.produce",
+                "consumer_path": row["consumer_path"],
+                "consumer_sha256": hashlib.sha256(consumer.read_bytes()).hexdigest(),
+                "consumer_symbol": "consumer.consume",
+                "producer_argument_sha256": row["input_sha256"],
+                "producer_return_sha256": row["producer_output_sha256"],
+                "consumer_argument_sha256": row["consumer_input_sha256"],
+                "consumer_return_sha256": row["consumer_output_sha256"],
+                "producer_event_index": index * 2,
+                "consumer_event_index": index * 2 + 1,
+            }
+        )
+    observer_record = {
+        "schema_version": 1,
+        "capture_mode": "external_python_call_boundary_observer_v1",
+        "observer_tool_origin": "outside_candidate_tree",
+        "observer_tool_sha256": "8" * 64,
+        "candidate_revision": receipt["candidate_revision"],
+        "run_id": receipt["run_id"],
+        "test_path": receipt["test_path"],
+        "test_sha256": receipt["test_sha256"],
+        "command_sha256": hashlib.sha256(receipt["command"].encode()).hexdigest(),
+        "junit_sha256": receipt["junit_sha256"],
+        "coverage_sha256": receipt["coverage_sha256"],
+        "trace_sha256": receipt["trace_sha256"],
+        "stage_bindings_sha256": hashlib.sha256(
+            json.dumps(
+                receipt["stage_bindings"],
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+        ).hexdigest(),
+        "value_encoding": "canonical_json_sha256_v1",
+        "candidate_trace_used_as_source": False,
+        "stages": observer_rows,
+    }
+    observer_payload = json.dumps(
+        observer_record, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
+    observer_record["attestation_hmac_sha256"] = hmac.new(
+        key.read_bytes(), observer_payload, hashlib.sha256
+    ).hexdigest()
+    observer_receipt = tmp_path.parent / f"{tmp_path.name}-observer.json"
+    observer_receipt.write_text(json.dumps(observer_record), encoding="utf-8")
+    monkeypatch.setenv(
+        "DELIVERY_ALIGNMENT_CHAIN_OBSERVER_RECEIPT_FILE", str(observer_receipt)
+    )
+    receipt["observer_receipt_sha256"] = hashlib.sha256(
+        observer_receipt.read_bytes()
+    ).hexdigest()
     payload = json.dumps(
         receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     ).encode()
@@ -498,9 +558,36 @@ def test_required_lifecycle_evidence_is_recomputed(
     assert not broken_trace["ok"]
     assert broken_trace["combined_chain"]["binding_checks"]["causal_trace"] is False
 
-    trace_record["stages"][0]["consumer_input_sha256"] = trace_record["stages"][0][
-        "producer_output_sha256"
-    ]
+    trace_record["stages"][0]["producer_output_sha256"] = "9" * 64
+    trace_record["stages"][0]["consumer_input_sha256"] = "9" * 64
+    trace.write_text(json.dumps(trace_record), encoding="utf-8")
+    receipt["trace_sha256"] = hashlib.sha256(trace.read_bytes()).hexdigest()
+    receipt.pop("attestation_hmac_sha256")
+    payload = json.dumps(
+        receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
+    receipt["attestation_hmac_sha256"] = hmac.new(
+        key.read_bytes(), payload, hashlib.sha256
+    ).hexdigest()
+    chain_evidence.write_text(json.dumps(receipt), encoding="utf-8")
+    forged_but_self_consistent = checker.validate_lifecycle_evidence(
+        contract, tmp_path
+    )
+    assert not forged_but_self_consistent["ok"]
+    assert (
+        forged_but_self_consistent["combined_chain"]["binding_checks"][
+            "causal_trace"
+        ]
+        is True
+    )
+    assert (
+        forged_but_self_consistent["combined_chain"]["binding_checks"][
+            "external_call_observer"
+        ]
+        is False
+    )
+
+    trace_record["stages"][0] = trace_rows[0]
     trace.write_text(json.dumps(trace_record), encoding="utf-8")
     receipt["trace_sha256"] = hashlib.sha256(trace.read_bytes()).hexdigest()
     receipt.pop("attestation_hmac_sha256")
@@ -592,6 +679,45 @@ def test_unreachability_evidence_is_machine_bound(
     key = tmp_path / "receipt.key"
     key.write_bytes(b"k" * 32)
     monkeypatch.setenv("DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE", str(key))
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"], cwd=tmp_path, check=True
+    )
+    (tmp_path / "README.md").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "add", "README.md"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=tmp_path, check=True)
+    base = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    (tmp_path / "README.md").write_text("candidate\n", encoding="utf-8")
+    subprocess.run(["git", "add", "README.md"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "candidate"], cwd=tmp_path, check=True)
+    candidate = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    scope_record = {
+        "schema_version": 1,
+        "classification": "non_harp_repository_change",
+        "authority": "independent_scope_reviewer",
+        **checker._candidate_change_scope(tmp_path, base, candidate),
+        "reviewer_assertion": "no_target_harp_runtime_producer_or_consumer_is_added_changed_or_removed",
+    }
+    scope_payload = json.dumps(
+        scope_record, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
+    scope_record["attestation_hmac_sha256"] = hmac.new(
+        key.read_bytes(), scope_payload, hashlib.sha256
+    ).hexdigest()
+    scope_path = tmp_path.parent / f"{tmp_path.name}-scope.json"
+    scope_path.write_text(json.dumps(scope_record), encoding="utf-8")
+    monkeypatch.setenv("DELIVERY_ALIGNMENT_SCOPE_CLASSIFICATION_FILE", str(scope_path))
+    scope_observation, scope_errors = checker._trusted_non_harp_scope(
+        tmp_path, base, candidate
+    )
+    assert not scope_errors
     for gate, filename, command, assertion in (
         (
             "combined_chain_gate",
@@ -621,13 +747,18 @@ def test_unreachability_evidence_is_machine_bound(
                 }
             ),
             "observation": (
-                checker._runtime_boundary_inventory(tmp_path)[0]
+                {
+                    "trusted_scope_classification": scope_observation,
+                    "contradiction_inventory": checker._runtime_boundary_inventory(
+                        tmp_path, base, candidate
+                    )[0],
+                }
                 if gate == "combined_chain_gate"
                 else {"harp/history-state": "absent"}
             ),
             "command": command,
             "assertion": assertion,
-            "candidate_revision": "def",
+            "candidate_revision": candidate,
             "repository_scope": "contract-root",
             "command_cwd": "contract-root",
         }
@@ -638,11 +769,13 @@ def test_unreachability_evidence_is_machine_bound(
             key.read_bytes(), payload, hashlib.sha256
         ).hexdigest()
         evidence.write_text(json.dumps(record), encoding="utf-8")
-    contract = _v2_contract()
+    contract = _v2_contract().replace("  base: abc", f"  base: {base}").replace(
+        "  candidate: def", f"  candidate: {candidate}"
+    )
     result = checker.validate_lifecycle_evidence(contract, tmp_path)
     assert result["ok"], result
 
-    replayed = contract.replace("  candidate: def", f"  candidate: {'a' * 40}")
+    replayed = contract.replace(f"  candidate: {candidate}", f"  candidate: {'a' * 40}")
     result = checker.validate_lifecycle_evidence(replayed, tmp_path)
     assert not result["ok"]
     assert any("does not match its proof" in error for error in result["errors"])
@@ -790,6 +923,74 @@ def test_runtime_inventory_reads_full_candidate_tree_and_base_deletions(
     )
     assert errors
     assert set(names).issubset(set(observation["runtime_boundary_candidates"]))
+
+
+def test_neutral_named_lifecycle_cannot_reuse_non_harp_scope_classification(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    key = tmp_path / "receipt.key"
+    key.write_bytes(b"k" * 32)
+    monkeypatch.setenv("DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE", str(key))
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"], cwd=tmp_path, check=True
+    )
+    (tmp_path / "README.md").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "add", "README.md"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=tmp_path, check=True)
+    base = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    (tmp_path / "README.md").write_text("benign\n", encoding="utf-8")
+    subprocess.run(["git", "add", "README.md"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "classified"], cwd=tmp_path, check=True)
+    classified_candidate = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    scope_record = {
+        "schema_version": 1,
+        "classification": "non_harp_repository_change",
+        "authority": "independent_scope_reviewer",
+        **checker._candidate_change_scope(tmp_path, base, classified_candidate),
+        "reviewer_assertion": "no_target_harp_runtime_producer_or_consumer_is_added_changed_or_removed",
+    }
+    payload = json.dumps(
+        scope_record, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
+    scope_record["attestation_hmac_sha256"] = hmac.new(
+        key.read_bytes(), payload, hashlib.sha256
+    ).hexdigest()
+    scope_path = tmp_path.parent / f"{tmp_path.name}-scope.json"
+    scope_path.write_text(json.dumps(scope_record), encoding="utf-8")
+    monkeypatch.setenv("DELIVERY_ALIGNMENT_SCOPE_CLASSIFICATION_FILE", str(scope_path))
+
+    neutral = tmp_path / "skills" / "control-runtime"
+    neutral.mkdir(parents=True)
+    for name, body in (
+        ("dispatch.py", "def emit(x): return ('sent', x)\n"),
+        ("adjudicate.py", "def decide(x): return ('kept', x)\n"),
+        ("finish.py", "def settle(x): return ('closed', x)\n"),
+        ("monitor.py", "def inspect(x): return ('green', x)\n"),
+    ):
+        (neutral / name).write_text(body, encoding="utf-8")
+    subprocess.run(["git", "add", "skills/control-runtime"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "neutral lifecycle"], cwd=tmp_path, check=True)
+    runtime_candidate = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    lexical_observation, lexical_errors = checker._runtime_boundary_inventory(
+        tmp_path, base, runtime_candidate
+    )
+    assert not lexical_errors
+    assert not lexical_observation["runtime_boundary_candidates"]
+    observation, errors = checker._trusted_non_harp_scope(
+        tmp_path, base, runtime_candidate
+    )
+    assert not observation
+    assert any("exact repository and candidate diff" in error for error in errors)
 
 
 def test_combined_chain_na_cannot_use_author_selected_absent_path(

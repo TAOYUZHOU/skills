@@ -890,6 +890,136 @@ def _host_attestation_ok(record: dict) -> bool:
     return hmac.compare_digest(supplied, expected)
 
 
+def _external_attested_json(
+    root: Path, env_name: str, label: str
+) -> tuple[dict | None, Path | None, list[str]]:
+    """Load a host-selected, signed record that must live outside the candidate."""
+
+    raw = os.environ.get(env_name, "").strip()
+    if not raw:
+        return None, None, [f"missing host-selected {label}: {env_name}"]
+    path = Path(raw).expanduser().resolve()
+    try:
+        path.relative_to(root.resolve())
+    except ValueError:
+        pass
+    else:
+        return None, path, [f"{label} must be outside the candidate repository"]
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return None, path, [f"invalid {label}: {exc}"]
+    if not isinstance(record, dict):
+        return None, path, [f"{label} must be a JSON mapping"]
+    if not _host_attestation_ok(record):
+        return record, path, [f"{label} host attestation is invalid"]
+    return record, path, []
+
+
+def _git_diff_bytes(root: Path, base: str, candidate: str) -> bytes:
+    proc = subprocess.run(
+        ["git", "diff", "--binary", "--full-index", base, candidate, "--"],
+        cwd=root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(proc.stderr.decode(errors="replace").strip())
+    return proc.stdout
+
+
+def _candidate_change_scope(root: Path, base: str, candidate: str) -> dict:
+    if not re.fullmatch(r"[0-9a-f]{40}", base) or not re.fullmatch(
+        r"[0-9a-f]{40}", candidate
+    ):
+        raise RuntimeError("scope classification requires immutable base and candidate SHAs")
+    changed_paths = sorted(
+        line
+        for line in _git(root, "diff", "--name-only", base, candidate, "--").splitlines()
+        if line
+    )
+    roots = sorted(
+        line
+        for line in _git(root, "rev-list", "--max-parents=0", base).splitlines()
+        if line
+    )
+    base_tree = _git(root, "rev-parse", f"{base}^{{tree}}").strip()
+    diff_sha = hashlib.sha256(_git_diff_bytes(root, base, candidate)).hexdigest()
+    paths_sha = hashlib.sha256(
+        json.dumps(changed_paths, ensure_ascii=False, separators=(",", ":")).encode()
+    ).hexdigest()
+    identity_sha = hashlib.sha256(
+        json.dumps(
+            {"base_tree": base_tree, "root_commits": roots},
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    return {
+        "base_revision": base,
+        "candidate_revision": candidate,
+        "repository_identity_sha256": identity_sha,
+        "candidate_diff_sha256": diff_sha,
+        "changed_paths": changed_paths,
+        "changed_paths_sha256": paths_sha,
+    }
+
+
+def _trusted_non_harp_scope(
+    root: Path, base: str, candidate: str
+) -> tuple[dict, list[str]]:
+    """Require independent classification of the exact frozen candidate diff."""
+
+    record, path, errors = _external_attested_json(
+        root,
+        "DELIVERY_ALIGNMENT_SCOPE_CLASSIFICATION_FILE",
+        "non-HARP scope classification",
+    )
+    if errors or record is None or path is None:
+        return {}, errors
+    expected_keys = {
+        "schema_version",
+        "classification",
+        "authority",
+        "base_revision",
+        "candidate_revision",
+        "repository_identity_sha256",
+        "candidate_diff_sha256",
+        "changed_paths",
+        "changed_paths_sha256",
+        "reviewer_assertion",
+        "attestation_hmac_sha256",
+    }
+    if set(record) != expected_keys:
+        errors.append("non-HARP scope classification has unexpected or missing fields")
+        return {}, errors
+    try:
+        actual = _candidate_change_scope(root, base, candidate)
+    except RuntimeError as exc:
+        return {}, [f"cannot recompute non-HARP candidate scope: {exc}"]
+    if (
+        record.get("schema_version") != 1
+        or record.get("classification") != "non_harp_repository_change"
+        or record.get("authority") != "independent_scope_reviewer"
+        or record.get("reviewer_assertion")
+        != "no_target_harp_runtime_producer_or_consumer_is_added_changed_or_removed"
+        or any(record.get(key) != value for key, value in actual.items())
+    ):
+        errors.append(
+            "non-HARP scope classification does not bind the exact repository and candidate diff"
+        )
+        return {}, errors
+    observation = {
+        "scope_classification_sha256": _sha256_file(path),
+        "classification": record["classification"],
+        "authority": record["authority"],
+        **actual,
+    }
+    return observation, []
+
+
 def _contained_file(root: Path, raw: object, field: str) -> tuple[Path | None, str]:
     if not isinstance(raw, str) or not raw.strip():
         return None, f"{field} is missing"
@@ -1194,9 +1324,17 @@ def _validate_unreachability(
                 f"{gate_name} no_harp_runtime_boundaries predicate accepts no author-selected fields"
             )
         else:
-            observation, inventory_errors = _runtime_boundary_inventory(
+            scope_observation, scope_errors = _trusted_non_harp_scope(
                 root, base, candidate
             )
+            inventory_observation, inventory_errors = _runtime_boundary_inventory(
+                root, base, candidate
+            )
+            observation = {
+                "trusted_scope_classification": scope_observation,
+                "contradiction_inventory": inventory_observation,
+            }
+            predicate_errors.extend(scope_errors)
             predicate_errors.extend(inventory_errors)
     elif predicate.get("kind") != "all_paths_absent":
         predicate_errors.append(
@@ -1449,6 +1587,153 @@ def _trace_matches_stage_bindings(
     return True
 
 
+def _external_observer_matches_stage_bindings(
+    root: Path,
+    receipt: dict,
+    trace_path: Path,
+    bindings: dict,
+) -> bool:
+    """Match candidate trace claims to independently observed call/return values."""
+
+    observer, observer_path, errors = _external_attested_json(
+        root,
+        "DELIVERY_ALIGNMENT_CHAIN_OBSERVER_RECEIPT_FILE",
+        "chain call-boundary observer receipt",
+    )
+    if errors or observer is None or observer_path is None:
+        return False
+    expected_keys = {
+        "schema_version",
+        "capture_mode",
+        "observer_tool_origin",
+        "observer_tool_sha256",
+        "candidate_revision",
+        "run_id",
+        "test_path",
+        "test_sha256",
+        "command_sha256",
+        "junit_sha256",
+        "coverage_sha256",
+        "trace_sha256",
+        "stage_bindings_sha256",
+        "value_encoding",
+        "candidate_trace_used_as_source",
+        "stages",
+        "attestation_hmac_sha256",
+    }
+    digest_re = re.compile(r"[0-9a-f]{64}")
+    if (
+        set(observer) != expected_keys
+        or observer.get("schema_version") != 1
+        or observer.get("capture_mode")
+        != "external_python_call_boundary_observer_v1"
+        or observer.get("observer_tool_origin") != "outside_candidate_tree"
+        or not digest_re.fullmatch(str(observer.get("observer_tool_sha256") or ""))
+        or observer.get("value_encoding") != "canonical_json_sha256_v1"
+        or observer.get("candidate_trace_used_as_source") is not False
+        or receipt.get("observer_mode")
+        != "external_python_call_boundary_observer_v1"
+        or receipt.get("observer_receipt_sha256") != _sha256_file(observer_path)
+    ):
+        return False
+    binding_digest = hashlib.sha256(
+        json.dumps(
+            bindings,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    command_digest = hashlib.sha256(
+        str(receipt.get("command") or "").encode()
+    ).hexdigest()
+    expected_metadata = {
+        "candidate_revision": receipt.get("candidate_revision"),
+        "run_id": receipt.get("run_id"),
+        "test_path": receipt.get("test_path"),
+        "test_sha256": receipt.get("test_sha256"),
+        "command_sha256": command_digest,
+        "junit_sha256": receipt.get("junit_sha256"),
+        "coverage_sha256": receipt.get("coverage_sha256"),
+        "trace_sha256": receipt.get("trace_sha256"),
+        "stage_bindings_sha256": binding_digest,
+    }
+    if any(observer.get(key) != value for key, value in expected_metadata.items()):
+        return False
+    try:
+        trace = json.loads(trace_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    trace_rows = trace.get("stages") if isinstance(trace, dict) else None
+    observed_rows = observer.get("stages")
+    if not isinstance(trace_rows, list) or not isinstance(observed_rows, list):
+        return False
+    if len(trace_rows) != len(observed_rows) or len(trace_rows) != len(bindings):
+        return False
+    row_keys = {
+        "stage",
+        "testcase",
+        "producer_path",
+        "producer_sha256",
+        "producer_symbol",
+        "consumer_path",
+        "consumer_sha256",
+        "consumer_symbol",
+        "producer_argument_sha256",
+        "producer_return_sha256",
+        "consumer_argument_sha256",
+        "consumer_return_sha256",
+        "producer_event_index",
+        "consumer_event_index",
+    }
+    prior_event_index = -1
+    for traced, observed in zip(trace_rows, observed_rows):
+        if not isinstance(traced, dict) or not isinstance(observed, dict):
+            return False
+        if set(observed) != row_keys:
+            return False
+        stage = str(observed.get("stage") or "")
+        binding = bindings.get(stage)
+        if not isinstance(binding, dict) or traced.get("stage") != stage:
+            return False
+        producer_index = observed.get("producer_event_index")
+        consumer_index = observed.get("consumer_event_index")
+        if (
+            type(producer_index) is not int
+            or type(consumer_index) is not int
+            or producer_index <= prior_event_index
+            or consumer_index <= producer_index
+        ):
+            return False
+        prior_event_index = consumer_index
+        expected_row = {
+            "testcase": binding.get("testcase"),
+            "producer_path": binding.get("producer_path"),
+            "producer_sha256": binding.get("producer_sha256"),
+            "producer_symbol": binding.get("producer"),
+            "consumer_path": binding.get("consumer_path"),
+            "consumer_sha256": binding.get("consumer_sha256"),
+            "consumer_symbol": binding.get("consumer"),
+            "producer_argument_sha256": traced.get("input_sha256"),
+            "producer_return_sha256": traced.get("producer_output_sha256"),
+            "consumer_argument_sha256": traced.get("consumer_input_sha256"),
+            "consumer_return_sha256": traced.get("consumer_output_sha256"),
+        }
+        if any(observed.get(key) != value for key, value in expected_row.items()):
+            return False
+        if any(
+            not digest_re.fullmatch(str(observed.get(key) or ""))
+            for key in (
+                "producer_argument_sha256",
+                "producer_return_sha256",
+                "consumer_argument_sha256",
+                "consumer_return_sha256",
+            )
+        ):
+            return False
+    return True
+
+
 def validate_lifecycle_evidence(text: str, root: Path) -> dict:
     """Recompute required replay and combined-chain evidence fail-closed."""
 
@@ -1688,6 +1973,11 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
                     and isinstance(stage_bindings, dict)
                     and _trace_matches_stage_bindings(
                         trace_path, receipt_record, stage_bindings
+                    ),
+                    "external_call_observer": trace_path is not None
+                    and isinstance(stage_bindings, dict)
+                    and _external_observer_matches_stage_bindings(
+                        root, receipt_record, trace_path, stage_bindings
                     ),
                     "junit_test_result": junit_path is not None
                     and _junit_matches_test(
@@ -1972,8 +2262,29 @@ def main() -> int:
         action="store_true",
         help="Bind high-risk attack_scope to exact base..candidate git paths.",
     )
+    parser.add_argument(
+        "--scope-classification",
+        default=os.environ.get("DELIVERY_ALIGNMENT_SCOPE_CLASSIFICATION_FILE", ""),
+        help="Host-selected signed non-HARP scope record outside the candidate tree.",
+    )
+    parser.add_argument(
+        "--chain-observer-receipt",
+        default=os.environ.get(
+            "DELIVERY_ALIGNMENT_CHAIN_OBSERVER_RECEIPT_FILE", ""
+        ),
+        help="Host-selected signed call-boundary observation outside the candidate tree.",
+    )
     parser.add_argument("--json", action="store_true", help="Print JSON only.")
     args = parser.parse_args()
+
+    if args.scope_classification:
+        os.environ["DELIVERY_ALIGNMENT_SCOPE_CLASSIFICATION_FILE"] = (
+            args.scope_classification
+        )
+    if args.chain_observer_receipt:
+        os.environ["DELIVERY_ALIGNMENT_CHAIN_OBSERVER_RECEIPT_FILE"] = (
+            args.chain_observer_receipt
+        )
 
     text = _read_contract(args.contract)
     result = validate(text)

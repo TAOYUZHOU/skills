@@ -1,10 +1,10 @@
 # HARP Iteration Handoff
 
 status: partial
-updated_at_utc: 2026-08-01T08:50:00Z
+updated_at_utc: 2026-08-01T09:11:00Z
 iteration: delivery-alignment-combined-chain-replay
 contract: docs/iteration_contracts/delivery_alignment_combined_chain_replay_20260801.yaml
-candidate: 7d13ec84e5f2cdb581d4131b420e9a9f7fcb64ed
+candidate: 333966b13340b9ada510ff068d2db1aa0205f16d
 
 ## Intent
 
@@ -35,7 +35,7 @@ workspace mocks with sanitized replays derived from three real workspace histori
 - Rejected tenth candidate: `ca0359e4d4128f97950c8be63825dbeadd742969`;
 - Rejected eleventh candidate: `258047c1d4f5f0cbb4f8c7df0c7b15b4a22f7282`;
 - Rejected twelfth candidate: `7d13ec84e5f2cdb581d4131b420e9a9f7fcb64ed`;
-  thirteenth pending freeze.
+- Rejected thirteenth candidate: `333966b13340b9ada510ff068d2db1aa0205f16d`.
 - Three read-only source histories exhibit distinct classes: accepted-review projection mismatch, blocked missing-artifact dependency, and partial-result materialization.
 - The working tree already contains unrelated untracked evidence and skills; they are outside this iteration.
 
@@ -82,6 +82,14 @@ could satisfy file coverage, unchanged runtime files could be deleted only from
 the worktree, and deleted lifecycle code was absent from candidate blobs. The
 required chain now carries a same-run ordered causal digest trace; applicability
 scans the complete candidate tree and base blobs for deletions.
+The thirteenth candidate's exact-diff review showed that a candidate could emit
+an internally consistent causal digest trace without passing real values and
+that neutral identifiers could evade a lexical applicability inventory. A
+required target-local chain now needs an independently signed, outside-tree
+call-boundary observation of actual producer/consumer values. Combined-chain
+N/A now needs an independently signed outside-tree classification bound to the
+exact repository identity, immutable diff, and complete changed-path set; the
+lexical inventory can only contradict that classification.
 
 ## Completed changes
 
@@ -106,12 +114,14 @@ scans the complete candidate tree and base blobs for deletions.
 - Internally rejected `27316c4`; the command is now constrained to one pytest target plus JUnit, and the checker requires at least one testcase from that module with zero failures, errors, or skips.
 - Rejected `6ecd840`; this skill-only iteration now records a host-attested combined-chain unreachability proof instead of claiming a runtime chain, while future HARP runtime targets remain required to execute it. High-risk checker runs also require the externally frozen candidate SHA.
 - Rejected `876153f`; unreachability evidence now binds candidate/repository/cwd, and nested workflow/plan/enum maps are strict rather than free-form.
+- Rejected `333966b`; candidate-generated causal traces are no longer treated
+  as observations, and a clean lexical inventory can no longer grant N/A.
 
 ## Verification evidence
 
 - Pre-change repository HEAD is `d94d282c7982a6de7041343d12df9cee5cf8a7c1`.
 - The three source workspaces were inspected read-only and no repair command was executed.
-- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 112 passed after the twelfth adversarial repairs.
+- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 113 passed after the thirteenth adversarial repairs.
 - `pytest -q`: 119 passed after the twelfth adversarial repairs.
 - `quick_validate.py skills/delivery-alignment-iteration`: `Skill is valid!`.
 - `validate_harp_chain_evidence.py` reports all three replay oracles valid. The
@@ -144,8 +154,10 @@ scans the complete candidate tree and base blobs for deletions.
   immutable candidate-blob applicability and per-stage target-file coverage.
 - Candidate `7d13ec8` produced three executable attacks; they are repaired by
   a same-run causal trace plus full candidate-tree and base-deletion inventory.
-- Thirteenth immutable candidate, clean independent output, zero-escape
-  deterministic result, and final trusted attestations remain pending.
+- Candidate `333966b` produced two executable attacks; they are repaired by an
+  external call-boundary observer and an external exact-diff non-HARP scope
+  classification. A new immutable candidate, clean independent output,
+  zero-escape deterministic result, and final trusted attestations remain pending.
 
 ## Open blockers and risks
 
@@ -155,8 +167,9 @@ scans the complete candidate tree and base blobs for deletions.
 
 ## Exact next action
 
-Freeze the thirteenth candidate, then rerun independent skill consumption plus
-exact-diff counterexample review with its forward-binding patch.
+Freeze a new candidate, create its host-selected outside-repository scope
+classification, then rerun independent skill consumption and exact-diff
+counterexample review with the forward-binding patch.
 
 ## Final claims allowed now
 

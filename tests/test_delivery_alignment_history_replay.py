@@ -60,6 +60,8 @@ def _valid_receipt(manifest: Path) -> dict:
         "run_id": "a" * 32,
         "trace_path": "docs/evidence/trace.json",
         "trace_sha256": "6" * 64,
+        "observer_mode": "external_python_call_boundary_observer_v1",
+        "observer_receipt_sha256": "7" * 64,
         "replay_manifest_sha256": _sha256(manifest),
         "stages": validator.CHAIN_STAGES,
         "stage_bindings": {
@@ -167,6 +169,16 @@ def test_combined_receipt_requires_all_ordered_stages_and_closure_oracles(
     result = validator.validate_chain_receipt(receipt, manifest)
     assert not result["ok"]
     assert "combined chain stages are missing, duplicated, or reordered" in result[
+        "errors"
+    ]
+
+    missing_observer = copy.deepcopy(_valid_receipt(manifest))
+    missing_observer.pop("observer_receipt_sha256")
+    _sign(missing_observer, key)
+    receipt.write_text(json.dumps(missing_observer), encoding="utf-8")
+    result = validator.validate_chain_receipt(receipt, manifest)
+    assert not result["ok"]
+    assert "target-local external call observer binding is invalid" in result[
         "errors"
     ]
 

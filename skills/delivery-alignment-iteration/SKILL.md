@@ -510,9 +510,14 @@ completion, retry/resume, or workflow-health routing is reachable.
   checker must re-evaluate the predicate against the current contract root;
   a signed record alone is replayable and insufficient.
 - For HARP runtime absence, use the checker's fixed
-  `no_harp_runtime_boundaries` repository inventory. It accepts no
-  author-selected paths and binds the current code inventory and every detected
-  boundary candidate into the signed observation. In the skill-catalog profile,
+  `no_harp_runtime_boundaries` predicate. It accepts no author-selected paths
+  and requires an independently reviewed, host-signed scope classification
+  outside the candidate repository. That record must bind the exact repository
+  identity, frozen base/candidate diff digest, and complete changed-path set to
+  the assertion that no target HARP producer or consumer changed. The built-in
+  inventory binds every detected boundary candidate into the signed observation
+  only as a contradiction detector; absence of keywords can never grant N/A.
+  In the skill-catalog profile,
   any code outside the known skill/test/evidence layout is reachable by default,
   and queue/review/completion/health signals are unioned across each skill
   package rather than tested one file at a time. Signals in the immutable
@@ -529,12 +534,19 @@ completion, retry/resume, or workflow-health routing is reachable.
   and consumer paths/hashes, and per-test coverage contexts must show that its
   testcase executed both files. A same-run causal trace preserves the
   producer-output/consumer-input digest at every stage and chains each consumer
-  output into the next stage input. Ten vacuous green tests or unrelated autouse
-  calls are insufficient.
+  output into the next stage input. Since a candidate can fabricate a
+  syntactically valid trace, require a second host-signed observer receipt
+  outside the candidate tree. It must record actual producer argument/return
+  and consumer argument/return digests in event order and bind the observer
+  tool, candidate, command, run ID, test, JUnit, coverage, trace, and stage
+  bindings. Ten vacuous green tests, unrelated autouse calls, or an internally
+  consistent candidate-generated trace are insufficient.
 - A required receipt must use `target_local_real_producers_consumers`.
   `skill_gate_meta_validation` is diagnostic only and can never close a
   reachable runtime gate. Combined-chain `not_applicable` accepts only the fixed
-  runtime-boundary inventory, never an author-selected absent path.
+  predicate backed by an external exact-diff scope classification plus the
+  contradiction inventory, never an author-selected absent path or a clean
+  lexical scan alone.
 
 Follow
 [`references/harp_combined_chain_replay.md`](references/harp_combined_chain_replay.md)

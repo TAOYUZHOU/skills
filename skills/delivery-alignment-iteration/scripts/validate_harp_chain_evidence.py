@@ -785,6 +785,16 @@ def validate_chain_receipt(
         )
     ):
         result["errors"].append("target-local causal trace binding is invalid")
+    if boundary_mode == "target_local_real_producers_consumers" and (
+        receipt.get("observer_mode")
+        != "external_python_call_boundary_observer_v1"
+        or not re.fullmatch(
+            r"[0-9a-f]{64}", str(receipt.get("observer_receipt_sha256") or "")
+        )
+    ):
+        result["errors"].append(
+            "target-local external call observer binding is invalid"
+        )
     bindings = receipt.get("stage_bindings")
     if not isinstance(bindings, dict) or set(bindings) != set(CHAIN_STAGES):
         result["errors"].append("combined chain stage bindings are incomplete")

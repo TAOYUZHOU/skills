@@ -129,7 +129,15 @@ hashes. The constrained pytest invocation emits per-test coverage contexts;
 each bound testcase must execute both files. A same-run causal trace binds the
 ordered stages: producer output digest equals consumer input digest, and each
 consumer output becomes the following stage input. Ten renamed `assert True`
-tests or unrelated autouse calls cannot satisfy the chain. The
+tests or unrelated autouse calls cannot satisfy the chain. The trace is a
+candidate artifact and is never authoritative by itself. The host runner must
+also provide a signed call-boundary observer receipt from outside the candidate
+tree. That observer records the canonical digest of the actual producer
+argument and return plus the actual consumer argument and return, in event
+order, and binds its tool hash, command, run ID, candidate, test, JUnit,
+coverage, trace, and stage-binding hashes. The checker compares every claimed
+trace value to those independently observed values; an internally consistent
+candidate-generated hash chain is insufficient. The
 `boundary_mode` must be `target_local_real_producers_consumers`;
 `skill_gate_meta_validation` is diagnostic only and never satisfies a required
 runtime gate. The
@@ -142,8 +150,14 @@ include an `unreachability` mapping with a declarative `predicate`, `invoke`,
 `assert`, and a durable machine-readable, host-attested `evidence` record bound
 to that oracle, frozen candidate, repository scope, and command working
 directory. The checker re-evaluates the predicate in the current contract root.
-For the combined gate, only the fixed runtime inventory predicate is accepted;
-an author-selected absent path is not enough. The inventory unions lifecycle
+For the combined gate, only the fixed `no_harp_runtime_boundaries` predicate is
+accepted; an author-selected absent path is not enough. That predicate requires
+a separately host-selected and signed scope-classification record outside the
+candidate repository. The classification must bind the repository identity,
+exact frozen base and candidate, binary diff digest, complete changed-path set,
+and an independent assertion that no target HARP producer or consumer is added,
+changed, or removed. A lexical scan can only contradict this classification;
+it can never grant N/A on its own. The contradiction inventory unions lifecycle
 signals from the complete immutable candidate tree, including across packages
 and evidence directories, and reads base blobs for deletions. Mutable worktree
 deletion cannot hide unchanged or removed runtime code. Signing a past observation does not
@@ -158,3 +172,19 @@ python3 skills/delivery-alignment-iteration/scripts/validate_harp_chain_evidence
   --replay-manifest skills/delivery-alignment-iteration/assets/harp-history-replays/manifest.json \
   --chain-receipt docs/evidence/<iteration>/combined_chain_receipt.json
 ```
+
+The promotion checker additionally receives the host records explicitly:
+
+```bash
+python3 skills/delivery-alignment-iteration/scripts/check_delivery_contract.py \
+  --contract docs/iteration_contracts/<iteration>.yaml \
+  --handoff docs/harp_iteration_handoff.md --root . \
+  --expected-candidate <sha> \
+  --scope-classification <outside-repo-signed-json> \
+  --chain-observer-receipt <outside-repo-signed-json>
+```
+
+`--scope-classification` is required for combined-chain N/A.
+`--chain-observer-receipt` is required for a target-local combined-chain pass.
+The unused option may be omitted. Neither record may live beneath the candidate
+root.

@@ -70,9 +70,14 @@ For high-risk control-lifecycle iterations, both lifecycle gates are mandatory:
   gate, record `reachable: false`, and exactly bind the predicate, current
   observation, command, and assertion. The checker supports the declarative
   `all_paths_absent` predicate and the fixed `no_harp_runtime_boundaries`
-  repository inventory. The latter accepts no author-selected fields and
+  predicate. The latter accepts no author-selected fields and requires a
+  host-selected, HMAC-attested scope classification outside the candidate
+  repository. That record binds the repository identity, immutable
+  base/candidate pair, exact binary diff hash, and complete changed-path set to
+  an independent `non_harp_repository_change` decision. The checker separately
   re-evaluates path and semantic boundary signals across the current code
-  inventory. It fails closed for code outside the skill-catalog layout and
+  inventory as a contradiction detector, never as sufficient proof of N/A. It
+  fails closed for code outside the skill-catalog layout and
   unions lifecycle signals across modules within one package, so split queue,
   review, completion, and health files cannot evade it. It also unions signals
   from the complete frozen candidate code tree, including across packages and
@@ -102,7 +107,15 @@ For high-risk control-lifecycle iterations, both lifecycle gates are mandatory:
   coverage JSON with per-test contexts must show that each testcase executed
   both bound files. JUnit, coverage, and an ordered causal trace share a signed
   run ID; every trace row requires producer output digest equal to consumer
-  input digest, and each consumer output becomes the next stage input.
+  input digest, and each consumer output becomes the next stage input. Because
+  that trace is candidate-generated, the receipt also binds
+  `observer_mode: external_python_call_boundary_observer_v1` and the SHA-256 of
+  a host-selected observer receipt outside the candidate tree. The observer
+  receipt is independently HMAC-attested and records the actual producer
+  argument/return and consumer argument/return digests in event order. Its
+  candidate, command, run, test, JUnit, coverage, trace, stage-binding, and
+  observer-tool hashes must all match. Candidate trace values are not accepted
+  as the observer's source.
   The invocation must use the constrained pytest form with that sole test path
   and a hash-bound JUnit report proving the module ran with no failure, error,
   or skip in both aggregate counters and testcase nodes.
