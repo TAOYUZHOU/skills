@@ -115,9 +115,12 @@ absolute path, missing source provenance, absent archetype, incomplete closure
 assertion, or nonzero repeated zero-work wakeups.
 
 If a gate is deterministically unreachable, use `decision: not_applicable` and
-include an `unreachability` mapping with `invoke`, `assert`, and a durable
-machine-readable, host-attested `evidence` record bound to that oracle, frozen
-candidate, repository scope, and command working directory. Cost, missing time, existing green
+include an `unreachability` mapping with a declarative `predicate`, `invoke`,
+`assert`, and a durable machine-readable, host-attested `evidence` record bound
+to that oracle, frozen candidate, repository scope, and command working
+directory. The checker re-evaluates the predicate in the current contract root;
+signing a past observation does not establish current unreachability. Cost,
+missing time, existing green
 unit tests, or a one-hop mock is not an unreachability proof. A required gate
 without passing evidence keeps the iteration `partial` or `blocked`.
 

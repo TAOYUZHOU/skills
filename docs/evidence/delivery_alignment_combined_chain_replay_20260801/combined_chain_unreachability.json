@@ -2,11 +2,20 @@
   "ok": true,
   "gate": "combined_chain_gate",
   "reachable": false,
+  "predicate": {
+    "kind": "all_paths_absent",
+    "paths": [
+      "harp/runtime"
+    ]
+  },
+  "observation": {
+    "harp/runtime": "absent"
+  },
   "command": "python3 -c \"from pathlib import Path; assert not Path('harp/runtime').exists()\"",
   "assertion": "No target HARP runtime producer/consumer package exists in this skill repository.",
-  "candidate_revision": "876153fc3dc8af5e6c2fa4723f4c9331ab1fb4af",
+  "candidate_revision": "e606effd18de22e5da890fdea6bbbed1295e6c0b",
   "repository_scope": "contract-root",
   "command_cwd": "contract-root",
   "scope": "Current skill/checker repository only; future HARP runtime target repositories remain required to run the real ten-stage chain.",
-  "attestation_hmac_sha256": "00851d4d4670e465155d04d77c76d91d29747ad942b780ce80a1ee9cbf518795"
+  "attestation_hmac_sha256": "8a8632dfe8c28bde1b5147edf5b7178d3d3d3d32b04688dcf6a28b46106ab7bb"
 }

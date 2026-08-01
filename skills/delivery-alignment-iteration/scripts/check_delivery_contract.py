@@ -49,7 +49,7 @@ ADVERSARIAL_REQUIRED_KEYS = [
     "evidence_dir",
 ]
 ADVERSARIAL_HIGH_RISK_KEYS: list[str] = []
-HANDOFF_METADATA = ["status", "updated_at_utc", "iteration", "contract"]
+HANDOFF_METADATA = ["status", "updated_at_utc", "iteration", "contract", "candidate"]
 HANDOFF_HEADINGS = [
     "intent",
     "non_goals",
@@ -137,7 +137,7 @@ HISTORICAL_REPLAY_EVIDENCE_KEYS = [
     "assert",
     "evidence",
 ]
-UNREACHABILITY_REQUIRED_KEYS = ["invoke", "assert", "evidence"]
+UNREACHABILITY_REQUIRED_KEYS = ["predicate", "invoke", "assert", "evidence"]
 GATE_EVIDENCE_FILES = [
     "prompt.md",
     "final_agent_output.json",
@@ -752,6 +752,35 @@ def validate_expected_candidate(text: str, expected: str) -> dict:
     }
 
 
+def validate_handoff_candidate(
+    contract_text: str, handoff_text: str, expected: str
+) -> dict:
+    """Bind the handoff's current candidate to the contract and trust-root input."""
+
+    data, _ = _load_v2_mapping(contract_text)
+    gate = data.get("adversarial_gate") if data else None
+    contract_candidate = gate.get("candidate") if isinstance(gate, dict) else ""
+    risk = gate.get("risk") if isinstance(gate, dict) else ""
+    handoff_candidate = _scalar_value(
+        _strip_fenced_blocks(_strip_html_comments(handoff_text)), "candidate"
+    )
+    checks = {
+        "contract": bool(handoff_candidate)
+        and handoff_candidate == contract_candidate,
+        "external": risk != "high" or handoff_candidate == expected,
+    }
+    return {
+        "ok": all(checks.values()),
+        "handoff": handoff_candidate,
+        "contract": contract_candidate,
+        "expected": expected,
+        "checks": checks,
+        "error": "handoff candidate must match the contract and externally frozen candidate"
+        if not all(checks.values())
+        else "",
+    }
+
+
 def validate_handoff_binding(text: str, root: Path, supplied: Path) -> dict:
     data, _ = _load_v2_mapping(text)
     handoff = data.get("handoff") if data else None
@@ -901,10 +930,65 @@ def _validate_unreachability(
         record = json.loads(evidence_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         return False, [f"invalid {gate_name} unreachability evidence: {exc}"], {}
+    predicate = proof.get("predicate")
+    predicate_errors: list[str] = []
+    observation: dict[str, str] = {}
+    if not isinstance(predicate, dict) or set(predicate) != {"kind", "paths"}:
+        predicate_errors.append(
+            f"{gate_name} unreachability predicate must contain only kind and paths"
+        )
+    elif predicate.get("kind") != "all_paths_absent":
+        predicate_errors.append(
+            f"{gate_name} unreachability predicate kind is unsupported"
+        )
+    else:
+        paths = predicate.get("paths")
+        if not isinstance(paths, list) or not paths:
+            predicate_errors.append(
+                f"{gate_name} unreachability predicate paths must be nonempty"
+            )
+        elif not all(isinstance(path, str) for path in paths) or len(paths) != len(
+            set(paths)
+        ):
+            predicate_errors.append(
+                f"{gate_name} unreachability predicate paths must be unique strings"
+            )
+        else:
+            resolved_root = root.resolve()
+            for raw in paths:
+                if (
+                    not isinstance(raw, str)
+                    or not raw.strip()
+                    or raw != raw.strip()
+                    or "\\" in raw
+                    or Path(raw).is_absolute()
+                    or any(part in {"", ".", ".."} for part in Path(raw).parts)
+                ):
+                    predicate_errors.append(
+                        f"{gate_name} unreachability predicate path is unsafe: {raw!r}"
+                    )
+                    continue
+                target = root / raw
+                try:
+                    target.resolve(strict=False).relative_to(resolved_root)
+                except (OSError, ValueError):
+                    predicate_errors.append(
+                        f"{gate_name} unreachability predicate path escapes root: {raw}"
+                    )
+                    continue
+                present = os.path.lexists(target)
+                observation[raw] = "present" if present else "absent"
+                if present:
+                    predicate_errors.append(
+                        f"{gate_name} unreachability predicate is false: {raw} is present"
+                    )
+    errors.extend(predicate_errors)
     expected = {
         "ok": True,
         "gate": gate_name,
         "reachable": False,
+        "predicate": predicate,
+        "observation": observation,
         "command": proof.get("invoke"),
         "assertion": proof.get("assert"),
         "candidate_revision": candidate,
@@ -1396,6 +1480,11 @@ def main() -> int:
         )
         result["expected_candidate"] = expected_candidate
         result["ok"] = bool(result["ok"] and expected_candidate.get("ok"))
+        handoff_candidate = validate_handoff_candidate(
+            text, handoff_text if "handoff_text" in locals() else "", args.expected_candidate
+        )
+        result["handoff_candidate"] = handoff_candidate
+        result["ok"] = bool(result["ok"] and handoff_candidate.get("ok"))
         lifecycle_evidence = validate_lifecycle_evidence(
             text, Path(args.root).resolve()
         )

@@ -4,6 +4,7 @@ status: partial
 updated_at_utc: 2026-08-01T06:13:20Z
 iteration: delivery-alignment-combined-chain-replay
 contract: docs/iteration_contracts/delivery_alignment_combined_chain_replay_20260801.yaml
+candidate: e606effd18de22e5da890fdea6bbbed1295e6c0b
 
 ## Intent
 
@@ -27,7 +28,9 @@ workspace mocks with sanitized replays derived from three real workspace histori
 - Rejected third candidate: `826c814ab0ece6cacac778089a219798220165ac`.
 - Internally rejected fourth candidate: `27316c4b011d0663aeaeb9a046ed16536dac2e1c`.
 - Rejected fifth candidate: `6ecd8409ac1c0dc4cdf52673fa45a3c7eeae12b4`.
-- Rejected sixth candidate: `876153fc3dc8af5e6c2fa4723f4c9331ab1fb4af`; seventh pending freeze.
+- Rejected sixth candidate: `876153fc3dc8af5e6c2fa4723f4c9331ab1fb4af`.
+- Rejected seventh candidate: `e606effd18de22e5da890fdea6bbbed1295e6c0b`;
+  eighth pending freeze.
 - Three read-only source histories exhibit distinct classes: accepted-review projection mismatch, blocked missing-artifact dependency, and partial-result materialization.
 - The working tree already contains unrelated untracked evidence and skills; they are outside this iteration.
 
@@ -43,6 +46,10 @@ Agent review then correctly rejected using a metadata test as if it were a real
 HARP runtime chain and identified the missing external-candidate CLI binding.
 The sixth candidate's forward-bound review found replayable unreachability
 attestation and a nested queue-count free-text channel; both are repaired.
+The seventh candidate's exact-diff review found that a signed absence observation
+could still be replayed into a different repository instance and that the handoff
+candidate was not machine-bound. Both now fail closed through a current-root
+declarative predicate and a contract/external/handoff three-way candidate check.
 
 ## Completed changes
 
@@ -83,7 +90,10 @@ attestation and a nested queue-count free-text channel; both are repaired.
 - Candidate `826c814` produced one executable attack: a green sibling command could be attested while only hashing an unexecuted failing chain test. The argv-token binding repair closes it.
 - Candidate `6ecd840` produced two executable attacks; both are repaired by the honest applicability decision and external candidate binding.
 - Candidate `876153f` produced two executable attacks; both are repaired by candidate-bound unreachability evidence and nested-map sanitization.
-- Seventh immutable candidate, clean independent output, zero-escape deterministic result, and final trusted attestations remain pending.
+- Candidate `e606eff` produced two executable attacks; both are repaired by
+  current-root predicate re-evaluation and machine-bound handoff candidate metadata.
+- Eighth immutable candidate, clean independent output, zero-escape deterministic
+  result, and final trusted attestations remain pending.
 
 ## Open blockers and risks
 
@@ -93,7 +103,7 @@ attestation and a nested queue-count free-text channel; both are repaired.
 
 ## Exact next action
 
-Freeze the seventh candidate, then rerun independent skill consumption plus
+Freeze the eighth candidate, then rerun independent skill consumption plus
 exact-diff counterexample review with its forward-binding patch.
 
 ## Final claims allowed now

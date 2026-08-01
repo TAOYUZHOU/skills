@@ -44,6 +44,9 @@ def _v2_contract(*, risk: str = "high", decision: str = "required") -> str:
         + "  decision: not_applicable\n"
         + "  reason: fixture contract test has no control lifecycle\n"
         + "  unreachability:\n"
+        + "    predicate:\n"
+        + "      kind: all_paths_absent\n"
+        + "      paths: [harp/runtime]\n"
         + "    invoke: prove no queue, review, completion, or health path exists\n"
         + "    assert: combined lifecycle is unreachable\n"
         + "    evidence: docs/evidence/combined_unreachable.json\n"
@@ -51,6 +54,9 @@ def _v2_contract(*, risk: str = "high", decision: str = "required") -> str:
         + "  decision: not_applicable\n"
         + "  reason: fixture contract test has no persisted workspace state\n"
         + "  unreachability:\n"
+        + "    predicate:\n"
+        + "      kind: all_paths_absent\n"
+        + "      paths: [harp/history-state]\n"
         + "    invoke: prove no historical control state reaches this fixture\n"
         + "    assert: historical replay is unreachable\n"
         + "    evidence: docs/evidence/history_unreachable.json\n"
@@ -147,6 +153,18 @@ def test_high_risk_contract_binds_externally_frozen_candidate() -> None:
     assert not checker.validate_expected_candidate(contract, "")["ok"]
 
 
+def test_handoff_candidate_binds_contract_and_external_freeze() -> None:
+    candidate = "a" * 40
+    contract = _v2_contract().replace("  candidate: def", f"  candidate: {candidate}")
+    handoff = f"candidate: {candidate}\n"
+    assert checker.validate_handoff_candidate(contract, handoff, candidate)["ok"]
+    mismatch = checker.validate_handoff_candidate(
+        contract, f"candidate: {'b' * 40}\n", candidate
+    )
+    assert not mismatch["ok"]
+    assert mismatch["checks"] == {"contract": False, "external": False}
+
+
 def test_high_risk_contract_requires_both_lifecycle_gates() -> None:
     contract = _v2_contract()
     contract = contract.split("combined_chain_gate:\n", 1)[0]
@@ -178,6 +196,9 @@ def test_required_lifecycle_gates_require_evidence_fields() -> None:
         "  decision: not_applicable\n"
         "  reason: fixture contract test has no control lifecycle\n"
         "  unreachability:\n"
+        "    predicate:\n"
+        "      kind: all_paths_absent\n"
+        "      paths: [harp/runtime]\n"
         "    invoke: prove no queue, review, completion, or health path exists\n"
         "    assert: combined lifecycle is unreachable\n"
         "    evidence: docs/evidence/combined_unreachable.json\n",
@@ -190,6 +211,9 @@ def test_required_lifecycle_gates_require_evidence_fields() -> None:
         "  decision: not_applicable\n"
         "  reason: fixture contract test has no persisted workspace state\n"
         "  unreachability:\n"
+        "    predicate:\n"
+        "      kind: all_paths_absent\n"
+        "      paths: [harp/history-state]\n"
         "    invoke: prove no historical control state reaches this fixture\n"
         "    assert: historical replay is unreachable\n"
         "    evidence: docs/evidence/history_unreachable.json\n",
@@ -314,6 +338,9 @@ def test_required_lifecycle_evidence_is_recomputed(
         "  decision: not_applicable\n"
         "  reason: fixture contract test has no control lifecycle\n"
         "  unreachability:\n"
+        "    predicate:\n"
+        "      kind: all_paths_absent\n"
+        "      paths: [harp/runtime]\n"
         "    invoke: prove no queue, review, completion, or health path exists\n"
         "    assert: combined lifecycle is unreachable\n"
         "    evidence: docs/evidence/combined_unreachable.json\n",
@@ -330,6 +357,9 @@ def test_required_lifecycle_evidence_is_recomputed(
         "  decision: not_applicable\n"
         "  reason: fixture contract test has no persisted workspace state\n"
         "  unreachability:\n"
+        "    predicate:\n"
+        "      kind: all_paths_absent\n"
+        "      paths: [harp/history-state]\n"
         "    invoke: prove no historical control state reaches this fixture\n"
         "    assert: historical replay is unreachable\n"
         "    evidence: docs/evidence/history_unreachable.json\n",
@@ -388,6 +418,9 @@ def test_required_lifecycle_evidence_is_recomputed(
 def test_unreachability_prose_cannot_satisfy_a_lifecycle_gate() -> None:
     contract = _v2_contract().replace(
         "  unreachability:\n"
+        "    predicate:\n"
+        "      kind: all_paths_absent\n"
+        "      paths: [harp/runtime]\n"
         "    invoke: prove no queue, review, completion, or health path exists\n"
         "    assert: combined lifecycle is unreachable\n"
         "    evidence: docs/evidence/combined_unreachable.json\n",
@@ -437,6 +470,21 @@ def test_unreachability_evidence_is_machine_bound(
             "ok": True,
             "gate": gate,
             "reachable": False,
+            "predicate": {
+                "kind": "all_paths_absent",
+                "paths": [
+                    "harp/runtime"
+                    if gate == "combined_chain_gate"
+                    else "harp/history-state"
+                ],
+            },
+            "observation": {
+                (
+                    "harp/runtime"
+                    if gate == "combined_chain_gate"
+                    else "harp/history-state"
+                ): "absent"
+            },
             "command": command,
             "assertion": assertion,
             "candidate_revision": "def",
@@ -458,6 +506,14 @@ def test_unreachability_evidence_is_machine_bound(
     result = checker.validate_lifecycle_evidence(replayed, tmp_path)
     assert not result["ok"]
     assert any("does not match its proof" in error for error in result["errors"])
+
+    runtime = tmp_path / "harp" / "runtime"
+    runtime.mkdir(parents=True)
+    result = checker.validate_lifecycle_evidence(contract, tmp_path)
+    assert not result["ok"]
+    assert any("predicate is false" in error for error in result["errors"])
+    runtime.rmdir()
+    runtime.parent.rmdir()
 
     path = tmp_path / "docs" / "evidence" / "combined_unreachable.json"
     record = json.loads(path.read_text(encoding="utf-8"))

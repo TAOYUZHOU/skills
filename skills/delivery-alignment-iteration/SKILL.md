@@ -121,7 +121,8 @@ historical_replay_gate:
 Use one stable file; do not create a new timestamped handoff on every turn. It
 must contain:
 
-- `status`, `updated_at_utc`, `iteration`, and the contract path;
+- `status`, `updated_at_utc`, `iteration`, the contract path, and the exact
+  frozen `candidate` revision;
 - intent and non-goals;
 - current truth sources and current phase;
 - completed changes tied to real paths;
@@ -500,8 +501,10 @@ completion, retry/resume, or workflow-health routing is reachable.
   completion, and retained for later health audit. Also require one happy path
   to reach accepted review, passed artifact gate, true completion, restored
   health, and zero repeated zero-work wakeups.
-- `not_applicable` requires a machine-checked proof mapping with an invocation,
-  deterministic assertion, and durable evidence; prose is insufficient.
+- `not_applicable` requires a machine-checked proof mapping with a declarative
+  predicate, invocation, deterministic assertion, and durable evidence. The
+  checker must re-evaluate the predicate against the current contract root;
+  a signed record alone is replayable and insufficient.
 - A required combined receipt needs host-controlled attestation in addition to
   exact contract invocation, candidate/test hashes, stage producer/consumer
   bindings, fixture binding, and closure assertions.

@@ -45,6 +45,8 @@ For `adversarial_gate`:
   exact `attack_scope`, and `evidence_dir`, including low-risk skips.
   Before completion, the handoff records the real Agent invocation, raw output,
   attack manifest, deterministic commands/results, and zero escaped attacks.
+  Its top-level `candidate` metadata must exactly match both the contract and,
+  for high-risk promotion, the externally supplied frozen candidate.
   The provider receipt must carry a valid HMAC attestation from a key outside
   the candidate repository, supplied to the checker through
   `DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE`. The deterministic gate result requires
@@ -61,9 +63,14 @@ For high-risk control-lifecycle iterations, both lifecycle gates are mandatory:
 - `decision: required` needs non-empty `reason`, `fixture_manifest`, `capture`,
   `invoke`, `assert`, and `evidence` in `historical_replay_gate`.
 - Every schema-v2 contract declares both gates. `decision: not_applicable`
-  needs `unreachability.invoke`, `unreachability.assert`, and
+  needs `unreachability.predicate`, `unreachability.invoke`,
+  `unreachability.assert`, and
   `unreachability.evidence`; the evidence JSON must say `ok: true`, identify the
-  gate, record `reachable: false`, and exactly bind the command and assertion.
+  gate, record `reachable: false`, and exactly bind the predicate, current
+  observation, command, and assertion. The checker supports the declarative
+  `all_paths_absent` predicate and re-evaluates every safe repository-relative
+  path against the current contract root. A copied signed record fails when
+  the current root makes the predicate false.
   The signed record also binds `candidate_revision`, `repository_scope`, and
   `command_cwd`; it cannot be replayed for a later candidate.
   Existing mocks, unit tests, cost, prose, or an unavailable provider do not
