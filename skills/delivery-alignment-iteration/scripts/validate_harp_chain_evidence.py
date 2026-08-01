@@ -220,6 +220,28 @@ def _host_attestation_ok(record: dict[str, Any]) -> bool:
     return hmac.compare_digest(supplied, expected)
 
 
+def _pytest_command_ok(receipt: dict[str, Any]) -> bool:
+    try:
+        tokens = shlex.split(str(receipt.get("command") or ""))
+    except ValueError:
+        return False
+    if tokens[:1] == ["pytest"]:
+        body = tokens[1:]
+    elif tokens[:3] in (["python3", "-m", "pytest"], ["python", "-m", "pytest"]):
+        body = tokens[3:]
+    else:
+        return False
+    test_path = str(receipt.get("test_path") or "")
+    junit_path = str(receipt.get("junit_path") or "")
+    required = [test_path, f"--junitxml={junit_path}"]
+    remaining = list(body)
+    for token in required:
+        if remaining.count(token) != 1:
+            return False
+        remaining.remove(token)
+    return all(token in {"-q"} for token in remaining)
+
+
 def _archetype_oracle(profile: dict[str, Any]) -> tuple[bool, list[str]]:
     archetype = str(profile.get("archetype") or "")
     facts = profile.get("facts") or {}
@@ -447,17 +469,8 @@ def validate_chain_receipt(path: Path, replay_manifest: Path) -> dict[str, Any]:
         )
     ) or happy.get("repeated_zero_work_wakeups") != 0:
         result["errors"].append("happy-path closure invariant failed")
-    if not str(receipt.get("command") or "").strip():
-        result["errors"].append("combined chain command is missing")
-    else:
-        try:
-            command_tokens = shlex.split(str(receipt.get("command")))
-        except ValueError:
-            command_tokens = []
-        if str(receipt.get("test_path") or "") not in command_tokens:
-            result["errors"].append(
-                "combined chain command does not execute the bound test path"
-            )
+    if not _pytest_command_ok(receipt):
+        result["errors"].append("combined chain pytest command binding is invalid")
     if not re.fullmatch(
         r"[0-9a-f]{40}", str(receipt.get("candidate_revision") or "")
     ):
@@ -466,6 +479,10 @@ def validate_chain_receipt(path: Path, replay_manifest: Path) -> dict[str, Any]:
         r"[0-9a-f]{64}", str(receipt.get("test_sha256") or "")
     ):
         result["errors"].append("combined chain test binding is invalid")
+    if not str(receipt.get("junit_path") or "").strip() or not re.fullmatch(
+        r"[0-9a-f]{64}", str(receipt.get("junit_sha256") or "")
+    ):
+        result["errors"].append("combined chain JUnit binding is invalid")
     if receipt.get("boundary_mode") not in {
         "skill_gate_meta_validation",
         "target_local_real_producers_consumers",

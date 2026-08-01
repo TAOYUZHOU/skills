@@ -163,7 +163,7 @@ combined_chain_gate:
   decision: required
   reason: The skill changes the mandatory verification lifecycle for control-state iterations.
   scope: Executor handoff through post-repair workflow-health closure.
-  invoke: pytest -q tests/test_delivery_alignment_history_replay.py
+  invoke: pytest -q tests/test_delivery_alignment_history_replay.py --junitxml=docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_junit.xml
   assert:
     - All mandatory lifecycle stages appear once in canonical order.
     - Three historical negative cases remain open and typed until their owner/reviewer/closure conditions are satisfied.
@@ -185,7 +185,7 @@ adversarial_gate:
   decision: required
   reason: SKILL.md and the checker are authoritative Agent and delivery-gate behavior.
   base: d94d282c7982a6de7041343d12df9cee5cf8a7c1
-  candidate: 826c814ab0ece6cacac778089a219798220165ac
+  candidate: 27316c4b011d0663aeaeb9a046ed16536dac2e1c
   attack_scope:
     - skills/delivery-alignment-iteration/SKILL.md
     - skills/delivery-alignment-iteration/agents/openai.yaml

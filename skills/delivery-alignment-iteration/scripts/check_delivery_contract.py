@@ -10,9 +10,9 @@ import importlib.util
 import json
 import os
 import re
-import shlex
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import yaml
@@ -495,13 +495,6 @@ def _structured_nonempty(value) -> bool:
     return True
 
 
-def _shell_tokens(value: object) -> list[str]:
-    try:
-        return shlex.split(str(value or ""))
-    except ValueError:
-        return []
-
-
 def _conditional_gate_errors(
     data: dict,
     *,
@@ -903,6 +896,28 @@ def _validate_unreachability(
     return not errors, errors, record if isinstance(record, dict) else {}
 
 
+def _junit_matches_test(path: Path, test_path: str) -> bool:
+    try:
+        root = ET.parse(path).getroot()
+    except (OSError, ET.ParseError):
+        return False
+    cases = root.findall(".//testcase")
+    if not cases:
+        return False
+    module = Path(test_path).with_suffix("").as_posix().replace("/", ".")
+    if not any(
+        str(case.get("classname") or "") == module
+        or str(case.get("classname") or "").startswith(module + ".")
+        for case in cases
+    ):
+        return False
+    return not any(
+        case.find(kind) is not None
+        for case in cases
+        for kind in ("failure", "error", "skipped")
+    )
+
+
 def validate_lifecycle_evidence(text: str, root: Path) -> dict:
     """Recompute required replay and combined-chain evidence fail-closed."""
 
@@ -1031,16 +1046,26 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
                 )
                 if test_error:
                     result["errors"].append(test_error)
+                junit_path, junit_error = _contained_file(
+                    root,
+                    receipt_record.get("junit_path"),
+                    "combined_chain_gate receipt junit_path",
+                )
+                if junit_error:
+                    result["errors"].append(junit_error)
                 binding_checks = {
                     "command": receipt_record.get("command") == combined.get("invoke"),
-                    "command_includes_test_path": str(
-                        receipt_record.get("test_path") or ""
-                    )
-                    in _shell_tokens(receipt_record.get("command")),
+                    "pytest_command": validator._pytest_command_ok(receipt_record),
                     "candidate": receipt_record.get("candidate_revision")
                     == (data.get("adversarial_gate") or {}).get("candidate"),
                     "test_sha256": test_path is not None
                     and receipt_record.get("test_sha256") == _sha256_file(test_path),
+                    "junit_sha256": junit_path is not None
+                    and receipt_record.get("junit_sha256") == _sha256_file(junit_path),
+                    "junit_test_result": junit_path is not None
+                    and _junit_matches_test(
+                        junit_path, str(receipt_record.get("test_path") or "")
+                    ),
                 }
                 result["combined_chain"]["binding_checks"] = binding_checks
                 if not all(binding_checks.values()):

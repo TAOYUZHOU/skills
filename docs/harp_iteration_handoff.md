@@ -1,7 +1,7 @@
 # HARP Iteration Handoff
 
 status: partial
-updated_at_utc: 2026-08-01T05:51:02Z
+updated_at_utc: 2026-08-01T05:55:20Z
 iteration: delivery-alignment-combined-chain-replay
 contract: docs/iteration_contracts/delivery_alignment_combined_chain_replay_20260801.yaml
 
@@ -24,7 +24,8 @@ workspace mocks with sanitized replays derived from three real workspace histori
 - Current immutable base: `d94d282c7982a6de7041343d12df9cee5cf8a7c1`.
 - Rejected first candidate: `84f7ddeb2c7c1e8c14c9bbf48325f93754627485`.
 - Rejected second candidate: `ad783b17d84b55e31fc3655f16586521807de83c`.
-- Rejected third candidate: `826c814ab0ece6cacac778089a219798220165ac`; fourth pending freeze.
+- Rejected third candidate: `826c814ab0ece6cacac778089a219798220165ac`.
+- Internally rejected fourth candidate: `27316c4b011d0663aeaeb9a046ed16536dac2e1c`; fifth pending freeze.
 - Three read-only source histories exhibit distinct classes: accepted-review projection mismatch, blocked missing-artifact dependency, and partial-result materialization.
 - The working tree already contains unrelated untracked evidence and skills; they are outside this iteration.
 
@@ -32,7 +33,10 @@ workspace mocks with sanitized replays derived from three real workspace histori
 
 The first frozen candidate failed independent forward and exact-diff review.
 The third candidate's exact-diff review found one remaining command/test
-semantic split. It is repaired and covered; a fourth candidate and clean Agent rerun are pending.
+semantic split. It was repaired and covered in fourth candidate `27316c4`.
+Before sending that candidate to the external Agent, internal review found that
+argv membership alone could still be deselected. Constrained pytest plus parsed,
+hash-bound JUnit evidence is implemented; a fifth candidate is pending.
 
 ## Completed changes
 
@@ -48,6 +52,7 @@ semantic split. It is repaired and covered; a fourth candidate and clean Agent r
 - Repaired self-authored receipts, prose-only unreachability, risk self-downgrade, profile-field injection, stale event digests, source-directory output, torn multi-file snapshots, and absolute evidence paths.
 - Rejected `ad783b1` and added manifest/unreachability host attestations, single-component path rejection, contract/candidate/test command binding, and per-stage producer/consumer/assertion bindings.
 - Rejected `826c814` and required the attested invocation to include the bound chain test path as an exact argv token; ancestor/source output overlap is also rejected.
+- Internally rejected `27316c4`; the command is now constrained to one pytest target plus JUnit, and the checker requires at least one testcase from that module with zero failures, errors, or skips.
 
 ## Verification evidence
 
@@ -68,7 +73,7 @@ semantic split. It is repaired and covered; a fourth candidate and clean Agent r
 - The earlier bubblewrap-blocked turn is retained as diagnostic evidence and is not counted as a gate.
 - Candidate `ad783b1` produced six reported attacks; five were repaired. The sixth is the unavoidable fact that a Git commit cannot contain its own SHA and is handled by the post-freeze contract/handoff binding checked against the immutable commit.
 - Candidate `826c814` produced one executable attack: a green sibling command could be attested while only hashing an unexecuted failing chain test. The argv-token binding repair closes it.
-- Fourth immutable candidate, clean independent output, zero-escape deterministic result, and final trusted attestations remain pending.
+- Fifth immutable candidate, clean independent output, zero-escape deterministic result, and final trusted attestations remain pending.
 
 ## Open blockers and risks
 
@@ -78,7 +83,7 @@ semantic split. It is repaired and covered; a fourth candidate and clean Agent r
 
 ## Exact next action
 
-Freeze the fourth candidate and rerun independent skill consumption plus
+Freeze the fifth candidate, then rerun independent skill consumption plus
 exact-diff counterexample review.
 
 ## Final claims allowed now

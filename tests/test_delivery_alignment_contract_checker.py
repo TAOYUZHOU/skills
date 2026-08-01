@@ -235,15 +235,24 @@ def test_required_lifecycle_evidence_is_recomputed(
     )
     target_test = tmp_path / "target_chain_test.py"
     target_test.write_text("def test_chain():\n    assert True\n", encoding="utf-8")
+    junit = tmp_path / "chain.xml"
+    junit.write_text(
+        '<testsuites><testsuite tests="1" failures="0" errors="0" skipped="0">'
+        '<testcase classname="target_chain_test" name="test_chain" />'
+        "</testsuite></testsuites>",
+        encoding="utf-8",
+    )
     test_candidate = "a" * 40
     receipt = {
         "status": "passed",
         "exit_code": 0,
-        "command": "pytest target_chain_test.py",
+        "command": "pytest -q target_chain_test.py --junitxml=chain.xml",
         "candidate_revision": test_candidate,
         "boundary_mode": "target_local_real_producers_consumers",
         "test_path": "target_chain_test.py",
         "test_sha256": hashlib.sha256(target_test.read_bytes()).hexdigest(),
+        "junit_path": "chain.xml",
+        "junit_sha256": hashlib.sha256(junit.read_bytes()).hexdigest(),
         "replay_manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
         "stages": validator.CHAIN_STAGES,
         "stage_bindings": {
@@ -304,7 +313,7 @@ def test_required_lifecycle_evidence_is_recomputed(
         "  decision: required\n"
         "  reason: control lifecycle is reachable\n"
         "  scope: executor through post-repair audit\n"
-        "  invoke: pytest target_chain_test.py\n"
+        "  invoke: pytest -q target_chain_test.py --junitxml=chain.xml\n"
         "  assert: all stages and closure oracles pass\n"
         "  evidence: chain_receipt.json\n",
     )
@@ -329,7 +338,7 @@ def test_required_lifecycle_evidence_is_recomputed(
     result = checker.validate_lifecycle_evidence(contract, tmp_path)
     assert result["ok"], result
 
-    receipt["command"] = "pytest benign.py"
+    receipt["command"] = "pytest -q benign.py --junitxml=chain.xml"
     receipt.pop("attestation_hmac_sha256")
     payload = json.dumps(
         receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
@@ -339,21 +348,19 @@ def test_required_lifecycle_evidence_is_recomputed(
     ).hexdigest()
     chain_evidence.write_text(json.dumps(receipt), encoding="utf-8")
     split_contract = contract.replace(
-        "  invoke: pytest target_chain_test.py",
-        "  invoke: pytest benign.py",
+        "  invoke: pytest -q target_chain_test.py --junitxml=chain.xml",
+        "  invoke: pytest -q benign.py --junitxml=chain.xml",
     )
     mismatched = checker.validate_lifecycle_evidence(split_contract, tmp_path)
     assert not mismatched["ok"]
     assert any("not bound to contract" in error for error in mismatched["errors"])
     assert mismatched["combined_chain"]["binding_checks"]["command"] is True
     assert (
-        mismatched["combined_chain"]["binding_checks"][
-            "command_includes_test_path"
-        ]
+        mismatched["combined_chain"]["binding_checks"]["pytest_command"]
         is False
     )
 
-    receipt["command"] = "pytest target_chain_test.py"
+    receipt["command"] = "pytest -q target_chain_test.py --junitxml=chain.xml"
     receipt.pop("attestation_hmac_sha256")
     payload = json.dumps(
         receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")

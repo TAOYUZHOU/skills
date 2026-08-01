@@ -3,11 +3,13 @@
   "evidence_scope": "delivery-alignment skill gate meta-validation",
   "status": "passed",
   "exit_code": 0,
-  "command": "pytest -q tests/test_delivery_alignment_history_replay.py",
-  "candidate_revision": "826c814ab0ece6cacac778089a219798220165ac",
+  "command": "pytest -q tests/test_delivery_alignment_history_replay.py --junitxml=docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_junit.xml",
+  "candidate_revision": "27316c4b011d0663aeaeb9a046ed16536dac2e1c",
   "boundary_mode": "skill_gate_meta_validation",
   "test_path": "tests/test_delivery_alignment_history_replay.py",
-  "test_sha256": "107cc9388608eea67275b3cf32ea3f0024ef915cca7a3e017a554fc9a81875b9",
+  "test_sha256": "9c9cdbb32fc6a519958289e6e8ab68cb9fef972d47d137fb774d396a9777dab2",
+  "junit_path": "docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_junit.xml",
+  "junit_sha256": "58d269ae39b614d636d5e367482eb044f95d82f3416f7da909ee98bce2d0b966",
   "replay_manifest_sha256": "6846f0dda2da7e7b78834bffdd8c5d1e43d74ac77a39d8aea4775482f254b848",
   "stages": [
     "executor_handoff",
@@ -107,7 +109,7 @@
     "health_restored": true,
     "repeated_zero_work_wakeups": 0
   },
-  "attestation_hmac_sha256": "c6d3d813ddc91f5a1556e705c70e248256aec73316b786b574ee348d096cc46f",
+  "attestation_hmac_sha256": "43c4671552560ea85d648099e1693a145a96e0e5016bb66671c82be97e8f04f9",
   "limitations": [
     "This receipt validates the skill's required chain contract and replay oracles; each future HARP runtime change must emit its own target-local receipt from real runtime producers and consumers."
   ]

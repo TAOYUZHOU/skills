@@ -106,8 +106,10 @@ target-local test path and SHA-256, fixture-manifest SHA-256, and a
 producer/consumer/assertion triple for all ten stages. It records all three
 archetype results and happy-path invariants, and has
 a valid host-controlled HMAC attestation from outside the candidate repository. The
-attested command must contain the bound test path as an exact argv token; a
-passing sibling test plus an unrelated hashed chain test is invalid. The
+attested command must use the constrained pytest form, name the bound test path
+as its only test target, and emit a hash-bound JUnit report. The checker must
+find at least one testcase from that module and zero failures, errors, or skips;
+a passing sibling test plus an unrelated hashed chain test is invalid. The
 validator must fail closed for a missing stage, changed fixture hash, leaked
 absolute path, missing source provenance, absent archetype, incomplete closure
 assertion, or nonzero repeated zero-work wakeups.
