@@ -93,6 +93,12 @@ final_claims_allowed:
 handoff:
   path: "docs/harp_iteration_handoff.md"
   policy: "Update after every material implementation or verification step."
+sandbox:
+  scope: "Changed boundary."
+  fixture: "Minimal isolated fixture."
+  invoke: "Real provider or proven-unreachable deterministic boundary."
+  assert: ["Deterministic downstream postcondition."]
+  record: ["Durable raw evidence and receipt."]
 adversarial_gate:
   risk: "high | low"
   decision: "required | skipped"
@@ -101,6 +107,12 @@ adversarial_gate:
   candidate: "Immutable candidate commit for high-risk diffs."
   attack_scope: ["Changed or new executable/protocol paths."]
   evidence_dir: "Durable prompt/output/attack/result directory."
+combined_chain_gate:
+  decision: "required | not_applicable"
+  reason: "Lifecycle reachability decision."
+historical_replay_gate:
+  decision: "required | not_applicable"
+  reason: "Persisted-state reachability decision."
 ```
 
 ## Handoff SSOT Contract
@@ -443,7 +455,7 @@ Minimum sandbox shape:
 sandbox:
   scope: "one role or one handoff hop"
   fixture: "minimal workspace dir or tmp_path with only required .state files"
-  invoke: "real provider when API/key available; otherwise dry-run prompt + deterministic scorer"
+  invoke: "real provider, or real deterministic boundary plus a machine-checked provider-unreachability proof"
   assert:
     - "structured directive parses"
     - "downstream runtime fact matches expected shape"
@@ -466,7 +478,7 @@ Rules:
 
 ## Combined Lifecycle Chain and Historical Replay Gates
 
-Use both gates for a high-risk iteration whenever queue, executor handoff,
+Declare both gates in every schema-v2 contract. Require them for a high-risk iteration whenever queue, executor handoff,
 output assessment, result review, event projection, artifact admission,
 completion, retry/resume, or workflow-health routing is reachable.
 
@@ -485,9 +497,10 @@ completion, retry/resume, or workflow-health routing is reachable.
   completion, and retained for later health audit. Also require one happy path
   to reach accepted review, passed artifact gate, true completion, restored
   health, and zero repeated zero-work wakeups.
-- Declare `combined_chain_gate` and `historical_replay_gate` in the contract.
-  `not_applicable` requires deterministic unreachability; missing evidence keeps
-  the iteration non-complete.
+- `not_applicable` requires a machine-checked proof mapping with an invocation,
+  deterministic assertion, and durable evidence; prose is insufficient.
+- A required combined receipt needs host-controlled attestation in addition to
+  its command, stages, fixture binding, and closure assertions.
 
 Follow
 [`references/harp_combined_chain_replay.md`](references/harp_combined_chain_replay.md)

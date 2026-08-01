@@ -32,7 +32,12 @@ REQUIRED_KEYS = [
     "handoff",
 ]
 
-V2_REQUIRED_KEYS = ["sandbox", "adversarial_gate"]
+V2_REQUIRED_KEYS = [
+    "sandbox",
+    "adversarial_gate",
+    "combined_chain_gate",
+    "historical_replay_gate",
+]
 ADVERSARIAL_REQUIRED_KEYS = [
     "risk",
     "decision",
@@ -131,6 +136,7 @@ HISTORICAL_REPLAY_EVIDENCE_KEYS = [
     "assert",
     "evidence",
 ]
+UNREACHABILITY_REQUIRED_KEYS = ["invoke", "assert", "evidence"]
 GATE_EVIDENCE_FILES = [
     "prompt.md",
     "final_agent_output.json",
@@ -519,10 +525,17 @@ def _conditional_gate_errors(
             elif not _structured_nonempty(gate[key]):
                 errors.append(f"empty {gate_name}.{key}")
     if decision == "not_applicable":
-        if not _structured_nonempty(gate.get("unreachability")):
+        proof = gate.get("unreachability")
+        if not isinstance(proof, dict):
             errors.append(
-                f"{gate_name}.unreachability is required when not_applicable"
+                f"{gate_name}.unreachability must be a proof mapping when not_applicable"
             )
+        else:
+            for key in UNREACHABILITY_REQUIRED_KEYS:
+                if key not in proof:
+                    errors.append(f"missing {gate_name}.unreachability.{key}")
+                elif not _structured_nonempty(proof[key]):
+                    errors.append(f"empty {gate_name}.unreachability.{key}")
     return errors
 
 
@@ -614,18 +627,17 @@ def validate(text: str) -> dict:
             adversarial_errors.append("high-risk diff requires decision: required")
         if risk == "low" and decision != "skipped":
             adversarial_errors.append("low-risk diff must record decision: skipped")
-    high_risk = isinstance(gate, dict) and gate.get("risk") == "high"
     combined_chain_errors = _conditional_gate_errors(
         data,
         gate_name="combined_chain_gate",
-        high_risk=high_risk,
+        high_risk=True,
         required_keys=COMBINED_CHAIN_REQUIRED_KEYS,
         evidence_keys=COMBINED_CHAIN_EVIDENCE_KEYS,
     )
     historical_replay_errors = _conditional_gate_errors(
         data,
         gate_name="historical_replay_gate",
-        high_risk=high_risk,
+        high_risk=True,
         required_keys=HISTORICAL_REPLAY_REQUIRED_KEYS,
         evidence_keys=HISTORICAL_REPLAY_EVIDENCE_KEYS,
     )
@@ -850,6 +862,37 @@ def _load_chain_validator():
     return module
 
 
+def _validate_unreachability(
+    root: Path, gate_name: str, gate: dict
+) -> tuple[bool, list[str], dict]:
+    errors: list[str] = []
+    proof = gate.get("unreachability")
+    if not isinstance(proof, dict):
+        return False, [f"{gate_name} lacks a structured unreachability proof"], {}
+    evidence_path, error = _contained_file(
+        root, proof.get("evidence"), f"{gate_name}.unreachability.evidence"
+    )
+    if error:
+        errors.append(error)
+        return False, errors, {}
+    try:
+        record = json.loads(evidence_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return False, [f"invalid {gate_name} unreachability evidence: {exc}"], {}
+    expected = {
+        "ok": True,
+        "gate": gate_name,
+        "reachable": False,
+        "command": proof.get("invoke"),
+        "assertion": proof.get("assert"),
+    }
+    if not isinstance(record, dict) or any(
+        record.get(key) != value for key, value in expected.items()
+    ):
+        errors.append(f"{gate_name} unreachability evidence does not match its proof")
+    return not errors, errors, record if isinstance(record, dict) else {}
+
+
 def validate_lifecycle_evidence(text: str, root: Path) -> dict:
     """Recompute required replay and combined-chain evidence fail-closed."""
 
@@ -863,14 +906,12 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
     if data is None:
         result["errors"].append(parse_error)
         return result
-    adversarial = data.get("adversarial_gate")
-    high_risk = isinstance(adversarial, dict) and adversarial.get("risk") == "high"
     combined = data.get("combined_chain_gate")
     historical = data.get("historical_replay_gate")
-    if high_risk and not isinstance(combined, dict):
-        result["errors"].append("combined_chain_gate is required for high risk")
-    if high_risk and not isinstance(historical, dict):
-        result["errors"].append("historical_replay_gate is required for high risk")
+    if not isinstance(combined, dict):
+        result["errors"].append("combined_chain_gate is required")
+    if not isinstance(historical, dict):
+        result["errors"].append("historical_replay_gate is required")
     if result["errors"]:
         return result
     if not isinstance(combined, dict) and not isinstance(historical, dict):
@@ -888,12 +929,12 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
         decision = historical.get("decision")
         result["historical_replay"] = {"ok": False, "decision": decision}
         if decision == "not_applicable":
-            ok = _structured_nonempty(historical.get("unreachability"))
+            ok, errors, record = _validate_unreachability(
+                root, "historical_replay_gate", historical
+            )
             result["historical_replay"]["ok"] = ok
-            if not ok:
-                result["errors"].append(
-                    "historical_replay_gate lacks an unreachability proof"
-                )
+            result["historical_replay"]["proof"] = record
+            result["errors"].extend(errors)
         elif decision == "required":
             replay_manifest, error = _contained_file(
                 root,
@@ -941,12 +982,12 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
         decision = combined.get("decision")
         result["combined_chain"] = {"ok": False, "decision": decision}
         if decision == "not_applicable":
-            ok = _structured_nonempty(combined.get("unreachability"))
+            ok, errors, record = _validate_unreachability(
+                root, "combined_chain_gate", combined
+            )
             result["combined_chain"]["ok"] = ok
-            if not ok:
-                result["errors"].append(
-                    "combined_chain_gate lacks an unreachability proof"
-                )
+            result["combined_chain"]["proof"] = record
+            result["errors"].extend(errors)
         elif decision == "required":
             receipt, error = _contained_file(
                 root,

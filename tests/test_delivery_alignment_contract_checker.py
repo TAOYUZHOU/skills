@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import importlib.util
 import json
 import shutil
@@ -42,11 +43,17 @@ def _v2_contract(*, risk: str = "high", decision: str = "required") -> str:
         + "combined_chain_gate:\n"
         + "  decision: not_applicable\n"
         + "  reason: fixture contract test has no control lifecycle\n"
-        + "  unreachability: no queue, review, completion, or health path exists\n"
+        + "  unreachability:\n"
+        + "    invoke: prove no queue, review, completion, or health path exists\n"
+        + "    assert: combined lifecycle is unreachable\n"
+        + "    evidence: docs/evidence/combined_unreachable.json\n"
         + "historical_replay_gate:\n"
         + "  decision: not_applicable\n"
         + "  reason: fixture contract test has no persisted workspace state\n"
-        + "  unreachability: no historical control state can reach this fixture\n"
+        + "  unreachability:\n"
+        + "    invoke: prove no historical control state reaches this fixture\n"
+        + "    assert: historical replay is unreachable\n"
+        + "    evidence: docs/evidence/history_unreachable.json\n"
     )
 
 
@@ -145,13 +152,13 @@ def test_high_risk_contract_requires_both_lifecycle_gates() -> None:
 
 def test_lifecycle_not_applicable_requires_unreachability() -> None:
     contract = _v2_contract().replace(
-        "  unreachability: no queue, review, completion, or health path exists\n",
+        "    evidence: docs/evidence/combined_unreachable.json\n",
         "",
     )
     result = checker.validate(contract)
     assert not result["ok"]
     assert (
-        "combined_chain_gate.unreachability is required when not_applicable"
+        "missing combined_chain_gate.unreachability.evidence"
         in result["combined_chain_errors"]
     )
 
@@ -162,7 +169,10 @@ def test_required_lifecycle_gates_require_evidence_fields() -> None:
         "combined_chain_gate:\n"
         "  decision: not_applicable\n"
         "  reason: fixture contract test has no control lifecycle\n"
-        "  unreachability: no queue, review, completion, or health path exists\n",
+        "  unreachability:\n"
+        "    invoke: prove no queue, review, completion, or health path exists\n"
+        "    assert: combined lifecycle is unreachable\n"
+        "    evidence: docs/evidence/combined_unreachable.json\n",
         "combined_chain_gate:\n"
         "  decision: required\n"
         "  reason: control lifecycle is reachable\n",
@@ -171,7 +181,10 @@ def test_required_lifecycle_gates_require_evidence_fields() -> None:
         "historical_replay_gate:\n"
         "  decision: not_applicable\n"
         "  reason: fixture contract test has no persisted workspace state\n"
-        "  unreachability: no historical control state can reach this fixture\n",
+        "  unreachability:\n"
+        "    invoke: prove no historical control state reaches this fixture\n"
+        "    assert: historical replay is unreachable\n"
+        "    evidence: docs/evidence/history_unreachable.json\n",
         "historical_replay_gate:\n"
         "  decision: required\n"
         "  reason: persisted workspace state is reachable\n",
@@ -188,7 +201,9 @@ def test_required_lifecycle_gates_require_evidence_fields() -> None:
     }
 
 
-def test_required_lifecycle_evidence_is_recomputed(tmp_path: Path) -> None:
+def test_required_lifecycle_evidence_is_recomputed(
+    tmp_path: Path, monkeypatch
+) -> None:
     source = (
         Path(__file__).parents[1]
         / "skills"
@@ -232,6 +247,15 @@ def test_required_lifecycle_evidence_is_recomputed(tmp_path: Path) -> None:
             "repeated_zero_work_wakeups": 0,
         },
     }
+    key = tmp_path / "receipt.key"
+    key.write_bytes(b"k" * 32)
+    payload = json.dumps(
+        receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
+    receipt["attestation_hmac_sha256"] = hmac.new(
+        key.read_bytes(), payload, hashlib.sha256
+    ).hexdigest()
+    monkeypatch.setenv("DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE", str(key))
     chain_evidence = tmp_path / "chain_receipt.json"
     chain_evidence.write_text(json.dumps(receipt), encoding="utf-8")
     contract = _v2_contract().replace(
@@ -247,7 +271,10 @@ def test_required_lifecycle_evidence_is_recomputed(tmp_path: Path) -> None:
         "combined_chain_gate:\n"
         "  decision: not_applicable\n"
         "  reason: fixture contract test has no control lifecycle\n"
-        "  unreachability: no queue, review, completion, or health path exists\n",
+        "  unreachability:\n"
+        "    invoke: prove no queue, review, completion, or health path exists\n"
+        "    assert: combined lifecycle is unreachable\n"
+        "    evidence: docs/evidence/combined_unreachable.json\n",
         "combined_chain_gate:\n"
         "  decision: required\n"
         "  reason: control lifecycle is reachable\n"
@@ -260,7 +287,10 @@ def test_required_lifecycle_evidence_is_recomputed(tmp_path: Path) -> None:
         "historical_replay_gate:\n"
         "  decision: not_applicable\n"
         "  reason: fixture contract test has no persisted workspace state\n"
-        "  unreachability: no historical control state can reach this fixture\n",
+        "  unreachability:\n"
+        "    invoke: prove no historical control state reaches this fixture\n"
+        "    assert: historical replay is unreachable\n"
+        "    evidence: docs/evidence/history_unreachable.json\n",
         "historical_replay_gate:\n"
         "  decision: required\n"
         "  reason: persisted workspace state is reachable\n"
@@ -279,6 +309,76 @@ def test_required_lifecycle_evidence_is_recomputed(tmp_path: Path) -> None:
     tampered = checker.validate_lifecycle_evidence(contract, tmp_path)
     assert not tampered["ok"]
     assert "historical replay manifest is invalid" in tampered["errors"]
+
+
+def test_unreachability_prose_cannot_satisfy_a_lifecycle_gate() -> None:
+    contract = _v2_contract().replace(
+        "  unreachability:\n"
+        "    invoke: prove no queue, review, completion, or health path exists\n"
+        "    assert: combined lifecycle is unreachable\n"
+        "    evidence: docs/evidence/combined_unreachable.json\n",
+        "  unreachability: yes\n",
+    )
+    result = checker.validate(contract)
+    assert not result["ok"]
+    assert (
+        "combined_chain_gate.unreachability must be a proof mapping when not_applicable"
+        in result["combined_chain_errors"]
+    )
+
+
+def test_low_risk_self_classification_cannot_omit_lifecycle_declarations() -> None:
+    contract = _v2_contract(risk="low", decision="skipped")
+    contract = contract.split("combined_chain_gate:\n", 1)[0]
+    result = checker.validate(contract)
+    assert not result["ok"]
+    assert {"combined_chain_gate", "historical_replay_gate"}.issubset(
+        result["missing_keys"]
+    )
+
+
+def test_unreachability_evidence_is_machine_bound(
+    tmp_path: Path,
+) -> None:
+    for gate, filename, command, assertion in (
+        (
+            "combined_chain_gate",
+            "combined_unreachable.json",
+            "prove no queue, review, completion, or health path exists",
+            "combined lifecycle is unreachable",
+        ),
+        (
+            "historical_replay_gate",
+            "history_unreachable.json",
+            "prove no historical control state reaches this fixture",
+            "historical replay is unreachable",
+        ),
+    ):
+        evidence = tmp_path / "docs" / "evidence" / filename
+        evidence.parent.mkdir(parents=True, exist_ok=True)
+        evidence.write_text(
+            json.dumps(
+                {
+                    "ok": True,
+                    "gate": gate,
+                    "reachable": False,
+                    "command": command,
+                    "assertion": assertion,
+                }
+            ),
+            encoding="utf-8",
+        )
+    contract = _v2_contract()
+    result = checker.validate_lifecycle_evidence(contract, tmp_path)
+    assert result["ok"], result
+
+    path = tmp_path / "docs" / "evidence" / "combined_unreachable.json"
+    record = json.loads(path.read_text(encoding="utf-8"))
+    record["reachable"] = True
+    path.write_text(json.dumps(record), encoding="utf-8")
+    result = checker.validate_lifecycle_evidence(contract, tmp_path)
+    assert not result["ok"]
+    assert any("does not match its proof" in error for error in result["errors"])
 
 
 def test_new_v1_contract_cannot_bypass_v2_rules() -> None:

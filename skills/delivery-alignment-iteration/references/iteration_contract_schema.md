@@ -60,9 +60,14 @@ For high-risk control-lifecycle iterations, both lifecycle gates are mandatory:
   and `evidence` in `combined_chain_gate`.
 - `decision: required` needs non-empty `reason`, `fixture_manifest`, `capture`,
   `invoke`, `assert`, and `evidence` in `historical_replay_gate`.
-- `decision: not_applicable` needs a deterministic `unreachability` proof.
-  Existing mocks, unit tests, cost, or an unavailable provider do not establish
-  unreachability.
+- Every schema-v2 contract declares both gates. `decision: not_applicable`
+  needs `unreachability.invoke`, `unreachability.assert`, and
+  `unreachability.evidence`; the evidence JSON must say `ok: true`, identify the
+  gate, record `reachable: false`, and exactly bind the command and assertion.
+  Existing mocks, unit tests, cost, prose, or an unavailable provider do not
+  establish unreachability.
+- A required combined receipt must carry a valid host-controlled HMAC
+  attestation from outside the candidate repository.
 - The chain is additive to the atomic sandbox and exact-diff adversarial gate.
   Required gates without passing evidence keep the iteration non-complete.
 

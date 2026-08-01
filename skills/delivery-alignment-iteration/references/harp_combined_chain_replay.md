@@ -72,13 +72,15 @@ python3 skills/delivery-alignment-iteration/scripts/capture_harp_history_replay.
   --source LABEL=ARCHETYPE:/absolute/read-only/workspace \
   --source LABEL=ARCHETYPE:/absolute/read-only/workspace \
   --source LABEL=ARCHETYPE:/absolute/read-only/workspace \
-  --output-dir skills/delivery-alignment-iteration/assets/harp_history_replay
+  --output-dir skills/delivery-alignment-iteration/assets/harp-history-replays
 ```
 
 Before capture, resolve each workspace and record stable source-file hashes.
 Open SQLite with `mode=ro` and `PRAGMA query_only=ON`; never run migrations,
 runtime repair, queue mutation, or a provider against a historical source.
-Read state files twice and fail if their bytes change during capture.
+Read the complete JSON-plus-selected-event set twice and fail if any member or
+event changes across the two snapshots. Reject an output directory equal to or
+inside any historical source.
 
 The durable fixture may contain only whitelisted booleans, enums, counts,
 pseudonymous queue IDs, and provenance digests. Remove absolute paths, prompts,
@@ -97,13 +99,15 @@ For an applicable high-risk iteration, the machine contract declares:
   replay invocation, archetype assertions, and durable validation evidence.
 
 The combined receipt binds the fixture-manifest SHA-256, lists all ten stages,
-records all three archetype results, and records the happy-path invariants. The
+records all three archetype results, records the happy-path invariants, and has
+a valid host-controlled HMAC attestation from outside the candidate repository. The
 validator must fail closed for a missing stage, changed fixture hash, leaked
 absolute path, missing source provenance, absent archetype, incomplete closure
 assertion, or nonzero repeated zero-work wakeups.
 
 If a gate is deterministically unreachable, use `decision: not_applicable` and
-include a concrete `unreachability` proof. Cost, missing time, existing green
+include an `unreachability` mapping with `invoke`, `assert`, and a durable
+machine-readable `evidence` record bound to that oracle. Cost, missing time, existing green
 unit tests, or a one-hop mock is not an unreachability proof. A required gate
 without passing evidence keeps the iteration `partial` or `blocked`.
 
@@ -111,6 +115,6 @@ Validate durable evidence with:
 
 ```bash
 python3 skills/delivery-alignment-iteration/scripts/validate_harp_chain_evidence.py \
-  --replay-manifest skills/delivery-alignment-iteration/assets/harp_history_replay/manifest.json \
+  --replay-manifest skills/delivery-alignment-iteration/assets/harp-history-replays/manifest.json \
   --chain-receipt docs/evidence/<iteration>/combined_chain_receipt.json
 ```

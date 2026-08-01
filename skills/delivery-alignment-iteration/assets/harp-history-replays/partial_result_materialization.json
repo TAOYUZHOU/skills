@@ -5,8 +5,8 @@
   "facts": {
     "completion": {
       "active_plan_status_counts": {
-        "abandoned": 2,
-        "completed": 4
+        "completed": 4,
+        "unknown": 2
       },
       "artifact_gate": {
         "missing_count": 0,
@@ -264,7 +264,6 @@
       "active": true,
       "dag_status": "quiescent",
       "issue_types": [
-        "COMPLETION_REFRESH_REQUIRED",
         "WORKFLOW_STALL"
       ],
       "queue_counts": {
@@ -295,20 +294,20 @@
     "selected_event_digest": "63f28070a2c8e42861c318d32fb07e802703641961ae384cf810ddb745c9251d",
     "state_files": {
       "completion_fact.json": {
-        "sha256": "6f1c59fe8f96130c9dd427da4984f5cd64d13171274d02bccdfb31e9d0ce407a",
+        "sha256": "64cfe42a23e83561a1034abd25e96b920441f4e15234db7a71222758a52c9f82",
         "size_bytes": 10540
       },
       "dag_state.json": {
-        "sha256": "9beecb8aaedaadf2a8733e787d373ca25365e6180ad04e3e9b5681825f20cf3f",
+        "sha256": "f2d0032e1bd3775b13cd0f8e799b20db354c3cd086eeeff502c00f9e5d846b7c",
         "size_bytes": 2687
       },
       "execution_queue.json": {
-        "sha256": "ea635462f5b318a324f12d512a9ac7c1708273b3ccf7d9c37c56bb1cbf46589c",
+        "sha256": "551b5d42c0a5c75a4830aedeb05b037cce605dd90499719d60fe0de4a561bead",
         "size_bytes": 201923
       },
       "workflow_health_fact.json": {
-        "sha256": "7c0045944185e5d326c9fcab698dfb0f4d99b6a047bc9283011a12d1c568d866",
-        "size_bytes": 5246
+        "sha256": "76d960bf03d2263d04a5af14ee7c583fba77b47677a4b0b2374cc93c7b284d4f",
+        "size_bytes": 2618
       }
     }
   }

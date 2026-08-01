@@ -3,7 +3,7 @@
   "replay": {
     "errors": [],
     "ok": true,
-    "path": "/root/autodl-tmp/taoyuzhou/skills/skills/delivery-alignment-iteration/assets/harp-history-replays/manifest.json",
+    "path": "manifest.json",
     "profiles": [
       {
         "archetype": "blocked_artifact_dependency",

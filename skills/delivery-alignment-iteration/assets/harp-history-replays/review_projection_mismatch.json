@@ -5,10 +5,8 @@
   "facts": {
     "completion": {
       "active_plan_status_counts": {
-        "abandoned": 2,
-        "completed": 3,
-        "in_progress": 3,
-        "result_reviewing": 1
+        "completed": 4,
+        "unknown": 1
       },
       "artifact_gate": {
         "missing_count": 0,
@@ -18,14 +16,15 @@
       "blockers": [
         "active_plan_nonterminal_rows_present",
         "artifact_gate_skipped",
-        "execution_queue_not_quiescent",
-        "reviewer_acceptance_missing"
+        "reviewer_acceptance_missing",
+        "task_truth_update_needed",
+        "unknown"
       ],
       "complete": false,
       "reviewer_acceptance": {
         "accepted_count": 1,
         "ok": false,
-        "required_count": 5,
+        "required_count": 6,
         "rows": [
           {
             "accepted": false,
@@ -54,6 +53,12 @@
           {
             "accepted": false,
             "queue_id": "q008",
+            "review_identity_present": true,
+            "strategy_attempt_identity_present": false
+          },
+          {
+            "accepted": false,
+            "queue_id": "q009",
             "review_identity_present": true,
             "strategy_attempt_identity_present": false
           }
@@ -214,24 +219,24 @@
       },
       {
         "attempts": 1,
-        "executor_next_action_present": false,
-        "executor_result_status": "",
-        "exit_code": null,
+        "executor_next_action_present": true,
+        "executor_result_status": "completed",
+        "exit_code": 0,
         "expected_output_count": 6,
         "output_assessment": {
-          "checked_count": 0,
+          "checked_count": 7,
           "missing_count": 0,
-          "status": ""
+          "status": "passed"
         },
         "queue_id": "q009",
-        "result_review_verdict": "",
-        "review_identity_present": false,
-        "status": "running",
+        "result_review_verdict": "accepted",
+        "review_identity_present": true,
+        "status": "done",
         "strategy_attempt_identity_present": false,
-        "terminal_class": ""
+        "terminal_class": "success"
       },
       {
-        "attempts": 0,
+        "attempts": 1,
         "executor_next_action_present": false,
         "executor_result_status": "",
         "exit_code": null,
@@ -244,7 +249,7 @@
         "queue_id": "q010",
         "result_review_verdict": "",
         "review_identity_present": false,
-        "status": "queued",
+        "status": "running",
         "strategy_attempt_identity_present": false,
         "terminal_class": ""
       }
@@ -349,6 +354,26 @@
         "review_identity_present": false,
         "strategy_attempt_identity_present": false,
         "verdict": "accepted"
+      },
+      {
+        "event_seq": 28159,
+        "event_type": "ResultObservationRecorded",
+        "launch_identity_present": true,
+        "observation_identity_present": true,
+        "queue_id": "q009",
+        "review_identity_present": false,
+        "strategy_attempt_identity_present": false,
+        "verdict": ""
+      },
+      {
+        "event_seq": 28162,
+        "event_type": "ResultReviewRecorded",
+        "launch_identity_present": false,
+        "observation_identity_present": false,
+        "queue_id": "q009",
+        "review_identity_present": false,
+        "strategy_attempt_identity_present": false,
+        "verdict": "accepted"
       }
     ],
     "workflow_health": {
@@ -357,9 +382,9 @@
       "issue_types": [],
       "queue_counts": {
         "blocked": 0,
-        "done": 5,
+        "done": 6,
         "failed": 0,
-        "queued": 2,
+        "queued": 1,
         "running": 1,
         "superseded": 2
       },
@@ -379,24 +404,24 @@
   },
   "schema_version": 1,
   "source_provenance": {
-    "selected_event_count": 10,
-    "selected_event_digest": "8343a92b9fd8b89d228dae2828fd1a9c466cc90342f4e886f7c9670f69edbd2b",
+    "selected_event_count": 12,
+    "selected_event_digest": "3762f99d87e4ce89b9c59d9b72b1e440d4c4a2d6042249f4c102f7e64cba53b8",
     "state_files": {
       "completion_fact.json": {
-        "sha256": "fed02bd5fbf81a375375b8455cab0cb4f78291cd482044a5ec333b20c7cb067d",
-        "size_bytes": 10421
+        "sha256": "9bd0212dd7b2d95dd7ab7d497f9297ade73295e75eb10a7dc69e7eeafd2ef481",
+        "size_bytes": 11784
       },
       "dag_state.json": {
-        "sha256": "f17d19537b560d031494d4371391e8d2e7e9a04e879fd6e866b81b4c714e7225",
-        "size_bytes": 2927
+        "sha256": "9ff35e7251c2a74a51b3d9daea68805699b447fd1dc99c3a714e97fc9d2c6a5d",
+        "size_bytes": 2949
       },
       "execution_queue.json": {
-        "sha256": "edb6346f3d5ab50358397c272aef659aad742c4e27393197bf90c4aa25ee0151",
-        "size_bytes": 203272
+        "sha256": "a17c39bdbc8f67c558373a715b318a417ade590b87754e3603cffe3ebe751ee2",
+        "size_bytes": 207227
       },
       "workflow_health_fact.json": {
-        "sha256": "fc1144e9f55190b065190f957c06b0d91551f42c287410503f891d7d1cbde87a",
-        "size_bytes": 1501
+        "sha256": "aabde8d96626bf70aae70dd603df7bc0fd1a8b91ee646f03034acef47faae2cf",
+        "size_bytes": 1535
       }
     }
   }

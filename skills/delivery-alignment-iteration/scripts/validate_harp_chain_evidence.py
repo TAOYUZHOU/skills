@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hmac
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -32,10 +34,51 @@ ABSOLUTE_PATH_RE = re.compile(
     r"(?:^|[\s\"'])(?:/[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)+|[A-Za-z]:\\)"
 )
 SAFE_LABEL_RE = re.compile(r"generic-[a-z0-9-]{1,48}")
+PROFILE_KEYS = {
+    "schema_version",
+    "replay_id",
+    "archetype",
+    "capture_mode",
+    "authority",
+    "sanitization",
+    "source_provenance",
+    "facts",
+}
+QUEUE_KEYS = {
+    "queue_id",
+    "status",
+    "terminal_class",
+    "exit_code",
+    "attempts",
+    "executor_result_status",
+    "executor_next_action_present",
+    "expected_output_count",
+    "output_assessment",
+    "result_review_verdict",
+    "review_identity_present",
+    "strategy_attempt_identity_present",
+}
+EVENT_KEYS = {
+    "event_seq",
+    "event_type",
+    "queue_id",
+    "verdict",
+    "observation_identity_present",
+    "review_identity_present",
+    "launch_identity_present",
+    "strategy_attempt_identity_present",
+}
 
 
 def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def _canonical_sha256(value: Any) -> str:
+    encoded = json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
+    return _sha256(encoded)
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -51,6 +94,129 @@ def _queue_by_id(profile: dict[str, Any]) -> dict[str, dict[str, Any]]:
         for row in ((profile.get("facts") or {}).get("queue") or [])
         if isinstance(row, dict) and str(row.get("queue_id") or "")
     }
+
+
+def _key_error(value: Any, expected: set[str], label: str) -> str:
+    if not isinstance(value, dict):
+        return f"{label} must be an object"
+    actual = set(value)
+    if actual != expected:
+        return (
+            f"{label} keys mismatch: missing={sorted(expected - actual)}, "
+            f"unexpected={sorted(actual - expected)}"
+        )
+    return ""
+
+
+def _profile_schema_errors(profile: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    checks = [
+        (profile, PROFILE_KEYS, "profile"),
+        (profile.get("sanitization"), {
+            "queue_id_pseudonyms",
+            "absolute_paths_removed",
+            "free_form_text_removed",
+            "raw_database_copied",
+            "prompt_or_agent_output_copied",
+            "scientific_artifact_copied",
+            "credentials_copied",
+        }, "sanitization"),
+        (profile.get("source_provenance"), {
+            "state_files", "selected_event_digest", "selected_event_count"
+        }, "source_provenance"),
+        (profile.get("facts"), {
+            "queue", "completion", "dag", "workflow_health", "review_events"
+        }, "facts"),
+    ]
+    for value, expected, label in checks:
+        error = _key_error(value, expected, label)
+        if error:
+            errors.append(error)
+    facts = profile.get("facts") if isinstance(profile.get("facts"), dict) else {}
+    for index, row in enumerate(facts.get("queue") or []):
+        error = _key_error(row, QUEUE_KEYS, f"queue[{index}]")
+        if error:
+            errors.append(error)
+            continue
+        error = _key_error(
+            row.get("output_assessment"),
+            {"status", "missing_count", "checked_count"},
+            f"queue[{index}].output_assessment",
+        )
+        if error:
+            errors.append(error)
+    for index, row in enumerate(facts.get("review_events") or []):
+        error = _key_error(row, EVENT_KEYS, f"review_events[{index}]")
+        if error:
+            errors.append(error)
+    completion = facts.get("completion")
+    nested = [
+        (completion, {
+            "status", "complete", "blockers", "artifact_gate",
+            "reviewer_acceptance", "active_plan_status_counts"
+        }, "completion"),
+        ((completion or {}).get("artifact_gate") if isinstance(completion, dict) else None,
+         {"ok", "skipped", "missing_count"}, "completion.artifact_gate"),
+        ((completion or {}).get("reviewer_acceptance") if isinstance(completion, dict) else None,
+         {"ok", "required_count", "accepted_count", "rows"},
+         "completion.reviewer_acceptance"),
+        (facts.get("dag"), {"status", "frontier_count", "ready_count", "launchable_count"}, "dag"),
+        (facts.get("workflow_health"), {
+            "status", "severity", "active", "queue_counts", "dag_status", "issue_types"
+        }, "workflow_health"),
+    ]
+    for value, expected, label in nested:
+        error = _key_error(value, expected, label)
+        if error:
+            errors.append(error)
+    reviewer = completion.get("reviewer_acceptance") if isinstance(completion, dict) else {}
+    if isinstance(reviewer, dict):
+        for index, row in enumerate(reviewer.get("rows") or []):
+            error = _key_error(
+                row,
+                {"queue_id", "accepted", "review_identity_present", "strategy_attempt_identity_present"},
+                f"completion.reviewer_acceptance.rows[{index}]",
+            )
+            if error:
+                errors.append(error)
+    provenance = profile.get("source_provenance")
+    state_files = provenance.get("state_files") if isinstance(provenance, dict) else None
+    error = _key_error(
+        state_files,
+        {"execution_queue.json", "completion_fact.json", "dag_state.json", "workflow_health_fact.json"},
+        "source_provenance.state_files",
+    )
+    if error:
+        errors.append(error)
+    elif isinstance(state_files, dict):
+        for name, value in state_files.items():
+            error = _key_error(value, {"sha256", "size_bytes"}, f"state_files.{name}")
+            if error:
+                errors.append(error)
+    return errors
+
+
+def _host_attestation_ok(record: dict[str, Any]) -> bool:
+    key_raw = os.environ.get("DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE", "").strip()
+    if not key_raw:
+        return False
+    try:
+        key = Path(key_raw).expanduser().read_bytes()
+    except OSError:
+        return False
+    if len(key) < 32:
+        return False
+    supplied = str(record.get("attestation_hmac_sha256") or "")
+    payload = {
+        key_name: value
+        for key_name, value in record.items()
+        if key_name != "attestation_hmac_sha256"
+    }
+    canonical = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
+    expected = hmac.new(key, canonical, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(supplied, expected)
 
 
 def _archetype_oracle(profile: dict[str, Any]) -> tuple[bool, list[str]]:
@@ -108,13 +274,31 @@ def _archetype_oracle(profile: dict[str, Any]) -> tuple[bool, list[str]]:
 
 
 def validate_replay_manifest(path: Path) -> dict[str, Any]:
-    result: dict[str, Any] = {"ok": False, "path": str(path), "errors": [], "profiles": []}
+    result: dict[str, Any] = {"ok": False, "path": path.name, "errors": [], "profiles": []}
     try:
         manifest = _load(path)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         result["errors"].append(str(exc))
         return result
     rows = manifest.get("profiles")
+    manifest_error = _key_error(
+        manifest,
+        {
+            "schema_version", "captured_at_utc", "capture_mode", "authority",
+            "profile_count", "profiles"
+        },
+        "manifest",
+    )
+    if manifest_error:
+        result["errors"].append(manifest_error)
+    if (
+        manifest.get("schema_version") != 1
+        or manifest.get("capture_mode") != "read_only_whitelist"
+        or manifest.get("authority") != "historical_observation_only"
+        or manifest.get("profile_count") != 3
+        or not str(manifest.get("captured_at_utc") or "").strip()
+    ):
+        result["errors"].append("manifest authority or capture metadata is invalid")
     if not isinstance(rows, list) or len(rows) != 3:
         result["errors"].append("manifest must contain exactly three profiles")
         return result
@@ -141,11 +325,17 @@ def validate_replay_manifest(path: Path) -> dict[str, Any]:
         except (OSError, json.JSONDecodeError) as exc:
             result["errors"].append(f"invalid profile {relative}: {exc}")
             continue
+        if not isinstance(profile, dict):
+            result["errors"].append(f"profile must be an object: {relative}")
+            continue
         if _sha256(raw) != str(row.get("sha256") or ""):
             result["errors"].append(f"profile hash mismatch: {relative}")
         text = raw.decode("utf-8", errors="replace")
         if ABSOLUTE_PATH_RE.search(text):
             result["errors"].append(f"absolute path leaked: {relative}")
+        result["errors"].extend(
+            f"{relative}: {error}" for error in _profile_schema_errors(profile)
+        )
         if profile.get("archetype") != archetype:
             result["errors"].append(f"manifest/profile archetype mismatch: {relative}")
         if profile.get("replay_id") != replay_id or not SAFE_LABEL_RE.fullmatch(
@@ -172,6 +362,12 @@ def validate_replay_manifest(path: Path) -> dict[str, Any]:
         ] + [str(provenance.get("selected_event_digest") or "")]
         if len(digests) != 5 or any(not re.fullmatch(r"[0-9a-f]{64}", digest) for digest in digests):
             result["errors"].append(f"source provenance incomplete: {relative}")
+        events = (profile.get("facts") or {}).get("review_events") or []
+        if (
+            provenance.get("selected_event_digest") != _canonical_sha256(events)
+            or provenance.get("selected_event_count") != len(events)
+        ):
+            result["errors"].append(f"selected event provenance mismatch: {relative}")
         oracle_ok, oracle_errors = _archetype_oracle(profile)
         result["errors"].extend(f"{relative}: {error}" for error in oracle_errors)
         result["profiles"].append(
@@ -186,7 +382,7 @@ def validate_replay_manifest(path: Path) -> dict[str, Any]:
 
 
 def validate_chain_receipt(path: Path, replay_manifest: Path) -> dict[str, Any]:
-    result: dict[str, Any] = {"ok": False, "path": str(path), "errors": []}
+    result: dict[str, Any] = {"ok": False, "path": path.name, "errors": []}
     try:
         receipt = _load(path)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -235,6 +431,8 @@ def validate_chain_receipt(path: Path, replay_manifest: Path) -> dict[str, Any]:
         result["errors"].append("happy-path closure invariant failed")
     if not str(receipt.get("command") or "").strip():
         result["errors"].append("combined chain command is missing")
+    if not _host_attestation_ok(receipt):
+        result["errors"].append("combined chain host attestation is invalid")
     result["ok"] = not result["errors"]
     return result
 
