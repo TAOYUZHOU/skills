@@ -27,6 +27,7 @@ STATE_FILES = (
 EVENT_TYPES = ("ResultObservationRecorded", "ResultReviewRecorded")
 SAFE_LABEL_RE = re.compile(r"generic-[a-z0-9-]{1,48}")
 QUEUE_STATUSES = {"", "queued", "running", "done", "blocked", "superseded", "failed", "cancelled"}
+QUEUE_COUNT_KEYS = {"queued", "running", "done", "blocked", "superseded", "failed"}
 TERMINAL_CLASSES = {"", "success", "retryable_failure", "terminal_exception", "blocked", "cancelled"}
 EXECUTOR_STATUSES = {"", "completed", "partial", "blocked", "failed"}
 ASSESSMENT_STATUSES = {"", "passed", "missing", "no_contract", "semantic_only", "failed"}
@@ -235,11 +236,17 @@ def _completion_fact(
 
 
 def _workflow_fact(workflow: dict[str, Any]) -> dict[str, Any]:
+    raw_counts = workflow.get("queue_counts") or {}
+    raw_counts = raw_counts if isinstance(raw_counts, dict) else {}
     return {
         "status": _enum(workflow.get("status"), WORKFLOW_STATUSES),
         "severity": _enum(workflow.get("severity"), WORKFLOW_SEVERITIES),
         "active": workflow.get("active") is True,
-        "queue_counts": dict(sorted((workflow.get("queue_counts") or {}).items())),
+        "queue_counts": {
+            key: int(raw_counts.get(key) or 0)
+            for key in sorted(QUEUE_COUNT_KEYS)
+            if isinstance(raw_counts.get(key) or 0, int)
+        },
         "dag_status": _enum(workflow.get("dag_status"), DAG_STATUSES),
         "issue_types": sorted(
             _enum(issue.get("type"), WORKFLOW_ISSUES)

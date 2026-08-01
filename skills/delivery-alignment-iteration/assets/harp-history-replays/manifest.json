@@ -1,27 +1,27 @@
 {
   "authority": "historical_observation_only",
-  "attestation_hmac_sha256": "3452b1c623fb72eb09aa96accd5616e865f93ac622fb34722450b87ac2897619",
+  "attestation_hmac_sha256": "942e8a4d09cb96d58f66b99fa53caf361c976a1ef2b570014b23678dff9510ed",
   "capture_mode": "read_only_whitelist",
-  "captured_at_utc": "2026-08-01T05:32:30.493176Z",
+  "captured_at_utc": "2026-08-01T06:11:54.171490Z",
   "profile_count": 3,
   "profiles": [
     {
       "archetype": "blocked_artifact_dependency",
       "path": "blocked_artifact_dependency.json",
       "replay_id": "generic-blocked",
-      "sha256": "8470236efca3f4731722e28ee7498760c76e97384e34a9c19f71873101dd81d0"
+      "sha256": "688d32445a22133a93459a943e44bbce5799b768527cb8bb82803b3e8a80102c"
     },
     {
       "archetype": "partial_result_materialization",
       "path": "partial_result_materialization.json",
       "replay_id": "generic-partial",
-      "sha256": "81379c3bbb9b167de89bf386e085e05fee4f1547cd162626071668d7d77fa8f6"
+      "sha256": "f099503d9f077484b65499926a28e0dd3bd47b023fac00af7ff6598c342725a0"
     },
     {
       "archetype": "review_projection_mismatch",
       "path": "review_projection_mismatch.json",
       "replay_id": "generic-review",
-      "sha256": "7a7ad9316ce23d596f7ea06bda20c5cdd6bd73fcdc3dcd4263432d03a470246d"
+      "sha256": "fa59f5186588b65e18bae08668ad7e2221469b07e8d2b98f94a064c37dae24ef"
     }
   ],
   "schema_version": 1

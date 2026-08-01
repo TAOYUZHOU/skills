@@ -256,6 +256,38 @@ def test_zero_size_source_provenance_is_rejected(tmp_path: Path) -> None:
     assert any("provenance sizes are invalid" in error for error in result["errors"])
 
 
+def test_workflow_queue_counts_cannot_carry_free_form_keys(tmp_path: Path) -> None:
+    captured = capture._workflow_fact(
+        {
+            "queue_counts": {
+                "done": 1,
+                "secret-token-material": "credential-value",
+            }
+        }
+    )
+    assert set(captured["queue_counts"]) == capture.QUEUE_COUNT_KEYS
+    assert "secret-token-material" not in json.dumps(captured)
+
+    copied = tmp_path / "fixtures"
+    shutil.copytree(FIXTURES, copied)
+    manifest_path = copied / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    row = manifest["profiles"][0]
+    profile_path = copied / row["path"]
+    profile = json.loads(profile_path.read_text(encoding="utf-8"))
+    profile["facts"]["workflow_health"]["queue_counts"] = {
+        "secret-token-material": "credential-value"
+    }
+    profile_path.write_text(json.dumps(profile), encoding="utf-8")
+    row["sha256"] = _sha256(profile_path)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    result = validator.validate_replay_manifest(
+        manifest_path, require_host_attestation=False
+    )
+    assert not result["ok"]
+    assert any("workflow queue counts are invalid" in error for error in result["errors"])
+
+
 def test_capture_refuses_output_inside_a_historical_source(tmp_path: Path) -> None:
     sources = [tmp_path / f"source-{index}" for index in range(3)]
     for source in sources:

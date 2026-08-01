@@ -187,7 +187,7 @@ adversarial_gate:
   decision: required
   reason: SKILL.md and the checker are authoritative Agent and delivery-gate behavior.
   base: d94d282c7982a6de7041343d12df9cee5cf8a7c1
-  candidate: 6ecd8409ac1c0dc4cdf52673fa45a3c7eeae12b4
+  candidate: 876153fc3dc8af5e6c2fa4723f4c9331ab1fb4af
   attack_scope:
     - skills/delivery-alignment-iteration/SKILL.md
     - skills/delivery-alignment-iteration/agents/openai.yaml

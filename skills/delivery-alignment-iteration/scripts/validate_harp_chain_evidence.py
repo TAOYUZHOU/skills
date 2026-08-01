@@ -69,6 +69,22 @@ EVENT_KEYS = {
     "launch_identity_present",
     "strategy_attempt_identity_present",
 }
+QUEUE_COUNT_KEYS = {"queued", "running", "done", "blocked", "superseded", "failed"}
+QUEUE_STATUSES = {"", "queued", "running", "done", "blocked", "superseded", "failed", "cancelled", "unknown"}
+TERMINAL_CLASSES = {"", "success", "retryable_failure", "terminal_exception", "blocked", "cancelled", "unknown"}
+EXECUTOR_STATUSES = {"", "completed", "partial", "blocked", "failed", "unknown"}
+ASSESSMENT_STATUSES = {"", "passed", "missing", "no_contract", "semantic_only", "failed", "unknown"}
+REVIEW_VERDICTS = {"", "accepted", "blocked", "needs_improvement", "rejected", "unknown"}
+COMPLETION_BLOCKERS = {
+    "active_plan_nonterminal_rows_present",
+    "artifact_gate_skipped",
+    "execution_queue_blocked_items_present",
+    "reviewer_acceptance_missing",
+    "task_truth_update_needed",
+    "unknown",
+}
+PLAN_STATUSES = {"pending", "running", "blocked", "completed", "failed", "unknown"}
+WORKFLOW_ISSUES = {"COMPLETION_REFRESH_REQUIRED", "WORKFLOW_STALL", "unknown"}
 
 
 def _sha256(data: bytes) -> str:
@@ -138,6 +154,17 @@ def _profile_schema_errors(profile: dict[str, Any]) -> list[str]:
         error = _key_error(row, QUEUE_KEYS, f"queue[{index}]")
         if error:
             errors.append(error)
+        if isinstance(row, dict):
+            assessment = row.get("output_assessment")
+            assessment = assessment if isinstance(assessment, dict) else {}
+            if (
+                row.get("status") not in QUEUE_STATUSES
+                or row.get("terminal_class") not in TERMINAL_CLASSES
+                or row.get("executor_result_status") not in EXECUTOR_STATUSES
+                or row.get("result_review_verdict") not in REVIEW_VERDICTS
+                or assessment.get("status") not in ASSESSMENT_STATUSES
+            ):
+                errors.append(f"queue[{index}] contains a non-whitelisted enum")
             continue
         error = _key_error(
             row.get("output_assessment"),
@@ -171,6 +198,14 @@ def _profile_schema_errors(profile: dict[str, Any]) -> list[str]:
         if error:
             errors.append(error)
     reviewer = completion.get("reviewer_acceptance") if isinstance(completion, dict) else {}
+    if isinstance(completion, dict):
+        if not set(completion.get("blockers") or []).issubset(COMPLETION_BLOCKERS):
+            errors.append("completion blockers contain a non-whitelisted value")
+        plan_counts = completion.get("active_plan_status_counts")
+        if not isinstance(plan_counts, dict) or not set(plan_counts).issubset(
+            PLAN_STATUSES
+        ) or any(type(value) is not int or value < 0 for value in plan_counts.values()):
+            errors.append("active plan status counts are invalid")
     if isinstance(reviewer, dict):
         for index, row in enumerate(reviewer.get("rows") or []):
             error = _key_error(
@@ -181,6 +216,17 @@ def _profile_schema_errors(profile: dict[str, Any]) -> list[str]:
             if error:
                 errors.append(error)
     provenance = profile.get("source_provenance")
+    workflow = facts.get("workflow_health")
+    if isinstance(workflow, dict):
+        queue_counts = workflow.get("queue_counts")
+        if (
+            not isinstance(queue_counts, dict)
+            or set(queue_counts) != QUEUE_COUNT_KEYS
+            or any(type(value) is not int or value < 0 for value in queue_counts.values())
+        ):
+            errors.append("workflow queue counts are invalid")
+        if not set(workflow.get("issue_types") or []).issubset(WORKFLOW_ISSUES):
+            errors.append("workflow issue types contain a non-whitelisted value")
     state_files = provenance.get("state_files") if isinstance(provenance, dict) else None
     error = _key_error(
         state_files,

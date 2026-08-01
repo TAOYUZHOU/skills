@@ -1,7 +1,7 @@
 # HARP Iteration Handoff
 
 status: partial
-updated_at_utc: 2026-08-01T06:02:36Z
+updated_at_utc: 2026-08-01T06:13:20Z
 iteration: delivery-alignment-combined-chain-replay
 contract: docs/iteration_contracts/delivery_alignment_combined_chain_replay_20260801.yaml
 
@@ -26,7 +26,8 @@ workspace mocks with sanitized replays derived from three real workspace histori
 - Rejected second candidate: `ad783b17d84b55e31fc3655f16586521807de83c`.
 - Rejected third candidate: `826c814ab0ece6cacac778089a219798220165ac`.
 - Internally rejected fourth candidate: `27316c4b011d0663aeaeb9a046ed16536dac2e1c`.
-- Rejected fifth candidate: `6ecd8409ac1c0dc4cdf52673fa45a3c7eeae12b4`; sixth pending freeze.
+- Rejected fifth candidate: `6ecd8409ac1c0dc4cdf52673fa45a3c7eeae12b4`.
+- Rejected sixth candidate: `876153fc3dc8af5e6c2fa4723f4c9331ab1fb4af`; seventh pending freeze.
 - Three read-only source histories exhibit distinct classes: accepted-review projection mismatch, blocked missing-artifact dependency, and partial-result materialization.
 - The working tree already contains unrelated untracked evidence and skills; they are outside this iteration.
 
@@ -40,6 +41,8 @@ argv membership alone could still be deselected. Constrained pytest plus parsed,
 hash-bound JUnit evidence was implemented in fifth candidate `6ecd840`. Its
 Agent review then correctly rejected using a metadata test as if it were a real
 HARP runtime chain and identified the missing external-candidate CLI binding.
+The sixth candidate's forward-bound review found replayable unreachability
+attestation and a nested queue-count free-text channel; both are repaired.
 
 ## Completed changes
 
@@ -57,13 +60,14 @@ HARP runtime chain and identified the missing external-candidate CLI binding.
 - Rejected `826c814` and required the attested invocation to include the bound chain test path as an exact argv token; ancestor/source output overlap is also rejected.
 - Internally rejected `27316c4`; the command is now constrained to one pytest target plus JUnit, and the checker requires at least one testcase from that module with zero failures, errors, or skips.
 - Rejected `6ecd840`; this skill-only iteration now records a host-attested combined-chain unreachability proof instead of claiming a runtime chain, while future HARP runtime targets remain required to execute it. High-risk checker runs also require the externally frozen candidate SHA.
+- Rejected `876153f`; unreachability evidence now binds candidate/repository/cwd, and nested workflow/plan/enum maps are strict rather than free-form.
 
 ## Verification evidence
 
 - Pre-change repository HEAD is `d94d282c7982a6de7041343d12df9cee5cf8a7c1`.
 - The three source workspaces were inspected read-only and no repair command was executed.
-- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 99 passed after the fifth adversarial repairs.
-- `pytest -q`: 106 passed after the fifth adversarial repairs.
+- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 100 passed after the sixth adversarial repairs.
+- `pytest -q`: 107 passed after the sixth adversarial repairs.
 - `quick_validate.py skills/delivery-alignment-iteration`: `Skill is valid!`.
 - `validate_harp_chain_evidence.py` reports all three replay oracles and the combined receipt valid.
 - Durable evidence: `docs/evidence/delivery_alignment_combined_chain_replay_20260801/`.
@@ -78,7 +82,8 @@ HARP runtime chain and identified the missing external-candidate CLI binding.
 - Candidate `ad783b1` produced six reported attacks; five were repaired. The sixth is the unavoidable fact that a Git commit cannot contain its own SHA and is handled by the post-freeze contract/handoff binding checked against the immutable commit.
 - Candidate `826c814` produced one executable attack: a green sibling command could be attested while only hashing an unexecuted failing chain test. The argv-token binding repair closes it.
 - Candidate `6ecd840` produced two executable attacks; both are repaired by the honest applicability decision and external candidate binding.
-- Sixth immutable candidate, clean independent output, zero-escape deterministic result, and final trusted attestations remain pending.
+- Candidate `876153f` produced two executable attacks; both are repaired by candidate-bound unreachability evidence and nested-map sanitization.
+- Seventh immutable candidate, clean independent output, zero-escape deterministic result, and final trusted attestations remain pending.
 
 ## Open blockers and risks
 
@@ -88,8 +93,8 @@ HARP runtime chain and identified the missing external-candidate CLI binding.
 
 ## Exact next action
 
-Freeze the sixth candidate, then rerun independent skill consumption plus
-exact-diff counterexample review.
+Freeze the seventh candidate, then rerun independent skill consumption plus
+exact-diff counterexample review with its forward-binding patch.
 
 ## Final claims allowed now
 

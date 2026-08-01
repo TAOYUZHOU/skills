@@ -294,20 +294,20 @@
     "selected_event_digest": "63f28070a2c8e42861c318d32fb07e802703641961ae384cf810ddb745c9251d",
     "state_files": {
       "completion_fact.json": {
-        "sha256": "64cfe42a23e83561a1034abd25e96b920441f4e15234db7a71222758a52c9f82",
+        "sha256": "5d2528bdd1ed95bc5850c037e4115e6306b2b363040c6d46307e14aa2b6d70e0",
         "size_bytes": 10540
       },
       "dag_state.json": {
-        "sha256": "f2d0032e1bd3775b13cd0f8e799b20db354c3cd086eeeff502c00f9e5d846b7c",
+        "sha256": "952a2d7ad7cf6278decf2e69a046325f142a385f7a99076aa98c982e5cd77b8e",
         "size_bytes": 2687
       },
       "execution_queue.json": {
-        "sha256": "551b5d42c0a5c75a4830aedeb05b037cce605dd90499719d60fe0de4a561bead",
+        "sha256": "4c8a29b415a5cea93693dff2b6451e7c136f34a50fd87acb960bba8c4ac96876",
         "size_bytes": 201923
       },
       "workflow_health_fact.json": {
-        "sha256": "76d960bf03d2263d04a5af14ee7c583fba77b47677a4b0b2374cc93c7b284d4f",
-        "size_bytes": 2618
+        "sha256": "9a338bea5e4345099ec7b400abe4654116098c36e2267ad5ad7ed56f2f72dc1a",
+        "size_bytes": 2617
       }
     }
   }

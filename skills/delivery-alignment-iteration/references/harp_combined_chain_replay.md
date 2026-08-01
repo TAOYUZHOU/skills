@@ -116,7 +116,8 @@ assertion, or nonzero repeated zero-work wakeups.
 
 If a gate is deterministically unreachable, use `decision: not_applicable` and
 include an `unreachability` mapping with `invoke`, `assert`, and a durable
-machine-readable, host-attested `evidence` record bound to that oracle. Cost, missing time, existing green
+machine-readable, host-attested `evidence` record bound to that oracle, frozen
+candidate, repository scope, and command working directory. Cost, missing time, existing green
 unit tests, or a one-hop mock is not an unreachability proof. A required gate
 without passing evidence keeps the iteration `partial` or `blocked`.
 

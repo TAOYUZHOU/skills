@@ -64,6 +64,8 @@ For high-risk control-lifecycle iterations, both lifecycle gates are mandatory:
   needs `unreachability.invoke`, `unreachability.assert`, and
   `unreachability.evidence`; the evidence JSON must say `ok: true`, identify the
   gate, record `reachable: false`, and exactly bind the command and assertion.
+  The signed record also binds `candidate_revision`, `repository_scope`, and
+  `command_cwd`; it cannot be replayed for a later candidate.
   Existing mocks, unit tests, cost, prose, or an unavailable provider do not
   establish unreachability.
 - The historical manifest and unreachability record must be signed by the

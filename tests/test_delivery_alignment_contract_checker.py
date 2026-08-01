@@ -439,6 +439,9 @@ def test_unreachability_evidence_is_machine_bound(
             "reachable": False,
             "command": command,
             "assertion": assertion,
+            "candidate_revision": "def",
+            "repository_scope": "contract-root",
+            "command_cwd": "contract-root",
         }
         payload = json.dumps(
             record, ensure_ascii=False, sort_keys=True, separators=(",", ":")
@@ -450,6 +453,11 @@ def test_unreachability_evidence_is_machine_bound(
     contract = _v2_contract()
     result = checker.validate_lifecycle_evidence(contract, tmp_path)
     assert result["ok"], result
+
+    replayed = contract.replace("  candidate: def", f"  candidate: {'a' * 40}")
+    result = checker.validate_lifecycle_evidence(replayed, tmp_path)
+    assert not result["ok"]
+    assert any("does not match its proof" in error for error in result["errors"])
 
     path = tmp_path / "docs" / "evidence" / "combined_unreachable.json"
     record = json.loads(path.read_text(encoding="utf-8"))

@@ -885,7 +885,7 @@ def _load_chain_validator():
 
 
 def _validate_unreachability(
-    root: Path, gate_name: str, gate: dict
+    root: Path, gate_name: str, gate: dict, candidate: str
 ) -> tuple[bool, list[str], dict]:
     errors: list[str] = []
     proof = gate.get("unreachability")
@@ -907,6 +907,9 @@ def _validate_unreachability(
         "reachable": False,
         "command": proof.get("invoke"),
         "assertion": proof.get("assert"),
+        "candidate_revision": candidate,
+        "repository_scope": "contract-root",
+        "command_cwd": "contract-root",
     }
     if not isinstance(record, dict) or any(
         record.get(key) != value for key, value in expected.items()
@@ -954,6 +957,12 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
         return result
     combined = data.get("combined_chain_gate")
     historical = data.get("historical_replay_gate")
+    adversarial = data.get("adversarial_gate")
+    candidate = (
+        str(adversarial.get("candidate") or "")
+        if isinstance(adversarial, dict)
+        else ""
+    )
     if not isinstance(combined, dict):
         result["errors"].append("combined_chain_gate is required")
     if not isinstance(historical, dict):
@@ -976,7 +985,7 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
         result["historical_replay"] = {"ok": False, "decision": decision}
         if decision == "not_applicable":
             ok, errors, record = _validate_unreachability(
-                root, "historical_replay_gate", historical
+                root, "historical_replay_gate", historical, candidate
             )
             result["historical_replay"]["ok"] = ok
             result["historical_replay"]["proof"] = record
@@ -1029,7 +1038,7 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
         result["combined_chain"] = {"ok": False, "decision": decision}
         if decision == "not_applicable":
             ok, errors, record = _validate_unreachability(
-                root, "combined_chain_gate", combined
+                root, "combined_chain_gate", combined, candidate
             )
             result["combined_chain"]["ok"] = ok
             result["combined_chain"]["proof"] = record
