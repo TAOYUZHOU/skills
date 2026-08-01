@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Any
 
 
+TRUSTED_CAPTURE_TOOL_SHA256 = ""
+
 ARCHETYPES = {
     "review_projection_mismatch",
     "blocked_artifact_dependency",
@@ -412,8 +414,11 @@ def _capture_receipt_errors(
         errors.append(error)
     elif any(controls.get(key) is not True for key in control_keys):
         errors.append("capture receipt read-only controls did not all pass")
-    capture_tool = Path(__file__).with_name("capture_harp_history_replay.py")
-    expected_tool_sha = _sha256(capture_tool.read_bytes())
+    if re.fullmatch(r"[0-9a-f]{64}", TRUSTED_CAPTURE_TOOL_SHA256):
+        expected_tool_sha = TRUSTED_CAPTURE_TOOL_SHA256
+    else:
+        capture_tool = Path(__file__).with_name("capture_harp_history_replay.py")
+        expected_tool_sha = _sha256(capture_tool.read_bytes())
     if (
         receipt.get("schema_version") != 1
         or receipt.get("event") != "trusted_read_only_capture_completed"

@@ -50,11 +50,13 @@ For `adversarial_gate`:
   The trusted runner also freezes the complete tracked
   `candidate..worktree` binary/full-index patch, submits that exact patch to the
   Agent, and passes its SHA-256 as `--expected-forward-patch-sha256`. It must
-  execute the checker and lifecycle validator extracted from the immutable
-  candidate tree, not their mutable worktree copies. The checker re-hashes the
-  tracked forward patch and both executing candidate blobs. The signed provider
-  receipt and deterministic gate result bind the same forward-patch digest;
-  substitution after review fails closed.
+  execute the checker extracted from the immutable candidate tree, not its
+  mutable worktree copy. That checker reads and compiles the validator directly
+  from the content-addressed candidate Git object, eliminating a
+  check-then-import sibling path. Validation runs against a host-frozen
+  read-only tree and records the forward digest before and after. The signed
+  provider receipt and deterministic gate result bind the same forward digest
+  and candidate tool hashes; substitution after review fails closed.
   The provider receipt must carry a valid HMAC attestation from a key outside
   the candidate repository, supplied to the checker through
   `DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE`. The deterministic gate result requires

@@ -1,24 +1,24 @@
 {
   "assertion": "The external classification binds the exact candidate and the inventory finds no contradictory runtime boundary.",
-  "attestation_hmac_sha256": "72886b5cfff68935c075b7f5d3340ffe94234cf006b8a94edf2e6c2c91476a8c",
-  "candidate_revision": "dff8bfb36017f2a5784411114083f699b57d7c91",
+  "attestation_hmac_sha256": "94a7201b3e000a2eecd1dae2be04e3d263c583b53987adb39785c9d9fa73474c",
+  "candidate_revision": "e29ae7d6d1f2f15c82c6320d79ac0eff2fdfab1f",
   "command": "checker host-selected exact-diff scope classification plus built-in contradiction inventory",
   "command_cwd": "contract-root",
   "gate": "combined_chain_gate",
   "observation": {
     "contradiction_inventory": {
-      "candidate_changed_code_sha256": "118b382210e352546e1835382d46b8c10417bdd7623be272c6ac2c2d59d5972d",
-      "candidate_tree_code_sha256": "2d82f8321f7ab8e98cd81eb8d13c64996968134b8e9639e77f1b2be81970b931",
+      "candidate_changed_code_sha256": "8990051fb3594bc92079f3457c3698a32e8e2507dd03f20d84076de05aa4a986",
+      "candidate_tree_code_sha256": "0529254e6159ddac232c2489335b0de956dd4ad7d9068dae7feabc3d58c5174f",
       "changed_code_file_count": 5,
-      "inventory_sha256": "7d90aa448949ce2d0406b91a23c060b93650ce5536312d634b74174a80cab691",
+      "inventory_sha256": "24e553844dc7dd840eec07d6567159306fa11a31566e86178884c60e0b360bf0",
       "runtime_boundary_candidates": [],
       "scanned_code_file_count": 110
     },
     "trusted_scope_classification": {
       "authority": "independent_scope_reviewer",
       "base_revision": "d94d282c7982a6de7041343d12df9cee5cf8a7c1",
-      "candidate_diff_sha256": "1f61cc584a8f55ec81ffe896bea89b9ce54481f65c84dff5d705d5abb684d428",
-      "candidate_revision": "dff8bfb36017f2a5784411114083f699b57d7c91",
+      "candidate_diff_sha256": "da155c05fe510d2072101e335cca924dc89826a6bb5269b913dd91a8d9a60ec5",
+      "candidate_revision": "e29ae7d6d1f2f15c82c6320d79ac0eff2fdfab1f",
       "changed_paths": [
         "docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_receipt.json",
         "docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_unreachability.json",
@@ -43,7 +43,7 @@
       "changed_paths_sha256": "ac58db63e691132aa09bd77db9f54db80e86c0a93ba78b5a5938115fbc5c2e32",
       "classification": "non_harp_repository_change",
       "repository_identity_sha256": "873697b8e233331585e19456233fabf209c6596ac323cc87c0880fced3c1ecc5",
-      "scope_classification_sha256": "7bc42360ac68c7600d1e3c21bc4bdf33ccb22d7ca840a1598cdc82824ebca55d"
+      "scope_classification_sha256": "5ce69eb482dc5ebd1504a602fa1f4a7c0ef098ac8a8cdb064eadabe55a0abd35"
     }
   },
   "ok": true,

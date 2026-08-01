@@ -13,6 +13,7 @@ import os
 import re
 import subprocess
 import sys
+import types
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -1138,7 +1139,49 @@ def _contained_file(root: Path, raw: object, field: str) -> tuple[Path | None, s
     return path, ""
 
 
-def _load_chain_validator():
+def _load_chain_validator(root: Path | None = None, candidate: str = ""):
+    """Load validator bytes from the immutable candidate blob when promoting."""
+
+    if root is not None and re.fullmatch(r"[0-9a-f]{40}", candidate):
+        validator_relative = (
+            "skills/delivery-alignment-iteration/scripts/"
+            "validate_harp_chain_evidence.py"
+        )
+        capture_relative = (
+            "skills/delivery-alignment-iteration/scripts/"
+            "capture_harp_history_replay.py"
+        )
+        validator_proc = subprocess.run(
+            ["git", "show", f"{candidate}:{validator_relative}"],
+            cwd=root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        capture_proc = subprocess.run(
+            ["git", "show", f"{candidate}:{capture_relative}"],
+            cwd=root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if validator_proc.returncode != 0 or capture_proc.returncode != 0:
+            raise RuntimeError("cannot load lifecycle tools from candidate Git blobs")
+        module = types.ModuleType("delivery_alignment_chain_evidence")
+        module.__file__ = f"{candidate}:{validator_relative}"
+        code = compile(
+            validator_proc.stdout,
+            module.__file__,
+            "exec",
+        )
+        exec(code, module.__dict__)
+        module.TRUSTED_CAPTURE_TOOL_SHA256 = hashlib.sha256(
+            capture_proc.stdout
+        ).hexdigest()
+        module.LOADED_VALIDATOR_SHA256 = hashlib.sha256(
+            validator_proc.stdout
+        ).hexdigest()
+        return module
     path = Path(__file__).with_name("validate_harp_chain_evidence.py")
     spec = importlib.util.spec_from_file_location(
         "delivery_alignment_chain_evidence", path
@@ -1875,9 +1918,26 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
         result["ok"] = True
         return result
     try:
-        validator = _load_chain_validator()
+        validator = _load_chain_validator(root, candidate)
     except Exception as exc:  # pragma: no cover - defensive import failure
         result["errors"].append(str(exc))
+        return result
+    expected_validator_sha = _candidate_blob_sha(
+        root,
+        candidate,
+        "skills/delivery-alignment-iteration/scripts/validate_harp_chain_evidence.py",
+    )
+    loaded_validator_sha = str(
+        getattr(validator, "LOADED_VALIDATOR_SHA256", expected_validator_sha)
+    )
+    result["validator_origin"] = {
+        "loaded_sha256": loaded_validator_sha,
+        "candidate_sha256": expected_validator_sha,
+        "ok": bool(expected_validator_sha)
+        and loaded_validator_sha == expected_validator_sha,
+    }
+    if result["validator_origin"]["ok"] is not True:
+        result["errors"].append("loaded lifecycle validator is not the candidate blob")
         return result
 
     replay_manifest: Path | None = None
@@ -2223,6 +2283,12 @@ def validate_gate_evidence(
             re.fullmatch(r"[0-9a-f]{64}", expected_forward_patch_sha256)
         )
         and gate.get("forward_patch_sha256") == expected_forward_patch_sha256,
+        "forward_patch_before": gate.get("forward_patch_sha256_before")
+        == expected_forward_patch_sha256,
+        "forward_patch_after": gate.get("forward_patch_sha256_after")
+        == expected_forward_patch_sha256,
+        "workspace_snapshot_mode": gate.get("workspace_snapshot_mode")
+        == "host_frozen_read_only_tree",
         "checker_execution_mode": gate.get("checker_execution_mode")
         == "immutable_candidate_blob",
         "checker_candidate_sha256": bool(checker_candidate_sha)

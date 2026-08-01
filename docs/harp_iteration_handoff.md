@@ -4,7 +4,7 @@ status: partial
 updated_at_utc: 2026-08-01T09:11:00Z
 iteration: delivery-alignment-combined-chain-replay
 contract: docs/iteration_contracts/delivery_alignment_combined_chain_replay_20260801.yaml
-candidate: dff8bfb36017f2a5784411114083f699b57d7c91
+candidate: e29ae7d6d1f2f15c82c6320d79ac0eff2fdfab1f
 
 ## Intent
 
@@ -37,6 +37,7 @@ workspace mocks with sanitized replays derived from three real workspace histori
 - Rejected twelfth candidate: `7d13ec84e5f2cdb581d4131b420e9a9f7fcb64ed`;
 - Rejected thirteenth candidate: `333966b13340b9ada510ff068d2db1aa0205f16d`.
 - Rejected fourteenth candidate: `dff8bfb36017f2a5784411114083f699b57d7c91`.
+- Rejected fifteenth candidate: `e29ae7d6d1f2f15c82c6320d79ac0eff2fdfab1f`.
 - Three read-only source histories exhibit distinct classes: accepted-review projection mismatch, blocked missing-artifact dependency, and partial-result materialization.
 - The working tree already contains unrelated untracked evidence and skills; they are outside this iteration.
 
@@ -97,6 +98,12 @@ the checker executed. High-risk promotion now freezes the complete tracked
 forward patch before execution, runs checker/validator blobs extracted from the
 immutable candidate, and binds those tool hashes plus the same forward digest
 through checker output, provider receipt, and deterministic gate result.
+The fifteenth candidate's exact-diff review found a validator TOCTOU between
+origin hashing and import. The checker now reads and compiles validator bytes
+directly from the content-addressed candidate Git object, injects the capture
+tool digest from the same candidate tree, and records the actually loaded hash.
+The trusted runner also attests a frozen read-only tree and matching forward
+digests before and after validation.
 
 ## Completed changes
 
@@ -125,12 +132,14 @@ through checker output, provider receipt, and deterministic gate result.
   as observations, and a clean lexical inventory can no longer grant N/A.
 - Rejected `dff8bfb`; the exact Agent-reviewed forward patch and immutable
   candidate checker/validator are now mandatory trusted-runner inputs.
+- Rejected `e29ae7d`; lifecycle validation no longer imports a mutable sibling
+  after hashing it; the executed module comes directly from the candidate blob.
 
 ## Verification evidence
 
 - Pre-change repository HEAD is `d94d282c7982a6de7041343d12df9cee5cf8a7c1`.
 - The three source workspaces were inspected read-only and no repair command was executed.
-- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 115 passed after the fourteenth adversarial repair.
+- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 116 passed after the fifteenth adversarial repair.
 - `pytest -q`: 119 passed after the twelfth adversarial repairs.
 - `quick_validate.py skills/delivery-alignment-iteration`: `Skill is valid!`.
 - `validate_harp_chain_evidence.py` reports all three replay oracles valid. The
@@ -168,8 +177,11 @@ through checker output, provider receipt, and deterministic gate result.
   classification.
 - Candidate `dff8bfb` produced one executable attack; it is repaired by
   independently freezing the complete forward patch and executing immutable
-  candidate checker/validator blobs. A new immutable candidate, clean independent output,
-  zero-escape deterministic result, and final trusted attestations remain pending.
+  candidate checker/validator blobs.
+- Candidate `e29ae7d` produced one executable validator-substitution attack; it
+  is repaired by in-memory execution of the content-addressed validator blob.
+  A new frozen candidate, clean independent output, zero-escape deterministic
+  result, and final trusted attestations remain pending.
 
 ## Open blockers and risks
 
@@ -179,9 +191,8 @@ through checker output, provider receipt, and deterministic gate result.
 
 ## Exact next action
 
-Freeze a new candidate, create its host-selected outside-repository scope
-classification, then rerun independent skill consumption and exact-diff
-counterexample review with the forward-binding patch.
+Freeze the validator-blob repair, bind its complete tracked forward patch, and
+rerun independent skill consumption plus exact-diff counterexample review.
 
 ## Final claims allowed now
 

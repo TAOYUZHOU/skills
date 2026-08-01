@@ -58,11 +58,13 @@ python3 scripts/check_delivery_contract.py \
 For a high-risk promotion, do not execute the checker from mutable worktree
 bytes. The trusted runner first hashes the complete tracked
 `candidate..worktree` patch using `git diff --binary --full-index`, compares it
-with the patch reviewed by the exact-diff Agent, extracts the checker and
-lifecycle validator from the immutable candidate Git tree, and runs those
-candidate blobs with the same externally frozen forward-patch digest. The
-checker repeats both origin and patch checks. Untracked gate evidence remains
-separately hash-bound and host-attested; it is not executable checker code.
+with the patch reviewed by the exact-diff Agent, extracts the checker from the
+immutable candidate Git tree, and has that checker compile the lifecycle
+validator directly from the content-addressed candidate Git object in memory.
+It runs against a host-frozen read-only tree and records the forward digest
+before and after validation. The checker repeats origin and patch checks.
+Untracked gate evidence remains separately hash-bound and host-attested; it is
+not executable checker code.
 
 12. Before the final response, reconcile the handoff against the actual diff and
     verification artifacts. Set `status` to `complete`, `partial`, or `blocked`,

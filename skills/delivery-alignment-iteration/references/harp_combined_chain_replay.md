@@ -192,9 +192,10 @@ root.
 
 Before any candidate code runs, the trusted runner computes the complete
 tracked `candidate..worktree` patch with `git diff --binary --full-index`,
-requires its SHA-256 to equal the patch reviewed by the exact-diff Agent,
-extracts the checker and lifecycle validator from the immutable candidate Git
-tree, and runs those candidate bytes against the contract root. The candidate
-checker repeats the forward-patch comparison and reports both candidate-blob
-tool hashes. A worktree checker, an unreviewed post-freeze edit, or a signed
-receipt without this exact forward binding cannot promote.
+requires its SHA-256 to equal the patch reviewed by the exact-diff Agent, and
+extracts the checker from the immutable candidate Git tree. That checker loads
+the lifecycle validator and capture-tool digest directly from content-addressed
+candidate Git objects, never from a mutable sibling after a prior hash check.
+Validation runs against a host-frozen read-only tree and records the forward
+digest before and after. A worktree checker, validator TOCTOU, an unreviewed
+post-freeze edit, or a signed receipt without this binding cannot promote.

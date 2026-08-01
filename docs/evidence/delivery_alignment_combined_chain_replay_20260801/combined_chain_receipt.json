@@ -1,7 +1,7 @@
 {
-  "attestation_hmac_sha256": "a105df67bcf7f221ada97cbd9f566159de98eb87c87b897a9148717c798fe37a",
+  "attestation_hmac_sha256": "bd6e33dbd8cf1a27be1f42454ec97ed08dfdb3967ab55baefd12bb5d95573f85",
   "boundary_mode": "skill_gate_meta_validation",
-  "candidate_revision": "dff8bfb36017f2a5784411114083f699b57d7c91",
+  "candidate_revision": "e29ae7d6d1f2f15c82c6320d79ac0eff2fdfab1f",
   "command": "pytest -q tests/test_delivery_alignment_history_replay.py --junitxml=docs/evidence/delivery_alignment_combined_chain_replay_20260801/combined_chain_junit.xml",
   "evidence_scope": "delivery-alignment skill gate meta-validation",
   "exit_code": 0,

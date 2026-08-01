@@ -235,6 +235,41 @@ def test_checker_origin_binds_immutable_candidate_blobs(tmp_path: Path) -> None:
     assert not checker.validate_checker_origin(tmp_path, substituted_candidate)["ok"]
 
 
+def test_validator_executes_candidate_blob_not_mutable_sibling(tmp_path: Path) -> None:
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"], cwd=tmp_path, check=True
+    )
+    scripts = tmp_path / "skills" / "delivery-alignment-iteration" / "scripts"
+    scripts.mkdir(parents=True)
+    for source_name in (
+        "validate_harp_chain_evidence.py",
+        "capture_harp_history_replay.py",
+    ):
+        shutil.copy2(CHECKER.with_name(source_name), scripts / source_name)
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "candidate validator"], cwd=tmp_path, check=True)
+    candidate = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    loaded = checker._load_chain_validator(tmp_path, candidate)
+    expected = checker._candidate_blob_sha(
+        tmp_path,
+        candidate,
+        "skills/delivery-alignment-iteration/scripts/validate_harp_chain_evidence.py",
+    )
+    assert loaded.LOADED_VALIDATOR_SHA256 == expected
+    (scripts / "validate_harp_chain_evidence.py").write_text(
+        "CHAIN_STAGES = ['bypass']\n", encoding="utf-8"
+    )
+    loaded_after_substitution = checker._load_chain_validator(tmp_path, candidate)
+    assert loaded_after_substitution.LOADED_VALIDATOR_SHA256 == expected
+    assert loaded_after_substitution.CHAIN_STAGES == loaded.CHAIN_STAGES
+
+
 def test_high_risk_contract_requires_both_lifecycle_gates() -> None:
     contract = _v2_contract()
     contract = contract.split("combined_chain_gate:\n", 1)[0]
@@ -358,6 +393,16 @@ def test_required_lifecycle_evidence_is_recomputed(
         ),
         encoding="utf-8",
     )
+    immutable_scripts = (
+        tmp_path / "skills" / "delivery-alignment-iteration" / "scripts"
+    )
+    immutable_scripts.mkdir(parents=True)
+    for source_name in (
+        "check_delivery_contract.py",
+        "validate_harp_chain_evidence.py",
+        "capture_harp_history_replay.py",
+    ):
+        shutil.copy2(CHECKER.with_name(source_name), immutable_scripts / source_name)
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
     subprocess.run(
         ["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True
@@ -366,7 +411,14 @@ def test_required_lifecycle_evidence_is_recomputed(
         ["git", "config", "user.name", "Test"], cwd=tmp_path, check=True
     )
     subprocess.run(
-        ["git", "add", "producer.py", "consumer.py", "target_chain_test.py"],
+        [
+            "git",
+            "add",
+            "producer.py",
+            "consumer.py",
+            "target_chain_test.py",
+            "skills/delivery-alignment-iteration/scripts",
+        ],
         cwd=tmp_path,
         check=True,
     )
@@ -756,7 +808,16 @@ def test_unreachability_evidence_is_machine_bound(
         ["git", "config", "user.name", "Test"], cwd=tmp_path, check=True
     )
     (tmp_path / "README.md").write_text("base\n", encoding="utf-8")
-    subprocess.run(["git", "add", "README.md"], cwd=tmp_path, check=True)
+    immutable_scripts = (
+        tmp_path / "skills" / "delivery-alignment-iteration" / "scripts"
+    )
+    immutable_scripts.mkdir(parents=True)
+    for source_name in (
+        "validate_harp_chain_evidence.py",
+        "capture_harp_history_replay.py",
+    ):
+        shutil.copy2(CHECKER.with_name(source_name), immutable_scripts / source_name)
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
     subprocess.run(["git", "commit", "-qm", "base"], cwd=tmp_path, check=True)
     base = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
@@ -847,7 +908,11 @@ def test_unreachability_evidence_is_machine_bound(
     replayed = contract.replace(f"  candidate: {candidate}", f"  candidate: {'a' * 40}")
     result = checker.validate_lifecycle_evidence(replayed, tmp_path)
     assert not result["ok"]
-    assert any("does not match its proof" in error for error in result["errors"])
+    assert any(
+        "does not match its proof" in error
+        or "candidate Git blobs" in error
+        for error in result["errors"]
+    )
 
     runtime = tmp_path / "src" / "harp" / "runtime"
     runtime.mkdir(parents=True)
