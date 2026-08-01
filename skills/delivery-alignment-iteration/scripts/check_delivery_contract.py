@@ -946,6 +946,7 @@ def _runtime_boundary_inventory(
         token: set() for token in ("queue", "review", "completion", "health")
     }
     changed_paths: set[str] | None = None
+    candidate_rows: list[tuple[str, str]] = []
     if re.fullmatch(r"[0-9a-f]{40}", base) and re.fullmatch(
         r"[0-9a-f]{40}", candidate
     ):
@@ -1010,7 +1011,7 @@ def _runtime_boundary_inventory(
                 )
                 for token in signals:
                     bucket[token].add(relative)
-                    if changed_paths is None or relative in changed_paths:
+                    if changed_paths is None:
                         repository_signals[token].add(relative)
         if path_signal or semantic_signal:
             candidates.append(relative)
@@ -1018,6 +1019,41 @@ def _runtime_boundary_inventory(
         if all(signals[token] for token in ("queue", "review", "completion", "health")):
             for paths in signals.values():
                 candidates.extend(paths)
+    if changed_paths is not None:
+        for relative in sorted(changed_paths):
+            candidate_path = Path(relative)
+            if (
+                candidate_path.suffix.lower() not in RUNTIME_CODE_SUFFIXES
+                or relative in RUNTIME_META_FILES
+            ):
+                continue
+            proc = subprocess.run(
+                ["git", "show", f"{candidate}:{relative}"],
+                cwd=root,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            if proc.returncode != 0:
+                continue
+            raw = proc.stdout
+            candidate_rows.append((relative, hashlib.sha256(raw).hexdigest()))
+            parts = candidate_path.parts
+            lowered_parts = {part.lower() for part in parts}
+            if (
+                "runtime" in lowered_parts
+                or candidate_path.stem.lower() in RUNTIME_BOUNDARY_STEMS
+                or "harp" in lowered_parts
+                or (
+                    parts[:2] != ("docs", "evidence")
+                    and not (parts and parts[0] in {"skills", "tests"})
+                )
+            ):
+                candidates.append(relative)
+            text = raw.decode("utf-8", errors="ignore").lower()
+            for token in ("queue", "review", "completion", "health"):
+                if token in text:
+                    repository_signals[token].add(relative)
     if all(
         repository_signals[token]
         for token in ("queue", "review", "completion", "health")
@@ -1031,8 +1067,13 @@ def _runtime_boundary_inventory(
         "scanned_code_file_count": len(rows),
         "changed_code_file_count": len(rows)
         if changed_paths is None
-        else sum(relative in changed_paths for relative, _digest in rows),
+        else len(candidate_rows),
         "inventory_sha256": inventory_sha,
+        "candidate_changed_code_sha256": hashlib.sha256(
+            json.dumps(
+                candidate_rows, ensure_ascii=False, separators=(",", ":")
+            ).encode()
+        ).hexdigest(),
         "runtime_boundary_candidates": sorted(set(candidates)),
     }
     errors = [
@@ -1196,6 +1237,57 @@ def _junit_matches_test(
         for case in matching
         for kind in ("failure", "error", "skipped")
     )
+
+
+def _candidate_blob_sha(root: Path, candidate: str, relative: str) -> str:
+    if not re.fullmatch(r"[0-9a-f]{40}", candidate):
+        return ""
+    proc = subprocess.run(
+        ["git", "show", f"{candidate}:{relative}"],
+        cwd=root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    return hashlib.sha256(proc.stdout).hexdigest() if proc.returncode == 0 else ""
+
+
+def _coverage_matches_stage_bindings(path: Path, bindings: dict) -> bool:
+    try:
+        coverage = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(coverage, dict) or not isinstance(coverage.get("files"), dict):
+        return False
+    if (coverage.get("meta") or {}).get("show_contexts") is not True:
+        return False
+    files = coverage["files"]
+    for binding in bindings.values():
+        if not isinstance(binding, dict):
+            return False
+        testcase = str(binding.get("testcase") or "")
+        for key in ("producer_path", "consumer_path"):
+            relative = str(binding.get(key) or "")
+            if not relative or Path(relative).is_absolute() or "\\" in relative:
+                return False
+            entry = files.get(relative)
+            if not isinstance(entry, dict) or not entry.get("executed_lines"):
+                return False
+            contexts = entry.get("contexts")
+            if not isinstance(contexts, dict):
+                return False
+            observed = {
+                str(context)
+                for values in contexts.values()
+                if isinstance(values, list)
+                for context in values
+            }
+            if not any(
+                re.search(rf"(?:^|::){re.escape(testcase)}(?:\||$)", context)
+                for context in observed
+            ):
+                return False
+    return True
 
 
 def validate_lifecycle_evidence(text: str, root: Path) -> dict:
@@ -1364,15 +1456,63 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
                 )
                 if junit_error:
                     result["errors"].append(junit_error)
+                coverage_path, coverage_error = _contained_file(
+                    root,
+                    receipt_record.get("coverage_path"),
+                    "combined_chain_gate receipt coverage_path",
+                )
+                if coverage_error:
+                    result["errors"].append(coverage_error)
+                stage_bindings = receipt_record.get("stage_bindings") or {}
+                stage_files_ok = isinstance(stage_bindings, dict)
+                for binding in (
+                    stage_bindings.values() if isinstance(stage_bindings, dict) else []
+                ):
+                    if not isinstance(binding, dict):
+                        stage_files_ok = False
+                        continue
+                    for role in ("producer", "consumer"):
+                        relative = str(binding.get(f"{role}_path") or "")
+                        stage_path, stage_error = _contained_file(
+                            root,
+                            relative,
+                            f"combined_chain_gate {role}_path",
+                        )
+                        expected_hash = str(binding.get(f"{role}_sha256") or "")
+                        if (
+                            stage_error
+                            or stage_path is None
+                            or stage_path == test_path
+                            or stage_path.suffix.lower() not in RUNTIME_CODE_SUFFIXES
+                            or _sha256_file(stage_path) != expected_hash
+                            or _candidate_blob_sha(root, candidate, relative)
+                            != expected_hash
+                        ):
+                            stage_files_ok = False
                 binding_checks = {
                     "command": receipt_record.get("command") == combined.get("invoke"),
                     "pytest_command": validator._pytest_command_ok(receipt_record),
                     "candidate": receipt_record.get("candidate_revision")
                     == (data.get("adversarial_gate") or {}).get("candidate"),
                     "test_sha256": test_path is not None
-                    and receipt_record.get("test_sha256") == _sha256_file(test_path),
+                    and receipt_record.get("test_sha256") == _sha256_file(test_path)
+                    and _candidate_blob_sha(
+                        root,
+                        candidate,
+                        str(receipt_record.get("test_path") or ""),
+                    )
+                    == receipt_record.get("test_sha256"),
                     "junit_sha256": junit_path is not None
                     and receipt_record.get("junit_sha256") == _sha256_file(junit_path),
+                    "coverage_sha256": coverage_path is not None
+                    and receipt_record.get("coverage_sha256")
+                    == _sha256_file(coverage_path),
+                    "stage_files": stage_files_ok,
+                    "coverage_contexts": coverage_path is not None
+                    and isinstance(stage_bindings, dict)
+                    and _coverage_matches_stage_bindings(
+                        coverage_path, stage_bindings
+                    ),
                     "junit_test_result": junit_path is not None
                     and _junit_matches_test(
                         junit_path,
@@ -1380,7 +1520,7 @@ def validate_lifecycle_evidence(text: str, root: Path) -> dict:
                         {
                             str(binding.get("testcase") or "")
                             for binding in (
-                                receipt_record.get("stage_bindings") or {}
+                                stage_bindings
                             ).values()
                             if isinstance(binding, dict)
                         },

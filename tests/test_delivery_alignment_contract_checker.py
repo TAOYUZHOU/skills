@@ -275,14 +275,36 @@ def test_required_lifecycle_evidence_is_recomputed(
         json.dumps({"ok": replay["ok"], "replay": replay}, indent=2) + "\n",
         encoding="utf-8",
     )
+    producer = tmp_path / "producer.py"
+    producer.write_text("def produce(value):\n    return value\n", encoding="utf-8")
+    consumer = tmp_path / "consumer.py"
+    consumer.write_text("def consume(value):\n    return value\n", encoding="utf-8")
     target_test = tmp_path / "target_chain_test.py"
     target_test.write_text(
-        "\n".join(
-            f"def test_{stage}():\n    assert True\n"
-            for stage in checker._load_chain_validator().CHAIN_STAGES
+        "from producer import produce\nfrom consumer import consume\n\n"
+        + "\n".join(
+            f"def test_{stage}():\n"
+            f"    assert consume(produce('{stage}')) == '{stage}'\n"
+            for stage in validator.CHAIN_STAGES
         ),
         encoding="utf-8",
     )
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"], cwd=tmp_path, check=True
+    )
+    subprocess.run(
+        ["git", "add", "producer.py", "consumer.py", "target_chain_test.py"],
+        cwd=tmp_path,
+        check=True,
+    )
+    subprocess.run(["git", "commit", "-qm", "target chain"], cwd=tmp_path, check=True)
+    test_candidate = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
     junit = tmp_path / "chain.xml"
     junit.write_text(
         '<testsuites><testsuite tests="10" failures="0" errors="0" skipped="0">'
@@ -293,25 +315,52 @@ def test_required_lifecycle_evidence_is_recomputed(
         + "</testsuite></testsuites>",
         encoding="utf-8",
     )
-    test_candidate = "a" * 40
+    contexts = [
+        f"target_chain_test.py::test_{stage}|run" for stage in validator.CHAIN_STAGES
+    ]
+    coverage = tmp_path / "coverage.json"
+    coverage.write_text(
+        json.dumps(
+            {
+                "meta": {"show_contexts": True},
+                "files": {
+                    "producer.py": {
+                        "executed_lines": [1, 2],
+                        "contexts": {"1": contexts},
+                    },
+                    "consumer.py": {
+                        "executed_lines": [1, 2],
+                        "contexts": {"1": contexts},
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
     receipt = {
         "status": "passed",
         "exit_code": 0,
-        "command": "pytest -q target_chain_test.py --junitxml=chain.xml",
+        "command": "pytest -q target_chain_test.py --junitxml=chain.xml --cov=. --cov-context=test --cov-report=json:coverage.json",
         "candidate_revision": test_candidate,
         "boundary_mode": "target_local_real_producers_consumers",
         "test_path": "target_chain_test.py",
         "test_sha256": hashlib.sha256(target_test.read_bytes()).hexdigest(),
         "junit_path": "chain.xml",
         "junit_sha256": hashlib.sha256(junit.read_bytes()).hexdigest(),
+        "coverage_path": "coverage.json",
+        "coverage_sha256": hashlib.sha256(coverage.read_bytes()).hexdigest(),
         "replay_manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
         "stages": validator.CHAIN_STAGES,
         "stage_bindings": {
             stage: {
-                    "producer": f"producer for {stage}",
-                    "consumer": f"consumer for {stage}",
-                    "assertion": f"assertion for {stage}",
-                    "testcase": f"test_{stage}",
+                "producer": "producer.produce",
+                "consumer": "consumer.consume",
+                "assertion": f"round trip preserves {stage}",
+                "testcase": f"test_{stage}",
+                "producer_path": "producer.py",
+                "producer_sha256": hashlib.sha256(producer.read_bytes()).hexdigest(),
+                "consumer_path": "consumer.py",
+                "consumer_sha256": hashlib.sha256(consumer.read_bytes()).hexdigest(),
             }
             for stage in validator.CHAIN_STAGES
         },
@@ -367,7 +416,7 @@ def test_required_lifecycle_evidence_is_recomputed(
         "  decision: required\n"
         "  reason: control lifecycle is reachable\n"
         "  scope: executor through post-repair audit\n"
-        "  invoke: pytest -q target_chain_test.py --junitxml=chain.xml\n"
+        "  invoke: pytest -q target_chain_test.py --junitxml=chain.xml --cov=. --cov-context=test --cov-report=json:coverage.json\n"
         "  assert: all stages and closure oracles pass\n"
         "  evidence: chain_receipt.json\n",
     )
@@ -396,7 +445,10 @@ def test_required_lifecycle_evidence_is_recomputed(
     result = checker.validate_lifecycle_evidence(contract, tmp_path)
     assert result["ok"], result
 
-    receipt["command"] = "pytest -q benign.py --junitxml=chain.xml"
+    receipt["command"] = (
+        "pytest -q benign.py --junitxml=chain.xml --cov=. --cov-context=test "
+        "--cov-report=json:coverage.json"
+    )
     receipt.pop("attestation_hmac_sha256")
     payload = json.dumps(
         receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
@@ -418,7 +470,10 @@ def test_required_lifecycle_evidence_is_recomputed(
         is False
     )
 
-    receipt["command"] = "pytest -q target_chain_test.py --junitxml=chain.xml"
+    receipt["command"] = (
+        "pytest -q target_chain_test.py --junitxml=chain.xml --cov=. "
+        "--cov-context=test --cov-report=json:coverage.json"
+    )
     receipt.pop("attestation_hmac_sha256")
     payload = json.dumps(
         receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
@@ -590,6 +645,39 @@ def test_split_runtime_is_detected_across_evidence_or_skill_packages(
     observation, errors = checker._runtime_boundary_inventory(tmp_path)
     assert errors
     assert set(files).issubset(set(observation["runtime_boundary_candidates"]))
+
+
+def test_runtime_inventory_reads_immutable_candidate_blob(tmp_path: Path) -> None:
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"], cwd=tmp_path, check=True
+    )
+    (tmp_path / "README.md").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "add", "README.md"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=tmp_path, check=True)
+    base = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    runtime = tmp_path / "src" / "control.py"
+    runtime.parent.mkdir()
+    runtime.write_text(
+        "queue = review = completion = health = True\n", encoding="utf-8"
+    )
+    subprocess.run(["git", "add", "src/control.py"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "runtime"], cwd=tmp_path, check=True)
+    candidate = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True
+    ).strip()
+    runtime.unlink()
+    observation, errors = checker._runtime_boundary_inventory(
+        tmp_path, base, candidate
+    )
+    assert errors
+    assert "src/control.py" in observation["runtime_boundary_candidates"]
+    assert observation["changed_code_file_count"] == 1
 
 
 def test_combined_chain_na_cannot_use_author_selected_absent_path(

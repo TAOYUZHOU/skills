@@ -78,7 +78,9 @@ For high-risk control-lifecycle iterations, both lifecycle gates are mandatory:
   from every code file changed by immutable `base..candidate`, including across
   packages and evidence directories. `combined_chain_gate` cannot substitute
   `all_paths_absent`; that predicate remains available only for other supported
-  unreachability classes. A copied signed record fails when the current root
+  unreachability classes. Changed-path semantics are read directly from frozen
+  candidate Git blobs, so removing or replacing a working-tree file cannot hide
+  the candidate boundary. A copied signed record fails when the current root
   makes the predicate false.
   The signed record also binds `candidate_revision`, `repository_scope`, and
   `command_cwd`; it cannot be replayed for a later candidate.
@@ -95,7 +97,9 @@ For high-risk control-lifecycle iterations, both lifecycle gates are mandatory:
   attestation and bind the exact contract invocation, candidate revision,
   target-local test path/hash, and all stage producer/consumer/assertion rows.
   Every target-local stage row also binds one unique JUnit testcase from that
-  module.
+  module plus candidate-tree producer/consumer paths and hashes. A hash-bound
+  coverage JSON with per-test contexts must show that each testcase executed
+  both bound files.
   The invocation must use the constrained pytest form with that sole test path
   and a hash-bound JUnit report proving the module ran with no failure, error,
   or skip in both aggregate counters and testcase nodes.

@@ -1,10 +1,10 @@
 # HARP Iteration Handoff
 
 status: partial
-updated_at_utc: 2026-08-01T08:02:00Z
+updated_at_utc: 2026-08-01T08:28:00Z
 iteration: delivery-alignment-combined-chain-replay
 contract: docs/iteration_contracts/delivery_alignment_combined_chain_replay_20260801.yaml
-candidate: ca0359e4d4128f97950c8be63825dbeadd742969
+candidate: 258047c1d4f5f0cbb4f8c7df0c7b15b4a22f7282
 
 ## Intent
 
@@ -33,7 +33,8 @@ workspace mocks with sanitized replays derived from three real workspace histori
 - Rejected eighth candidate: `1269274d743d8ba47ee6b35bbdc6045500986d3b`;
 - Rejected ninth candidate: `fb93b105d41cf81246065a312b4fd23e75a7df55`.
 - Rejected tenth candidate: `ca0359e4d4128f97950c8be63825dbeadd742969`;
-  eleventh pending freeze.
+- Rejected eleventh candidate: `258047c1d4f5f0cbb4f8c7df0c7b15b4a22f7282`;
+  twelfth pending freeze.
 - Three read-only source histories exhibit distinct classes: accepted-review projection mismatch, blocked missing-artifact dependency, and partial-result materialization.
 - The working tree already contains unrelated untracked evidence and skills; they are outside this iteration.
 
@@ -70,6 +71,11 @@ absent path, and that lifecycle modules could split across evidence directories
 or skill packages. Required receipts now demand the target-local boundary mode,
 combined N/A accepts only the fixed inventory, and immutable-diff signals are
 unioned repository-wide.
+The eleventh candidate's exact-diff review showed that ten vacuous green tests
+could still impersonate the chain and that immutable changed paths were scanned
+from mutable worktree bytes. Target-local receipts now bind candidate-tree
+producer/consumer file hashes plus per-test coverage contexts, while
+applicability reads changed code directly from candidate Git blobs.
 
 ## Completed changes
 
@@ -99,8 +105,8 @@ unioned repository-wide.
 
 - Pre-change repository HEAD is `d94d282c7982a6de7041343d12df9cee5cf8a7c1`.
 - The three source workspaces were inspected read-only and no repair command was executed.
-- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 109 passed after the tenth adversarial repairs.
-- `pytest -q`: 116 passed after the tenth adversarial repairs.
+- `pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py`: 110 passed after the eleventh adversarial repairs.
+- `pytest -q`: 117 passed after the eleventh adversarial repairs.
 - `quick_validate.py skills/delivery-alignment-iteration`: `Skill is valid!`.
 - `validate_harp_chain_evidence.py` reports all three replay oracles valid. The
   supplemental meta receipt validates only with the explicit diagnostic
@@ -128,7 +134,9 @@ unioned repository-wide.
 - Candidate `ca0359e` produced four executable attacks; they are repaired by
   target-local-only required receipts, the fixed combined-N/A predicate, and
   immutable-diff repository-wide signal union.
-- Eleventh immutable candidate, clean independent output, zero-escape
+- Candidate `258047c` produced two executable attacks; they are repaired by
+  immutable candidate-blob applicability and per-stage target-file coverage.
+- Twelfth immutable candidate, clean independent output, zero-escape
   deterministic result, and final trusted attestations remain pending.
 
 ## Open blockers and risks
@@ -139,7 +147,7 @@ unioned repository-wide.
 
 ## Exact next action
 
-Freeze the eleventh candidate, then rerun independent skill consumption plus
+Freeze the twelfth candidate, then rerun independent skill consumption plus
 exact-diff counterexample review with its forward-binding patch.
 
 ## Final claims allowed now

@@ -7,15 +7,16 @@
   },
   "observation": {
     "scanned_code_file_count": 110,
-    "changed_code_file_count": 5,
-    "inventory_sha256": "81b966c130ab5d94b44a8246d7219d98d2ae43974639d4c1e26aadec1c3a053b",
+    "changed_code_file_count": 0,
+    "inventory_sha256": "9baf7d9abcfdbe7321249d56dabe0ccf3cfa873b4f22f090df9ebea26cb85868",
+    "candidate_changed_code_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
     "runtime_boundary_candidates": []
   },
   "command": "checker built-in no_harp_runtime_boundaries inventory over the current contract root",
   "assertion": "No target HARP runtime producer/consumer package exists in this skill repository.",
-  "candidate_revision": "ca0359e4d4128f97950c8be63825dbeadd742969",
+  "candidate_revision": "258047c1d4f5f0cbb4f8c7df0c7b15b4a22f7282",
   "repository_scope": "contract-root",
   "command_cwd": "contract-root",
   "scope": "Current skill/checker repository only; future HARP runtime target repositories remain required to run the real ten-stage chain.",
-  "attestation_hmac_sha256": "0e5efe910e88e17b5290708e91044cfef89cac133800bbab4aac29d4cbc4f4d7"
+  "attestation_hmac_sha256": "aa2223400ebc851dab644311efcd75e665ae1dddd5b42465096a48dc2f7bab6b"
 }

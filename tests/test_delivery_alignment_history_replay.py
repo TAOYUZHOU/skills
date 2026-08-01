@@ -48,13 +48,15 @@ def _valid_receipt(manifest: Path) -> dict:
         "schema_version": 1,
         "status": "passed",
         "exit_code": 0,
-        "command": "pytest -q tests/test_delivery_alignment_history_replay.py --junitxml=docs/evidence/chain.xml",
+        "command": "pytest -q tests/test_delivery_alignment_history_replay.py --junitxml=docs/evidence/chain.xml --cov=. --cov-context=test --cov-report=json:docs/evidence/coverage.json",
         "candidate_revision": "1" * 40,
         "boundary_mode": "target_local_real_producers_consumers",
         "test_path": "tests/test_delivery_alignment_history_replay.py",
         "test_sha256": _sha256(Path(__file__)),
         "junit_path": "docs/evidence/chain.xml",
         "junit_sha256": "2" * 64,
+        "coverage_path": "docs/evidence/coverage.json",
+        "coverage_sha256": "3" * 64,
         "replay_manifest_sha256": _sha256(manifest),
         "stages": validator.CHAIN_STAGES,
         "stage_bindings": {
@@ -63,6 +65,10 @@ def _valid_receipt(manifest: Path) -> dict:
                 "consumer": f"target consumer for {stage}",
                 "assertion": f"target postcondition for {stage}",
                 "testcase": f"test_{stage}",
+                "producer_path": "runtime/producer.py",
+                "producer_sha256": "4" * 64,
+                "consumer_path": "runtime/consumer.py",
+                "consumer_sha256": "5" * 64,
             }
             for stage in validator.CHAIN_STAGES
         },
@@ -123,8 +129,21 @@ def test_combined_receipt_requires_all_ordered_stages_and_closure_oracles(
 
     meta = _valid_receipt(manifest)
     meta["boundary_mode"] = "skill_gate_meta_validation"
+    meta["command"] = (
+        "pytest -q tests/test_delivery_alignment_history_replay.py "
+        "--junitxml=docs/evidence/chain.xml"
+    )
+    meta.pop("coverage_path")
+    meta.pop("coverage_sha256")
     for binding in meta["stage_bindings"].values():
-        binding.pop("testcase")
+        for field in (
+            "testcase",
+            "producer_path",
+            "producer_sha256",
+            "consumer_path",
+            "consumer_sha256",
+        ):
+            binding.pop(field)
     receipt.write_text(
         json.dumps(_sign(meta, key), indent=2) + "\n", encoding="utf-8"
     )

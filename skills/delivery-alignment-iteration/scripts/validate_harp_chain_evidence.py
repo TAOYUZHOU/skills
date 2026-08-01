@@ -484,6 +484,11 @@ def _pytest_command_ok(receipt: dict[str, Any]) -> bool:
     test_path = str(receipt.get("test_path") or "")
     junit_path = str(receipt.get("junit_path") or "")
     required = [test_path, f"--junitxml={junit_path}"]
+    if receipt.get("boundary_mode") == "target_local_real_producers_consumers":
+        coverage_path = str(receipt.get("coverage_path") or "")
+        required.extend(
+            ["--cov=.", "--cov-context=test", f"--cov-report=json:{coverage_path}"]
+        )
     remaining = list(body)
     for token in required:
         if remaining.count(token) != 1:
@@ -759,6 +764,13 @@ def validate_chain_receipt(
         result["errors"].append(
             "required combined chain must use target-local real producers and consumers"
         )
+    if boundary_mode == "target_local_real_producers_consumers" and (
+        not str(receipt.get("coverage_path") or "").strip()
+        or not re.fullmatch(
+            r"[0-9a-f]{64}", str(receipt.get("coverage_sha256") or "")
+        )
+    ):
+        result["errors"].append("target-local coverage binding is invalid")
     bindings = receipt.get("stage_bindings")
     if not isinstance(bindings, dict) or set(bindings) != set(CHAIN_STAGES):
         result["errors"].append("combined chain stage bindings are incomplete")
@@ -767,7 +779,15 @@ def validate_chain_receipt(
         for stage, binding in bindings.items():
             expected_binding_keys = {"producer", "consumer", "assertion"}
             if boundary_mode == "target_local_real_producers_consumers":
-                expected_binding_keys.add("testcase")
+                expected_binding_keys.update(
+                    {
+                        "testcase",
+                        "producer_path",
+                        "producer_sha256",
+                        "consumer_path",
+                        "consumer_sha256",
+                    }
+                )
             if (
                 not isinstance(binding, dict)
                 or set(binding) != expected_binding_keys
@@ -779,6 +799,18 @@ def validate_chain_receipt(
                 break
             if "testcase" in binding:
                 testcase_names.add(str(binding["testcase"]))
+            if boundary_mode == "target_local_real_producers_consumers" and (
+                not re.fullmatch(
+                    r"[0-9a-f]{64}", str(binding.get("producer_sha256") or "")
+                )
+                or not re.fullmatch(
+                    r"[0-9a-f]{64}", str(binding.get("consumer_sha256") or "")
+                )
+            ):
+                result["errors"].append(
+                    f"target-local stage file hash is invalid: {stage}"
+                )
+                break
         if (
             boundary_mode == "target_local_real_producers_consumers"
             and len(testcase_names) != len(CHAIN_STAGES)
