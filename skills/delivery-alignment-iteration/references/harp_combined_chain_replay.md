@@ -10,7 +10,7 @@ cell when a provider boundary is reachable.
 ## Contents
 
 - [Required Chain](#required-chain)
-- [Three Historical Replay Archetypes](#three-historical-replay-archetypes)
+- [Baseline and Incident-Derived Replay Archetypes](#baseline-and-incident-derived-replay-archetypes)
 - [Read-Only Capture and Sanitization](#read-only-capture-and-sanitization)
 - [Evidence Contract](#evidence-contract)
 
@@ -35,6 +35,28 @@ projections, and downstream gate readers. Directly constructing the expected
 terminal JSON, monkeypatching the consumer under test, or asserting only that
 an intermediate event exists does not satisfy the gate.
 
+When Plan Review can install a graph or admit queue work, treat current-input
+resolution as a mandatory pre-chain admission edge. Invoke the real
+contract/capture resolver, deterministic graph audit, Plan Review decision,
+graph installer, and queue-admission consumers. The reviewer must compare the
+proposed immutable-input hashes and declared acceptance scope against the
+current contract and every current required capture at review time. Stale,
+absent, foreign, or incomplete identities must yield one typed rejection before
+installation or launch; a provider-successful review turn cannot make them
+current. Bind this pre-chain edge in the same causal trace, observer receipt,
+incident fixture, and candidate-origin completeness check as the ten stages.
+
+When graph/plan projections are reachable, stage 6 includes the real accepted
+graph, queue, DAG, canonical active-plan, route, and next-round admission
+consumers. A terminal queue/DAG must converge the lifecycle exactly once under
+restart/concurrency; immutable graph-template `pending` intent and stale older
+open rows cannot keep selecting executor continuation. When evidence manifests
+are reachable, the stage-5-to-stage-7 edge must pass through the real manifest
+finalizer. Only an explicit accepted Result Review bound to the exact plan,
+attempt, evidence identity, reviewer identity, and nonempty review time may
+produce an accepted manifest. Missing, foreign, attempt-mismatched, or
+timestamp-empty review facts remain fail-closed inputs to artifact/completion.
+
 At minimum, assert both directions:
 
 - Happy path: handoff identity survives every hop, review is accepted by the
@@ -45,9 +67,9 @@ At minimum, assert both directions:
   authoritative consumer, routed to an explicit owner or typed pause, cannot
   produce premature completion, and remains eligible for a later health audit.
 
-## Three Historical Replay Archetypes
+## Baseline and Incident-Derived Replay Archetypes
 
-Maintain exactly one sanitized profile for each archetype:
+Maintain exactly one sanitized baseline profile for each archetype:
 
 - `review_projection_mismatch`: a queue row is terminal and accepted while the
   completion projection rejects the same review because required identity was
@@ -63,6 +85,89 @@ oracle comes from the current target runtime contract plus the observed
 inconsistency signature. A changed implementation may migrate the fixture
 schema, but it may not weaken or silently discard the signature.
 
+The baseline three are necessary but not sufficient when the current incident
+has another causal shape. Add one sanitized incident-derived profile for every
+distinct observed chain and bind it separately in the iteration contract,
+candidate-origin checker, combined receipt, and host attestation. Do not merge
+distinct failures merely because their final health color or provider status is
+the same.
+
+Each incident-derived profile must carry a closed causal inventory:
+
+- host-capture and source-snapshot digests;
+- typed predecessor and post-state identities;
+- concrete producer inputs, outputs, and event kinds, including negative event
+  polarity rather than only an umbrella label;
+- every downstream consumer that can change graph, queue, review, artifact,
+  completion, recovery, or health truth;
+- the current contract/capture resolver inputs and exact Plan Review-time
+  identity comparison whenever reviewed graph installation is reachable;
+- restart/concurrency ordering and an executable oracle for each causal fact;
+- the observed failure signature and intended fail-closed terminal or successor route.
+
+For graph/admission incidents, replay accepted-versus-pending convergence,
+later distinct-graph reviewability, equal pre/post semantic revisions,
+completed-row preservation, and one successor generation. For repair incidents,
+replay provider transport separately from the typed machine decision, including
+missing/malformed output, unchanged command/input/output identity, bounded
+terminal/upstream routing, and one retry only after a canonical causal revision.
+When queue launch consumes provider-circuit state, replay selected-provider
+resolution through the actual placeholder admission, launch claim, worker
+pre-call guard, final backend selection/transport admission, and recovery
+consumer. A recognized healthy selected provider must remain launchable while
+an unrelated provider is frozen, with the unrelated event/probe bytes unchanged.
+Linearize the final exact circuit check and provider side effect under the
+selected provider's call lease. If freeze wins, the exception/fact must retain
+the exact frozen observation from the decision snapshot and the transport call
+count remains zero; if the call wins, the freeze transition waits until that
+admitted call releases custody. The selected frozen provider, unknown routing,
+and provider identity drift between admission, worker, or final backend must
+produce typed no-wrong-provider outcomes; the runtime must not guess, globally
+thaw, or silently switch. Distinguish a true pre-call block from a delegated
+backend drift after the bound orchestrator already returned: the latter records
+partial-call truth while proving the drifted provider was not called. Recovery
+requires the exact `(provider, freeze_observation_id)` event, rechecks current
+non-frozen state under the same provider lease, and uses a full-row queue CAS.
+A stale same-provider recovery event, a missing historical observation identity,
+or a concurrent terminal/superseding/new-attempt write must remain fail-closed.
+Also replay the decision-to-writer edge under concurrent updates to the same
+queue row. Bind the typed decision to a stable semantic attempt and causal
+revision. Projection-only churn must rebase and commit that decision exactly
+once without recalling the provider; a real semantic-attempt change must reject
+or supersede it exactly once. Repeating the same prompt after
+`stale_decision_ignored` fails the replay even if each provider turn returns a
+valid machine decision. Add a real overlap cell in which one ordinary tick has
+persisted repair custody and is waiting on the provider while another ordinary
+tick loses the physical repair lock. The lock loser must not publish a competing
+subject-row projection; the first typed decision must commit once, restart must
+not recall the provider, and no durable supersession may bind equal decision and
+current semantic identities. Extend that overlap past provider return and through
+the final decision commit or durable semantic supersession. The lock needs a
+unique owner token, and release must verify that token so an old owner cannot
+unlink a successor's custody. Inject occupied identities for derived retry and
+route rows after the provider returns: the existing typed decision must select
+another unoccupied identity under the same custody or produce a distinct durable
+nonsemantic receipt, without provider recall or false semantic supersession.
+Decode the typed JSON with duplicate-key detection
+at every object depth. Duplicate action or nested authority keys are malformed
+and must fail closed without retry, route, or success transition.
+For terminal-projection incidents, replay raw immutable graph intent separately
+from queue/DAG lifecycle truth, stale older plan rows, route selection, typed
+semantic recovery, and exactly one next-round Planner or actionable terminal
+fact. For review-manifest incidents, replay missing, foreign,
+attempt-mismatched, and timestamp-empty Result Review facts through the actual
+manifest, artifact, completion, and health consumers; none may default to
+accepted.
+For Plan Review incidents, replay the current contract/capture resolver through
+the deterministic graph audit, review decision, installer, and queue consumer.
+Include a superseded contract hash, a missing current capture, a foreign capture
+identity, and an incomplete source/acceptance boundary; each must reject before
+install or Executor launch, while one exact current-input graph remains
+reviewable.
+Directly injecting `canonical_directive_event`, always returning a valid
+`EXECUTOR_REPAIR={...}` object, or starting from a clean workspace omits the
+failure mechanism and cannot satisfy the incident gate.
+
 ## Read-Only Capture and Sanitization
 
 Capture historical source workspaces only with the bundled whitelist script:
@@ -74,6 +179,14 @@ python3 skills/delivery-alignment-iteration/scripts/capture_harp_history_replay.
   --source LABEL=ARCHETYPE:/absolute/read-only/workspace \
   --output-dir skills/delivery-alignment-iteration/assets/harp-history-replays
 ```
+
+The bundled command captures the three baseline profiles. When an incident
+requires fields outside that fixed whitelist, use a contract-declared,
+host-controlled read-only capture adapter for the smallest additional typed
+shape. Bind its immutable tool hash, double snapshot, source digests,
+sanitization receipt, and derived profile hash exactly as for the baseline. The
+candidate may consume that copied profile but may not choose its own capture
+authority or read the historical source during validation.
 
 Before capture, resolve each workspace and record stable source-file hashes.
 Open SQLite with `mode=ro` and `PRAGMA query_only=ON`; never run migrations,
@@ -109,12 +222,14 @@ For an applicable high-risk iteration, the machine contract declares:
 
 - `combined_chain_gate`: scope, invocation, ordered assertions, and durable
   receipt;
-- `historical_replay_gate`: fixture manifest, read-only capture command,
-  trusted capture receipt, replay invocation, archetype assertions, and durable
-  validation evidence.
+- `historical_replay_gate`: baseline fixture manifest, read-only capture
+  command, trusted capture receipt, replay invocation, archetype assertions,
+  every contract-bound incident fixture/capture receipt, and durable validation
+  evidence.
 
 The combined receipt binds the contract invocation, immutable candidate,
-target-local test path and SHA-256, fixture-manifest SHA-256, and a
+target-local test path and SHA-256, baseline and incident fixture-manifest
+SHA-256 values, and a
 producer/consumer/assertion triple for all ten stages. It records all three
 archetype results and happy-path invariants, and has
 a valid host-controlled HMAC attestation from outside the candidate repository. The
@@ -141,9 +256,10 @@ candidate-generated hash chain is insufficient. The
 `boundary_mode` must be `target_local_real_producers_consumers`;
 `skill_gate_meta_validation` is diagnostic only and never satisfies a required
 runtime gate. The
-validator must fail closed for a missing stage, changed fixture hash, leaked
-absolute path, missing source provenance, absent archetype, incomplete closure
-assertion, or nonzero repeated zero-work wakeups.
+validator and candidate-origin checker must fail closed for a missing stage,
+changed fixture hash, leaked absolute path, missing source provenance, absent
+baseline or contract-bound incident, dropped causal fact/edge, incomplete
+closure assertion, or nonzero repeated zero-work wakeups.
 
 If a gate is deterministically unreachable, use `decision: not_applicable` and
 include an `unreachability` mapping with a declarative `predicate`, `invoke`,

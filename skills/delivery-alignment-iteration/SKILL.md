@@ -42,7 +42,52 @@ Use this skill to prevent implementation drift. The core output is a traceable c
 10. When queue, handoff, review, artifact, completion, retry/resume, or health
     behavior is reachable, run the Combined Lifecycle Chain and Historical
     Replay gates below. They are additive to unit, regression, atomic-sandbox,
-    and exact-diff adversarial evidence.
+    and exact-diff adversarial evidence. The chain must also cover terminal
+    graph/DAG/active-plan convergence and review-bound evidence-manifest
+    finalization whenever those projections or consumers are reachable:
+    immutable pending intent may not masquerade as schedulable work, stale open
+    rows may not suppress the next-round owner, and missing, foreign,
+    attempt-mismatched, or untimestamped Result Review facts must fail closed.
+    When Plan Review can install a graph or admit queue work, its deterministic
+    pre-install audit must resolve and hash the current contract plus every
+    current required capture, require the proposed graph to bind those exact
+    identities and acceptance boundaries, and reject stale, absent, foreign,
+    or incomplete input scope before graph installation, queue insertion, or
+    Executor launch. Reviewer or provider success cannot override that mismatch.
+    When provider circuit state can block queued Agent work, the combined chain
+    must resolve and bind the exact selected provider at queue admission and
+    carry it through the real worker pre-call guard and final backend selection.
+    The final circuit check and transport admission must be linearized under the
+    exact provider call lease; a freeze that wins that boundary must retain the
+    frozen decision's observation identity and produce a typed no-call fact.
+    A frozen unrelated provider must not block the recognized selected provider
+    or have its history/probe mutated; selected-provider freeze, unknown routing,
+    and admission-to-worker/final-backend identity drift must fail closed without
+    silently switching. If a bound orchestrator call already occurred before a
+    delegated-call drift, preserve that partial-call truth while proving the
+    drifted provider was not called. Recovery must match the exact provider and
+    freeze observation, recheck the current circuit under its lease, and commit
+    blocked-to-queued through an exact queue CAS; stale recovery events or
+    concurrent terminal/superseding writes must not reopen the row.
+    When a provider-backed typed decision commits through CAS, replay concurrent
+    churn on the same subject row: harmless projection-only changes must rebase
+    and commit the already-produced decision exactly once without another
+    provider call, while a changed semantic attempt must supersede or route it
+    once. The same chain must overlap a provider turn holding persisted repair
+    custody with another ordinary tick that loses the physical lock: the loser
+    must not write a competing subject projection, the original decision must
+    still commit once after restart, and a supersession receipt whose decision
+    and current semantic identities are equal is invalid. Unique ownership-token
+    custody must remain held after provider return through final commit or
+    durable supersession, and release must verify ownership so an old owner
+    cannot unlink a successor's lock. Inject a collision on every derived retry
+    or route row identity: reallocate under the same decision custody or persist
+    a distinct nonsemantic receipt, but never discard the produced decision,
+    mislabel it semantic supersession, or recall the provider. Parse the typed JSON
+    with duplicate-key detection at every object depth; duplicate, ambiguous,
+    missing, or malformed keys fail closed and cannot authorize retry or route.
+    `stale_decision_ignored` followed by an equal-prompt provider recall is a
+    failed chain, not successful duplicate suppression.
 11. Run the contract and handoff checker when a contract file exists:
 
 ```bash
@@ -500,9 +545,33 @@ completion, retry/resume, or workflow-health routing is reachable.
   consumers across the complete executor-to-post-repair-health chain. A one-hop
   mock, direct terminal-state construction, or isolated reducer assertion is
   insufficient.
-- Replay the three bundled sanitized historical archetypes:
+- Replay the three bundled sanitized baseline archetypes:
   `review_projection_mismatch`, `blocked_artifact_dependency`, and
-  `partial_result_materialization`.
+  `partial_result_materialization`. They are a minimum corpus, not an exhaustive
+  catalog. Also replay every distinct causal signature captured from the live
+  incident that motivated the iteration; a green baseline corpus cannot replace
+  an available incident-derived fixture.
+- Before implementation, inventory the incident as typed causal facts and
+  producer/consumer edges. Bind every fact to at least one executable negative
+  oracle and every edge to the combined-chain trace. Fail the candidate-origin
+  checker if a fixture drops a host-captured causal fact, substitutes a summary
+  label for concrete event kinds, or leaves an affected downstream consumer
+  unexercised.
+- Keep transport and semantics separate in incident fixtures. Provider `ok` is
+  not a retry, acceptance, or completion decision; missing, malformed,
+  ambiguous, or unrecognized machine decisions must take the declared
+  fail-closed typed recovery path. An umbrella evidence label such as
+  `canonical_directive_event` is not positive evidence unless its concrete
+  allowlisted event kind and resulting semantic revision are replayed.
+- When graph/admission recovery is reachable, replay an accepted normalized
+  graph concurrently re-staged as pending, a later distinct proposal, and a
+  completed admission with equal pre/post semantic revisions. Require no stale
+  pending projection, a reviewable distinct successor, preservation of the old
+  row, and exactly one successor generation under restart/concurrency. When
+  executor repair is reachable, replay successful transport with absent or
+  malformed machine output, zero unchanged-command retries, one typed
+  upstream/terminal route, and one retry only after a canonical causal-input
+  revision.
 - Capture historical workspaces read-only, whitelist only control-shape facts,
   and replay copied fixtures in a temporary workspace. Never copy raw databases,
   prompts, free-form outputs, scientific artifacts, credentials, or paths; never

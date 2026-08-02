@@ -1,0 +1,204 @@
+schema_version: 2
+
+intent: >-
+  Repair the delivery-alignment-iteration coverage contract exposed by the
+  Biopharma graph/admission deadlock, Synthetic executor-repair semantic loop,
+  and Target C stale-contract Plan Review/terminal-projection/review-manifest
+  fail-open chain: the three
+  bundled historical archetypes become a mandatory baseline,
+  while every available incident-derived causal signature must also be replayed
+  through its real producer-consumer chain with negative semantic cases,
+  restart/concurrency, and fixture-to-host-capture completeness.
+
+non_goals:
+  - Modify HARP runtime product code, live queues, SQLite/WAL, graphs, reviews, completion facts, scientific artifacts, cron entries, providers, or active descendants from this skill iteration.
+  - Treat the skill policy change as proof that any runtime defect is repaired or any workspace is healthy.
+  - Replace the three bundled baseline profiles, focused atomics, full regression, atomic provider boundary, exact-diff diffusion, independent reviews, or live observation.
+  - Copy raw prompts, credentials, databases, absolute workspace paths, or scientific payloads into the skill repository.
+
+ssot:
+  - path: skills/delivery-alignment-iteration/SKILL.md
+    reason: Canonical iteration workflow used by later HARP repair candidates.
+  - path: skills/delivery-alignment-iteration/references/harp_combined_chain_replay.md
+    reason: Detailed historical and combined-chain replay requirements.
+  - path: /root/autodl-tmp/taoyuzhou/harp-self-evolve-target-c-v2.1.0-20260730/harp-target-repo/docs/evidence/target_c/recovery_liveness_r4/host_capture_biopharma_graph_admission_deadlock_v1/capture.json
+    reason: Read-only host capture of accepted/restaged graph, observation-only semantic evidence, completed pre==post admission, and duplicate deadlock; SHA-256 58afd4bb40aeb82d38e32644828a5bb24f5178dbd93dd7e75372fb0b7fe2a129.
+  - path: /root/autodl-tmp/taoyuzhou/harp-self-evolve-target-c-v2.1.0-20260730/harp-target-repo/docs/evidence/target_c/recovery_liveness_r4/host_capture_synthetic_executor_repair_semantic_loop_v1/capture.json
+    reason: Read-only host capture of missing typed repair decisions, transport-success default retries, unchanged reruns, and bounded exhaustion; SHA-256 d35a7df6afc0f5b4b527eca438e015d15e3268398f42766130097f761d105d7c.
+  - path: /root/autodl-tmp/taoyuzhou/harp-self-evolve-target-c-v2.1.0-20260730/harp-target-repo/docs/evidence/target_c/recovery_liveness_r4/host_capture_synthetic_executor_repair_semantic_loop_v1/recovery_progression_addendum.json
+    reason: Read-only positive/negative replay cell where a real causal source/test repair exists but the successful Agent output still omits its machine decision and runtime launches an equal-command successor via the unsafe default; SHA-256 366b0d1355f94f8e04cf3869e29ad18ede32f30a8bc3f38eece3de89831f1a6f.
+  - path: /root/autodl-tmp/taoyuzhou/harp-self-evolve-target-c-v2.1.0-20260730/harp-target-repo/docs/evidence/target_c/recovery_liveness_r4/host_capture_target_c_terminal_projection_manifest_failopen_v1/capture.json
+    reason: Read-only host capture of terminal queue/DAG versus pending graph/stale-open-plan divergence, typed structural replan, and three evidence manifests accepted without a timestamped bound Result Review; SHA-256 1cfb6097da09beb42c13fc89579352462ae00d439e02b607da3c5606f1102e97.
+  - path: /root/autodl-tmp/taoyuzhou/harp-self-evolve-target-c-v2.1.0-20260730/harp-target-repo/docs/evidence/target_c/recovery_liveness_r4/host_capture_target_c_terminal_projection_manifest_failopen_v1/plan_review_stale_contract_addendum.json
+    reason: Read-only host counterexample where deterministic Plan Review approved and installed a graph pinned to a superseded contract, missing the current Target C capture and required causal boundaries; SHA-256 a452ffe7c5c5aae03bb21d28f75a205a6a611d0f8313bbfafaaef37f9b282ed6.
+  - path: /root/autodl-tmp/taoyuzhou/harp-self-evolve-target-c-v2.1.0-20260730/harp-target-repo/docs/evidence/target_c/recovery_liveness_r4/host_capture_target_c_terminal_projection_manifest_failopen_v1/executor_repair_stale_commit_addendum.json
+    reason: Read-only host counterexample where two valid typed terminal decisions lose per-item CAS to timestamp-only output-assessment reconciliation and trigger a third equal-prompt provider call; SHA-256 fa6b50983041621b6120ad623f45f8cda6186c84eecca2159988a6da561d3565.
+  - path: /root/autodl-tmp/taoyuzhou/harp-self-evolve-target-c-v2.1.0-20260730/harp-target-repo/docs/evidence/target_c/recovery_liveness_r4/host_capture_target_c_terminal_projection_manifest_failopen_v1/bootstrap_exact_diff_rejection_addendum.json
+    reason: Read-only exact-diff rejection proving that an overlapping lock-losing tick can create a permanently self-suppressing equal-identity supersession and duplicate JSON action keys can authorize retry; SHA-256 c2eed24abcc4820500670ff64a7a3bddba4a9a2ec8238863ac738e619bf1beec.
+  - path: /root/autodl-tmp/taoyuzhou/harp-self-evolve-target-c-v2.1.0-20260730/harp-target-repo/docs/evidence/target_c/recovery_liveness_r4/host_capture_target_c_terminal_projection_manifest_failopen_v1/bootstrap_exact_diff_rejection_v2_addendum.json
+    reason: Read-only exact-diff rejection proving that physical custody ended before decision commit and a derived retry-row collision discarded the existing typed decision and recalled the provider; SHA-256 d569d536cd7ea746f8dbd43e17e1d42a421a988fb604a0ae9a49ad4b26633184.
+  - path: /root/autodl-tmp/taoyuzhou/harp-self-evolve-target-c-v2.1.0-20260730/harp-target-repo/docs/evidence/target_c/recovery_liveness_r4/host_capture_target_c_terminal_projection_manifest_failopen_v1/provider_scope_queue_freeze_addendum.json
+    reason: Read-only live counterexample where an unrelated frozen openai_compat repair circuit blocked a queued executor whose selected codex_app_server provider subsequently succeeded; SHA-256 5cb2d8bb5792a9f2dcef996341d9daa12f23dc23ce2f468fdcf6cd49c4510951.
+  - path: docs/harp_iteration_handoff.md
+    reason: Stable current-state handoff for the delivery-alignment skill.
+
+deliverables:
+  - id: D1
+    path: skills/delivery-alignment-iteration/SKILL.md
+    description: Concise mandatory policy making baseline profiles non-exhaustive and incident-derived causal replay compulsory.
+  - id: D2
+    path: skills/delivery-alignment-iteration/references/harp_combined_chain_replay.md
+    description: Exact incident fixture, causal inventory, graph/admission, semantic-event, and executor-repair negative-oracle rules.
+  - id: D3
+    path: docs/harp_iteration_handoff.md
+    description: Reconciled partial/complete status, evidence, blockers, and next action.
+
+acceptance_criteria:
+  - id: A1
+    description: >-
+      The three existing sanitized archetypes remain a required minimum, but an
+      iteration with a distinct hash-bound live incident cannot claim historical
+      replay coverage until every distinct incident signature is included.
+  - id: A2
+    description: >-
+      Each incident-derived fixture binds its host capture and source hashes,
+      enumerates all typed causal facts and real producer-consumer edges, maps
+      every fact and edge to an executable oracle, and makes candidate-origin
+      validation fail if a causal field or affected consumer is omitted.
+  - id: A3
+    description: >-
+      Graph/admission replay covers accepted-versus-pending convergence,
+      concrete negative event kinds, equal pre/post revision, immutable old row,
+      and one successor under restart/concurrency; executor-repair replay covers
+      exact selected-provider resolution through queue placeholder and worker
+      guard into final backend selection and call-lease-linearized transport,
+      unrelated-frozen-provider pass-through, selected-frozen and unknown
+      routing no-call outcomes, admission-to-worker/final-backend provider drift
+      rejection, accurate partial-call truth for delegated drift, exact
+      freeze-observation-bound recovery, and full-row recovery CAS that cannot
+      overwrite concurrent terminal or superseding truth,
+      provider transport separately from missing/malformed machine decisions,
+      zero unchanged blind retries, one typed terminal/upstream route, and one
+      retry only after a canonical causal revision is hash-bound by a valid
+      machine decision. Equal command text cannot distinguish a blind retry from
+      a repaired retry, and a repair artifact or prose action cannot substitute
+      for that decision. A typed decision must survive harmless concurrent
+      subject-row churn by rebasing and committing once without provider recall;
+      a semantic attempt change supersedes or routes it once, and an equal-prompt
+      call after stale_decision_ignored fails the gate. The same replay overlaps
+      a provider turn holding persisted repair custody with a lock-losing
+      ordinary tick: the loser performs no competing subject-row write, the
+      original decision commits once after restart, and a supersession receipt
+      cannot bind equal decision/current semantic identities. Ownership-token
+      custody remains held after provider return through final commit or durable
+      supersession, release verifies ownership, and derived retry/route row
+      collision reuses the existing decision without provider recall or false
+      semantic supersession. Duplicate JSON keys at any object depth are
+      malformed and cannot authorize retry or route. Terminal-projection replay separately exercises raw
+      immutable graph intent, queue/DAG terminal truth, canonical active-plan
+      rows, route selection, typed recovery, and one next-round admission.
+      Review-manifest replay requires missing, foreign, attempt-mismatched, and
+      timestamp-empty Result Review facts to fail closed through manifest,
+      artifact, completion, and health consumers. Plan Review replay resolves
+      the current contract and required captures at review time and rejects a
+      superseded contract hash, missing or foreign current capture, or incomplete
+      source/acceptance boundary before graph install, queue admission, or
+      Executor launch; reviewer/provider success cannot override the mismatch.
+  - id: A4
+    description: >-
+      Quick validation, targeted skill tests, diff hygiene, immutable candidate,
+      and exact-diff adversarial review pass before the skill iteration is marked
+      complete; runtime repair and workspace health remain independently open.
+
+verification:
+  - id: V1
+    command_or_check: python3 /root/autodl-tmp/caches/.codex/skills/.system/skill-creator/scripts/quick_validate.py skills/delivery-alignment-iteration
+  - id: V2
+    command_or_check: pytest -q tests/test_delivery_alignment_history_replay.py tests/test_delivery_alignment_contract_checker.py
+  - id: V3
+    command_or_check: git diff --check
+  - id: V4
+    command_or_check: Exact-diff Agent attacks the immutable base..candidate skill diff and returns zero executable escapes with a trusted receipt.
+  - id: V5
+    command_or_check: Target C bootstrap consumer candidate bc3e8cb0353cda32e89b7cb53d30d3afe7446d0b, reviewed from stable base 39b59a59db6d05e6c7ed1b81c0a610cac1ccb752 with canonical full-index diff SHA-256 5bcce9010c5f38b49779e3466a1f4eec9272d0f1986fceb1ac330cc068ed1f6b, binds the selected-provider incident capture and executes claim/placeholder/worker/final-backend/call-lease/freeze-observation/recovery-CAS plus repair-custody counterexamples; the full r4 candidate-origin checker must additionally bind all host captures and reject removal of any causal fact, producer/consumer edge, negative oracle, current contract/capture identity check before Plan Review installation, or semantic-decision CAS/rebase cell.
+
+traceability:
+  - acceptance: A1
+    deliverables: [D1, D2]
+    verification: [V1, V2, V4]
+  - acceptance: A2
+    deliverables: [D1, D2, D3]
+    verification: [V2, V4, V5]
+  - acceptance: A3
+    deliverables: [D1, D2]
+    verification: [V2, V4, V5]
+  - acceptance: A4
+    deliverables: [D1, D2, D3]
+    verification: [V1, V2, V3, V4, V5]
+
+risks:
+  - Policy prose alone cannot prove the Target C runtime candidate exercises the real producers and consumers; V5 remains a separate product-candidate gate.
+  - The skill repository has unrelated dirty and untracked evidence; this iteration must not stage, commit, rewrite, or delete it.
+  - The first policy draft was rolled back before this contract was frozen; no runtime or accepted skill candidate used that draft.
+
+final_claims_allowed:
+  - The iteration skill requires incident-derived replay in addition to its baseline corpus only after D1/D2 and V1-V4 pass.
+  - No claim about runtime repair, provider root cause, deployment, or workspace health follows from this skill update.
+  - Full goal completion additionally requires the Target C r4 candidate, reviews, deployment, and three-workspace observation in V5.
+
+handoff:
+  path: docs/harp_iteration_handoff.md
+  policy: Update after every material skill edit, verification, candidate, review, blocker, or Target C evidence change.
+
+sandbox:
+  scope: Authoritative skill policy only; no HARP runtime writer or provider is reachable.
+  fixture: The three immutable host captures, the Synthetic causal-revision progression addendum, the Target C stale-contract Plan Review, repair-CAS, both bootstrap exact-diff rejection addenda, selected-provider queue-freeze addendum, and the existing three bundled sanitized baseline profiles.
+  invoke: Quick validation and targeted deterministic skill/checker tests.
+  assert:
+    - Baseline historical profiles are described as a minimum rather than exhaustive coverage.
+    - All three observed incident chains have explicit negative and concurrency replay obligations.
+    - Stale or incomplete Plan Review inputs fail before graph installation or queue admission.
+    - Valid typed repair decisions commit once under harmless row churn without equal-prompt provider recall.
+    - Provider-held repair custody overlapped by a lock-losing ordinary tick produces no competing subject-row write or equal-identity supersession, and duplicate-key decisions fail closed.
+    - Ownership-token custody spans provider return through final commit, release is owner-checked, and derived retry/route row collisions reuse the existing decision without provider recall.
+    - Exact selected-provider queue admission ignores unrelated frozen circuits without mutating them; selected freeze, unknown routing, and identity drift fail closed before provider call.
+    - Final selected-provider transport admission is linearized under its call lease; freeze snapshots retain their exact observation identity, delegated drift preserves partial-call truth, and stale recovery or concurrent row changes cannot reopen work.
+    - No command can write a live HARP workspace.
+  record:
+    - docs/harp_iteration_handoff.md
+
+combined_chain_gate:
+  decision: not_applicable
+  reason: This bounded iteration changes only skill policy Markdown and adds no target HARP runtime producer or consumer.
+  unreachability:
+    predicate:
+      kind: no_harp_runtime_boundaries
+    invoke: Immutable exact-diff scope classification plus the skill checker's fixed contradiction inventory.
+    assert: No target HARP runtime producer or consumer is added, changed, or removed by the exact skill candidate.
+    evidence: docs/evidence/delivery_alignment_incident_derived_replay_20260802/combined_chain_unreachability.json
+
+historical_replay_gate:
+  decision: required
+  reason: The policy change is itself motivated by historical coverage gaps that the three baseline profiles did not encode.
+  fixture_manifest: skills/delivery-alignment-iteration/assets/harp-history-replays/manifest.json
+  capture: Existing read-only whitelist baseline capture plus separately hash-bound Target C host incident captures.
+  capture_receipt: skills/delivery-alignment-iteration/assets/harp-history-replays/capture_receipt.json
+  invoke: python3 skills/delivery-alignment-iteration/scripts/validate_harp_chain_evidence.py --replay-manifest skills/delivery-alignment-iteration/assets/harp-history-replays/manifest.json
+  assert:
+    - The three bundled profiles remain valid baseline evidence.
+    - The policy requires every distinct available incident signature as an additive target-local replay.
+    - Target C V5, not this baseline validator, must prove all contract-bound incidents through real producers and consumers.
+  evidence: docs/evidence/delivery_alignment_incident_derived_replay_20260802/historical_replay_validation.json
+
+adversarial_gate:
+  risk: high
+  decision: required
+  reason: The skill Markdown is authoritative control over future test and promotion evidence.
+  base: 09f50941957c849bc12445d233d8f9fd8223c10e
+  candidate: 09f50941957c849bc12445d233d8f9fd8223c10e
+  attack_scope:
+    - skills/delivery-alignment-iteration/SKILL.md
+    - skills/delivery-alignment-iteration/references/harp_combined_chain_replay.md
+    - docs/iteration_contracts/delivery_alignment_incident_derived_replay_20260802.yaml
+    - docs/harp_iteration_handoff.md
+  evidence_dir: docs/evidence/delivery_alignment_incident_derived_replay_20260802/adversarial_gate
