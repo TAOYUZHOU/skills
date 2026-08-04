@@ -1392,8 +1392,9 @@ def test_cli_defaults_cannot_disable_current_schema_gate(tmp_path: Path) -> None
         stdout=subprocess.PIPE,
         check=False,
     )
-    assert completed.returncode == 2
+    assert completed.returncode == 4
     assert '"current_schema"' in completed.stdout
+    assert '"historical_v1_v2_audit_only"' in completed.stdout
 
 
 def test_comment_only_nested_adversarial_reason_is_rejected() -> None:

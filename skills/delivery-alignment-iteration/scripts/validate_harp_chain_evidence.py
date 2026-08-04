@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Validate sanitized HARP history replays and a combined lifecycle receipt."""
+"""Validate HARP replay/chain evidence as an untrusted evidence producer.
+
+Promotion authority belongs to the pinned, candidate-external schema-v3
+verifier. This validator may recompute evidence but cannot close an iteration.
+"""
 
 from __future__ import annotations
 

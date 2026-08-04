@@ -1,0 +1,193 @@
+schema_version: 3
+intent: >-
+  Replace the delivery-alignment iteration skill's candidate-authored,
+  open-ended proof loop with a finite risk-tiered authorization model rooted in
+  a candidate-external pinned verifier, frozen threat model, signed external
+  phase ledger, admissible-finding rule, appeal path, and human budget breaker.
+non_goals:
+  - Modify HARP runtime, r8, live workspaces, or a post-v19 successor.
+  - Claim that the new verifier can authorize its own gate-tool upgrade.
+  - Remove historical schema-v1/v2 evidence parsers.
+ssot:
+  - path: skills/delivery-alignment-iteration/SKILL.md
+    reason: Installed workflow instructions.
+  - path: skills/delivery-alignment-iteration/references/trust_and_convergence.md
+    reason: Normative trust, review, budget, and closure rules.
+  - path: skills/delivery-alignment-iteration/scripts/check_iteration_convergence.py
+    reason: Executable schema-v3 policy evaluator.
+deliverables:
+  - id: D1
+    path: skills/delivery-alignment-iteration/SKILL.md
+    description: Concise workflow with external TCB, tiered gates, and finite closure.
+  - id: D2
+    path: skills/delivery-alignment-iteration/references/trust_and_convergence.md
+    description: Normative trust sequence and convergence policy.
+  - id: D3
+    path: skills/delivery-alignment-iteration/scripts/check_iteration_convergence.py
+    description: Strict evaluator for contracts and signed external phase ledgers.
+  - id: D4
+    path: tests/test_delivery_alignment_convergence.py
+    description: Directed tests for closure, blockers, budgets, review scope, and trust boundaries.
+  - id: D5
+    path: docs/delivery_alignment_iteration_handoff.md
+    description: Phase-neutral durable handoff for this gate-tool upgrade.
+acceptance_criteria:
+  - id: A1
+    description: Candidate-authored tools are evidence producers and cannot authorize promotion or receive private signing material.
+  - id: A2
+    description: The exact closure formula terminates by tier-required clean rounds, frozen in-model blockers, completeness, and budgets.
+  - id: A3
+    description: R0 through R3 select distinct ordered gate sets based on authority reachability and blast radius.
+  - id: A4
+    description: Reviewer findings cannot expand frozen criteria; one independent appeal is supported and out-of-model findings are nonblocking absent an adjudicated emergency P0.
+  - id: A5
+    description: Candidate identity, tree, patch, actual paths, contract, model, verifier, and phase truth bind in an external Ed25519-signed ledger without candidate-hash self-reference.
+  - id: A6
+    description: Historical v1/v2 CLI execution can audit evidence but always refuses promotion authority.
+  - id: A7
+    description: Skill validation, directed convergence tests, legacy regression tests, and two independent static/forward reviews pass for one frozen candidate.
+verification:
+  - id: V1
+    command_or_check: python3 skill-creator/scripts/quick_validate.py skills/delivery-alignment-iteration
+  - id: V2
+    command_or_check: pytest -q tests/test_delivery_alignment_convergence.py
+  - id: V3
+    command_or_check: pytest -q tests/test_delivery_alignment_contract_checker.py tests/test_delivery_alignment_history_replay.py
+  - id: V4
+    command_or_check: Two independent reviewers inspect the exact frozen diff and execute forward scenarios.
+  - id: V5
+    command_or_check: A pinned external copy of check_iteration_convergence.py verifies the signed external ledger and reports ready_for_external_acceptance.
+traceability:
+  - acceptance: A1
+    deliverables: [D1, D2, D3]
+    verification: [V2, V4, V5]
+  - acceptance: A2
+    deliverables: [D1, D2, D3, D4]
+    verification: [V2, V4]
+  - acceptance: A3
+    deliverables: [D1, D2, D3, D4]
+    verification: [V2]
+  - acceptance: A4
+    deliverables: [D2, D3, D4]
+    verification: [V2, V4]
+  - acceptance: A5
+    deliverables: [D2, D3, D4]
+    verification: [V2, V5]
+  - acceptance: A6
+    deliverables: [D1, D3]
+    verification: [V3, V4]
+  - acceptance: A7
+    deliverables: [D1, D2, D3, D4, D5]
+    verification: [V1, V2, V3, V4, V5]
+risks:
+  - This is a gate-tool upgrade; the new verifier can reach only ready_for_external_acceptance until its hash is accepted externally.
+  - OpenSSL 3.x is a host dependency for Ed25519 ledger verification.
+  - Existing schema-v2 evidence remains readable but is deliberately non-authorizing.
+final_claims_allowed:
+  - The schema-v3 skill candidate passed its bounded validation and is ready for external acceptance.
+  - The accepted verifier may govern a separately frozen post-v19 decision; this iteration did not start that successor.
+handoff:
+  path: docs/delivery_alignment_iteration_handoff.md
+  policy: Phase-neutral candidate truth freezes at T2; reviewer and closure state lives in the external signed ledger.
+trust:
+  verifier_origin: installed_skill
+  verifier_version: trust-convergence-v1
+  verifier_sha256: 683f2a14079b31ddd7da2be9bab92afe3b5f74e2fb8681d927769d450d5c36f8
+  candidate_tool_role: untrusted_evidence_producer
+  candidate_private_signing_material: forbidden
+  bootstrap_mode: gate_tool_upgrade
+  prior_verifier_sha256: dded3c6f664a0d853083349682a70b78ac9426490e9ffb7474c3ddd0a93470a2
+  root_anchor:
+    external_signing_public_key_sha256: 5d812a61d5e72b5da2081d9b7290108a51d3a22daabbce38c97cf64ae9874fae
+    base_commit: 7edfde64d56454a99e49a6be313b81bfc0b03498
+    contract_hashes:
+      - 7a3636b81f9dea85ccefcdf57ce0feb4f4003001aed492228bf20a4c15eb5da4
+      - ae3f916a95f84d2c9ff8807674f6abdb3c97854be9bf040409fd86859739f4b1
+      - dded3c6f664a0d853083349682a70b78ac9426490e9ffb7474c3ddd0a93470a2
+threat_model:
+  frozen: true
+  protected_assets:
+    - Promotion and cutover authority.
+    - Frozen review criteria and closure receipt.
+    - Host signing key and external phase truth.
+  attacker_capabilities:
+    - Candidate controls every byte in its repository and candidate-authored evidence.
+    - Reviewer may propose incorrect or out-of-model requirements.
+    - Candidate or operator may replay, omit, reorder, or mutate unsigned evidence.
+    - Provider may fail, time out, or return malformed output.
+  trusted_components:
+    - Prior accepted schema-v2 checker only for historical audit and bootstrap evidence.
+    - Two independent static reviewers of the exact gate-tool diff.
+    - Host OpenSSL Ed25519 verifier and external public-key hash anchor.
+    - Human acceptance of the new verifier hash.
+  excluded_capabilities:
+    - Host kernel compromise.
+    - Theft of the external Ed25519 private key.
+    - Collision or preimage break of SHA-256 or forgery of Ed25519.
+  security_properties:
+    - id: SP1
+      description: Candidate-contained code cannot issue a closure decision for its own or another product promotion.
+    - id: SP2
+      description: Only predeclared in-model deterministic P0/P1 findings block the frozen candidate.
+    - id: SP3
+      description: Tier-specific clean rounds and bounded budgets produce a finite close, continue, or human-checkpoint decision.
+    - id: SP4
+      description: External signed phase truth binds the exact contract, candidate, tree, patch, paths, model, and verifier.
+    - id: SP5
+      description: No private signing material or private-key path enters candidate inputs or subprocesses.
+    - id: SP6
+      description: Candidate identity is external freeze data and does not create a self-referential candidate contract.
+  evidence_formats:
+    - Strict YAML schema-v3 contract with duplicate-key rejection.
+    - Canonical strict JSON phase ledger with detached Ed25519 signature.
+    - Pytest/JUnit and hash-bound static review receipts.
+risk_profile:
+  tier: R3
+  authority_reachability: true
+  blast_radius: system
+  rationale: This diff changes the root-of-trust, review, and promotion policy used by future self-evolve iterations.
+  changed_paths:
+    - docs/delivery_alignment_iteration_handoff.md
+    - docs/iteration_contracts/delivery_alignment_trust_convergence_v3_20260804.yaml
+    - skills/delivery-alignment-iteration/SKILL.md
+    - skills/delivery-alignment-iteration/agents/openai.yaml
+    - skills/delivery-alignment-iteration/references/harp_combined_chain_replay.md
+    - skills/delivery-alignment-iteration/references/iteration_contract_schema.md
+    - skills/delivery-alignment-iteration/references/trust_and_convergence.md
+    - skills/delivery-alignment-iteration/scripts/check_delivery_contract.py
+    - skills/delivery-alignment-iteration/scripts/check_iteration_convergence.py
+    - skills/delivery-alignment-iteration/scripts/validate_harp_chain_evidence.py
+    - tests/test_delivery_alignment_contract_checker.py
+    - tests/test_delivery_alignment_convergence.py
+  required_gates:
+    - static
+    - targeted_regression
+    - atomic_boundary
+    - combined_chain_if_reachable
+    - historical_replay_if_reachable
+    - host_tcb
+    - independent_adversarial_1
+    - independent_adversarial_2
+    - full_dynamic
+review_policy:
+  author_id: root-codex
+  required_clean_rounds: 2
+  max_appeals_per_finding: 1
+  out_of_model_disposition: scope_expansion_proposal
+  criteria_frozen: true
+  reopen_rule: signed_property_invalidated
+budgets:
+  max_candidate_rejections: 2
+  max_adversarial_rounds_per_candidate: 2
+  max_new_attacks_per_round: 8
+  max_active_engineering_hours_without_checkpoint: 4
+  human_report_every_candidate_reviews: 2
+  max_appeals_per_finding: 1
+convergence:
+  acceptance_ids: [A1, A2, A3, A4, A5, A6, A7]
+  completeness_required: true
+  residual_risk_policy: record_nonblocking_p2_and_provisional
+  requested_state: close
+phase_ledger:
+  mode: candidate_external
+  ledger_id: delivery-alignment-trust-convergence-v3-20260804

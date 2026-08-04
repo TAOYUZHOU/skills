@@ -1,258 +1,308 @@
-# Iteration Contract Schema
+# Iteration Contract Schema v3
 
-This reference defines a compact contract for preventing delivery mismatch.
+Use strict YAML for every new iteration contract. Schema v1/v2 and
+`check_delivery_contract.py` are retained only to read and audit historical
+evidence; they cannot authorize a new candidate.
 
-## Required Fields
+Schema v3 separates four objects that older contracts conflated:
 
-Use strict YAML with `schema_version: 2` for every new iteration contract.
-Duplicate keys, YAML nulls, and YAML/Markdown hybrid syntax fail closed. The
-checker exposes a separate read-only compatibility API for historical
-version-1 Markdown; it cannot authorize promotion.
+1. the immutable candidate and its phase-neutral handoff;
+2. the frozen threat/risk/acceptance contract;
+3. the candidate-external, pinned verifier TCB; and
+4. the mutable candidate-external phase ledger.
 
-- `intent`: The user's concrete desired outcome in one or two sentences.
-- `non_goals`: Explicit exclusions. Use this to prevent adjacent substitutions.
-- `ssot`: Sources of truth, such as docs, schemas, runtime facts, userprompt, or branches.
-- `deliverables`: Files, artifacts, commits, branches, reports, or runtime states that must exist.
-- `acceptance_criteria`: Observable conditions that make the work acceptable.
-- `verification`: Commands or evidence checks used to verify acceptance.
-- `traceability`: Mapping from acceptance criteria to deliverables and verification.
-- `risks`: Residual risks, assumptions, or known gaps.
-- `final_claims_allowed`: Claims the agent may make if verification passes.
-- `handoff`: Stable docs path and update policy for the iteration handoff SSOT.
-- `adversarial_gate`: Diff risk, gate decision, reason, immutable base,
-  attack scope, and durable evidence directory.
-- `combined_chain_gate`: Applicability decision plus the target-local command,
-  assertions, and receipt for the complete control lifecycle.
-- `historical_replay_gate`: Applicability decision plus the sanitized fixture
-  manifest, read-only capture command, replay command, assertions, and evidence.
+The normative trust sequence, risk tiers, admissible findings, budgets, appeal
+rule, and closure formula are in
+[`trust_and_convergence.md`](trust_and_convergence.md).
 
-Required for every iteration:
+## Contract fields
 
-- `sandbox`: Atomic live-provider boundary check (role, fixture, invoke command,
-  assertions, raw output and receipt paths). Dry-run evidence is supplementary
-  and cannot satisfy completion.
+Common delivery fields:
 
-For `adversarial_gate`:
+- `schema_version`: literal integer `3`.
+- `intent`: one observable iteration outcome.
+- `non_goals`: explicit exclusions.
+- `ssot`: authoritative paths/sources and reasons.
+- `deliverables`: stable IDs, paths/objects, and descriptions.
+- `acceptance_criteria`: stable IDs and observable conditions.
+- `verification`: stable IDs and exact commands/checks.
+- `traceability`: acceptance-to-deliverable-to-verification mapping.
+- `risks`: known risks before execution.
+- `final_claims_allowed`: bounded claims permitted only after closure.
+- `handoff`: stable candidate-tree path and phase-neutral update policy.
 
-- `risk: high` and `decision: required` are mandatory for executable code, new
-  modules, parsers, schemas, reducers, writers, state/role/provider edges,
-  queue/lease identity, process lifecycle, retry/resume, completion,
-  projection, security, or release behavior.
-- `risk: low` and `decision: skipped` are allowed for documentation, comments,
-  static assets, or evidence-only changes only when the reason explains why no
-  authoritative runtime behavior changes.
-- Every current contract declares immutable `base` and `candidate` commits,
-  exact `attack_scope`, and `evidence_dir`, including low-risk skips.
-  Before completion, the handoff records the real Agent invocation, raw output,
-  attack manifest, deterministic commands/results, and zero escaped attacks.
-  Its top-level `candidate` metadata must exactly match both the contract and,
-  for high-risk promotion, the externally supplied frozen candidate.
-  The trusted runner also freezes the complete tracked
-  `candidate..worktree` binary/full-index patch, submits that exact patch to the
-  Agent, and passes its SHA-256 as `--expected-forward-patch-sha256`. It must
-  execute the checker extracted from the immutable candidate tree, not its
-  mutable worktree copy. That checker reads and compiles the validator directly
-  from the content-addressed candidate Git object, eliminating a
-  check-then-import sibling path. Validation runs against a host-frozen
-  read-only tree and records the forward digest before and after. The signed
-  provider receipt and deterministic gate result bind the same forward digest
-  and candidate tool hashes; substitution after review fails closed.
-  The provider receipt must carry a valid HMAC attestation from a key outside
-  the candidate repository, supplied to the checker through
-  `DELIVERY_ALIGNMENT_RECEIPT_KEY_FILE`. The deterministic gate result requires
-  a separate attestation with the same host trust root. Low-risk skips may keep
-  the attack corpus empty, but still provide the live-sandbox evidence bundle.
-  `current_output_attacks` must exactly match the latest Agent output, and every
-  current attack ID must appear in the cumulative `attacks` regression corpus.
-  Historical corpus entries may come from earlier exact candidates.
+Trust fields:
 
-For high-risk control-lifecycle iterations, both lifecycle gates are mandatory:
+- `trust.verifier_origin`: exactly `installed_skill`.
+- `trust.verifier_version`: exactly `trust-convergence-v1` for this schema.
+- `trust.verifier_sha256`: SHA-256 of the executing external verifier.
+- `trust.candidate_tool_role`: exactly `untrusted_evidence_producer`.
+- `trust.candidate_private_signing_material`: exactly `forbidden`.
+- `trust.bootstrap_mode`: `normal` or `gate_tool_upgrade`.
+- `trust.prior_verifier_sha256`: required for `gate_tool_upgrade`.
+- `trust.root_anchor.external_signing_public_key_sha256`: public verification
+  anchor. Private key material and its path are never candidate inputs.
+- `trust.root_anchor.base_commit`: immutable base SHA.
+- `trust.root_anchor.contract_hashes`: immutable hashes accepted at T0.
 
-- `decision: required` needs non-empty `reason`, `scope`, `invoke`, `assert`,
-  and `evidence` in `combined_chain_gate`.
-- `decision: required` needs non-empty `reason`, `fixture_manifest`, `capture`,
-  `capture_receipt`, `invoke`, `assert`, and `evidence` in
-  `historical_replay_gate`.
-- Every schema-v2 contract declares both gates. `decision: not_applicable`
-  needs `unreachability.predicate`, `unreachability.invoke`,
-  `unreachability.assert`, and
-  `unreachability.evidence`; the evidence JSON must say `ok: true`, identify the
-  gate, record `reachable: false`, and exactly bind the predicate, current
-  observation, command, and assertion. The checker supports the declarative
-  `all_paths_absent` predicate and the fixed `no_harp_runtime_boundaries`
-  predicate. The latter accepts no author-selected fields and requires a
-  host-selected, HMAC-attested scope classification outside the candidate
-  repository. That record binds the repository identity, immutable
-  base/candidate pair, exact binary diff hash, and complete changed-path set to
-  an independent `non_harp_repository_change` decision. The checker separately
-  re-evaluates path and semantic boundary signals across the current code
-  inventory as a contradiction detector, never as sufficient proof of N/A. It
-  fails closed for code outside the skill-catalog layout and
-  unions lifecycle signals across modules within one package, so split queue,
-  review, completion, and health files cannot evade it. It also unions signals
-  from the complete frozen candidate code tree, including across packages and
-  evidence directories, and reads base blobs for deletions.
-  `combined_chain_gate` cannot substitute
-  `all_paths_absent`; that predicate remains available only for other supported
-  unreachability classes. Removing or replacing working-tree files, hiding
-  unchanged runtime files, or deleting producers cannot hide the candidate
-  boundary. A copied signed record fails when the current root makes the
-  predicate false.
-  The signed record also binds `candidate_revision`, `repository_scope`, and
-  `command_cwd`; it cannot be replayed for a later candidate.
-  Existing mocks, unit tests, cost, prose, or an unavailable provider do not
-  establish unreachability.
-- The historical manifest and unreachability record must be signed by the
-  pre-provisioned host trust root outside the candidate repository. A temporary
-  key selected by the candidate author is not promotion evidence.
-- The historical manifest names `capture_receipt.json`; the trusted runner
-  separately signs that record after the read-only capture. The checker
-  recomputes its capture-tool hash and requires its source snapshots and
-  profile hashes to exactly match the manifest and fixtures.
-- A required combined receipt must carry a valid host-controlled HMAC
-  attestation and bind the exact contract invocation, candidate revision,
-  target-local test path/hash, and all stage producer/consumer/assertion rows.
-  Every target-local stage row also binds one unique JUnit testcase from that
-  module plus candidate-tree producer/consumer paths and hashes. A hash-bound
-  coverage JSON with per-test contexts must show that each testcase executed
-  both bound files. JUnit, coverage, and an ordered causal trace share a signed
-  run ID; every trace row requires producer output digest equal to consumer
-  input digest, and each consumer output becomes the next stage input. Because
-  that trace is candidate-generated, the receipt also binds
-  `observer_mode: external_python_call_boundary_observer_v1` and the SHA-256 of
-  a host-selected observer receipt outside the candidate tree. The observer
-  receipt is independently HMAC-attested and records the actual producer
-  argument/return and consumer argument/return digests in event order. Its
-  candidate, command, run, test, JUnit, coverage, trace, stage-binding, and
-  observer-tool hashes must all match. Candidate trace values are not accepted
-  as the observer's source.
-  The invocation must use the constrained pytest form with that sole test path
-  and a hash-bound JUnit report proving the module ran with no failure, error,
-  or skip in both aggregate counters and testcase nodes.
-- Its `boundary_mode` must be `target_local_real_producers_consumers`.
-  Skill-gate meta-validation may be retained as diagnostic evidence but is not
-  accepted by the required lifecycle gate.
-- The chain is additive to the atomic sandbox and exact-diff adversarial gate.
-  Required gates without passing evidence keep the iteration non-complete.
+Threat-model fields:
 
-## Recommended Review Questions
+- `threat_model.frozen`: exactly `true`. The verifier computes its canonical
+  digest; the signed T2 ledger binds that digest to the exact candidate.
+- `protected_assets`, `attacker_capabilities`, `trusted_components`,
+  `excluded_capabilities`, and `evidence_formats`: explicit lists.
+- `security_properties`: stable `{id, description}` records. Only these
+  properties can support an ordinary current-candidate blocking P0/P1.
 
-1. Does every acceptance criterion map to at least one deliverable?
-2. Does every final claim have verification evidence?
-3. Did any fallback replace a requested deliverable without explicit approval?
-4. Did any machine/runtime issue get mixed into a domain/scientific blocker?
-5. Did the implementation update all truth-source docs that the design changed?
-6. Did the iteration try subtraction first before adding a new role, state file, hook, schema, fallback, or repair lane?
-7. Is there a successful real-provider atomic sandbox for this iteration, with
-   raw prompt/output and deterministic downstream assertions? If not, is status
-   correctly `partial` or `blocked` rather than `complete`?
-8. Does the stable docs handoff match the current diff, verification evidence,
-   blockers, and next action?
-9. Did a real Agent derive attacks from the exact high-risk diff, and do its
-   executable oracles plus the fixed regression corpus report zero escapes?
-10. Does a high-risk control change exercise the complete executor-to-later-
-    health-audit chain through real target producers and consumers?
-11. Do the three sanitized historical archetypes reproduce their original
-    inconsistency signatures without copying raw workspace content or mutating
-    a source workspace?
+Risk fields:
 
-## Minimal YAML Template
+- `risk_profile.tier`: `R0`, `R1`, `R2`, or `R3`.
+- `authority_reachability`: boolean; `true` cannot be lower than R2.
+- `blast_radius`: `local`, `bounded`, `system`, or `release`.
+- `rationale`: authority/blast-radius justification.
+- `changed_paths`: complete declared affected-path set.
+- `required_gates`: the exact ordered tier gate set below.
 
 ```yaml
-schema_version: 2
+R0: [static]
+R1: [static, targeted_regression, independent_review_1]
+R2: [static, targeted_regression, atomic_boundary,
+  combined_chain_if_reachable, historical_replay_if_reachable,
+  independent_adversarial_1]
+R3: [static, targeted_regression, atomic_boundary,
+  combined_chain_if_reachable, historical_replay_if_reachable, host_tcb,
+  independent_adversarial_1, independent_adversarial_2, full_dynamic]
+```
 
-intent: State the concrete requested outcome.
+Review, budget, and closure fields:
 
+- `review_policy.author_id`: candidate author identity.
+- `required_clean_rounds`: R0 `0`, R1/R2 `1`, R3 `2`.
+- `max_appeals_per_finding`: exactly `1`.
+- `out_of_model_disposition`: exactly `scope_expansion_proposal`.
+- `criteria_frozen`: exactly `true`.
+- `reopen_rule`: exactly `signed_property_invalidated`.
+- `budgets`: every field shown below; values may be stricter but not looser
+  without explicit human approval.
+- `convergence.acceptance_ids`: exact acceptance ID set.
+- `completeness_required`: exactly `true`.
+- `residual_risk_policy`: exactly
+  `record_nonblocking_p2_and_provisional`.
+- `requested_state`: `open` or `close`.
+- `phase_ledger.mode`: exactly `candidate_external`.
+- `phase_ledger.ledger_id`: stable ledger identity, not a candidate path.
+
+## Full contract example
+
+```yaml
+schema_version: 3
+intent: "Make one bounded parser change without widening promotion authority."
 non_goals:
-  - State an explicit exclusion.
-
+  - "No state-machine or release change."
 ssot:
-  - path: docs/source-of-truth.md
-    reason: Why this source is authoritative.
-
+  - path: docs/parser_contract.md
+    reason: "Accepted parser semantics."
 deliverables:
   - id: D1
-    path: path/to/deliverable
-
+    path: src/parser.py
+    description: "Bounded parser correction."
 acceptance_criteria:
   - id: A1
-    description: Observable completion condition.
-
+    description: "The incident payload parses to the declared typed result."
 verification:
   - id: V1
-    command_or_check: pytest -q
-
+    command_or_check: "pytest -q tests/test_parser.py"
 traceability:
   - acceptance: A1
     deliverables: [D1]
     verification: [V1]
-
 risks:
-  - Residual risk.
-
+  - "Malformed neighbor payload remains fail closed."
 final_claims_allowed:
-  - Claim allowed after V1 passes.
-
+  - "The frozen parser case and declared neighbors pass."
 handoff:
-  path: docs/harp_iteration_handoff.md
-  policy: Update after every material implementation or verification step.
-
-sandbox:
-  scope: Changed boundary.
-  fixture: Minimal live fixture.
-  invoke: Real provider command.
-  assert: Deterministic postcondition.
-  record: Durable evidence path.
-
-adversarial_gate:
-  risk: high
-  decision: required
-  reason: This changes an executable state boundary.
-  base: "0000000000000000000000000000000000000000"
-  candidate: "1111111111111111111111111111111111111111"
-  attack_scope:
-    - path/to/changed_module.py
-  evidence_dir: docs/evidence/<iteration>
-
-combined_chain_gate:
-  decision: required
-  reason: Queue-to-health control behavior is reachable.
-  scope: Executor handoff through post-repair health audit.
-  invoke: pytest -q tests/test_combined_lifecycle_chain.py
-  assert:
-    - All ordered stages use the target runtime producers and consumers.
-    - Failure paths reject premature completion and remain health-auditable.
-    - The happy path closes with zero repeated zero-work wakeups.
-  evidence: docs/evidence/<iteration>/combined_chain_receipt.json
-
-historical_replay_gate:
-  decision: required
-  reason: The control change can regress previously observed workspace states.
-  fixture_manifest: path/to/sanitized/history/manifest.json
-  capture: python3 path/to/capture_script.py --source ...
-  capture_receipt: path/to/sanitized/history/capture_receipt.json
-  invoke: pytest -q tests/test_historical_control_replay.py
-  assert:
-    - review_projection_mismatch is detected and routed.
-    - blocked_artifact_dependency cannot complete.
-    - partial_result_materialization cannot complete.
-  evidence: docs/evidence/<iteration>/historical_replay_validation.json
+  path: docs/iteration_handoff.md
+  policy: "Phase-neutral candidate truth; freeze at T2."
+trust:
+  verifier_origin: installed_skill
+  verifier_version: trust-convergence-v1
+  verifier_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  candidate_tool_role: untrusted_evidence_producer
+  candidate_private_signing_material: forbidden
+  bootstrap_mode: normal
+  root_anchor:
+    external_signing_public_key_sha256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    base_commit: "1111111111111111111111111111111111111111"
+    contract_hashes:
+      - "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+threat_model:
+  frozen: true
+  protected_assets: ["typed parser decision"]
+  attacker_capabilities: ["supplies malformed bounded payload"]
+  trusted_components: ["pinned external verifier"]
+  excluded_capabilities: ["host verifier compromise"]
+  security_properties:
+    - id: SP1
+      description: "Malformed payload cannot authorize a typed decision."
+  evidence_formats: ["strict JSON receipt v1"]
+risk_profile:
+  tier: R2
+  authority_reachability: true
+  blast_radius: bounded
+  rationale: "The parser output crosses one decision boundary."
+  changed_paths: [src/parser.py, tests/test_parser.py]
+  required_gates: [static, targeted_regression, atomic_boundary,
+    combined_chain_if_reachable, historical_replay_if_reachable,
+    independent_adversarial_1]
+review_policy:
+  author_id: primary-agent
+  required_clean_rounds: 1
+  max_appeals_per_finding: 1
+  out_of_model_disposition: scope_expansion_proposal
+  criteria_frozen: true
+  reopen_rule: signed_property_invalidated
+budgets:
+  max_candidate_rejections: 2
+  max_adversarial_rounds_per_candidate: 2
+  max_new_attacks_per_round: 8
+  max_active_engineering_hours_without_checkpoint: 4
+  human_report_every_candidate_reviews: 2
+  max_appeals_per_finding: 1
+convergence:
+  acceptance_ids: [A1]
+  completeness_required: true
+  residual_risk_policy: record_nonblocking_p2_and_provisional
+  requested_state: open
+phase_ledger:
+  mode: candidate_external
+  ledger_id: parser-iteration-r1
 ```
 
-## Handoff Document Schema
+## External phase ledger
 
-The checker accepts Markdown headings with these meanings:
+The ledger is strict JSON stored outside the candidate repository. Minimum
+shape:
 
-- Intent
-- Non-goals
-- Current truth
-- Current phase
-- Completed changes
-- Verification evidence
-- Open blockers and risks
-- Exact next action
-- Final claims allowed now
-- Adversarial gate evidence
+```json
+{
+  "schema_version": 1,
+  "ledger_id": "parser-iteration-r1",
+  "contract_sha256": "<SHA-256 of the exact schema-v3 contract bytes>",
+  "base_commit": "1111111111111111111111111111111111111111",
+  "candidate_tree": "3333333333333333333333333333333333333333",
+  "candidate_patch_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "actual_changed_paths": ["src/parser.py", "tests/test_parser.py"],
+  "candidate": "2222222222222222222222222222222222222222",
+  "threat_model_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "verifier_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "acceptance_results": [
+    {"id": "A1", "passed": true, "evidence": "sha256:..."}
+  ],
+  "gate_results": {
+    "static": {"status": "passed", "evidence": "sha256:..."},
+    "targeted_regression": {"status": "passed", "evidence": "sha256:..."},
+    "atomic_boundary": {"status": "passed", "evidence": "sha256:..."},
+    "combined_chain_if_reachable": {
+      "status": "not_applicable",
+      "unreachability_proof": "sha256:..."
+    },
+    "historical_replay_if_reachable": {
+      "status": "not_applicable",
+      "unreachability_proof": "sha256:..."
+    },
+    "independent_adversarial_1": {
+      "status": "passed",
+      "evidence": "sha256:..."
+    }
+  },
+  "findings": [],
+  "review_rounds": [
+    {
+      "reviewer_id": "independent-reviewer-1",
+      "independent": true,
+      "candidate": "2222222222222222222222222222222222222222",
+      "threat_model_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "new_confirmed_blocker_ids": []
+    }
+  ],
+  "completeness_map": [
+    {
+      "path": "src/parser.py",
+      "disposition": "changed_and_verified",
+      "proof": "V1"
+    },
+    {
+      "path": "tests/test_parser.py",
+      "disposition": "changed_and_verified",
+      "proof": "V1"
+    }
+  ],
+  "residual_risks": [],
+  "budget_usage": {
+    "candidate_rejections": 0,
+    "adversarial_rounds": 1,
+    "new_attacks_by_round": [3],
+    "active_engineering_hours": 2,
+    "candidate_reviews_since_human_report": 1
+  },
+  "attestation": {
+    "algorithm": "ed25519",
+    "payload_sha256": "<SHA-256 of canonical ledger JSON without attestation>",
+    "signature_base64": "<64-byte detached signature in base64>"
+  }
+}
+```
 
-Also include non-empty scalar metadata for `status`, `updated_at_utc`,
-`iteration`, and `contract` near the document top.
+## Finding records
+
+Allowed statuses are `confirmed_open`, `resolved`, `provisional`, and
+`rejected`; severities are P0/P1/P2. A current blocking finding contains:
+
+```json
+{
+  "id": "F1",
+  "status": "confirmed_open",
+  "severity": "P1",
+  "reviewer_id": "reviewer-1",
+  "violated_predeclared_property": "SP1",
+  "attacker_capability": "supplies malformed bounded payload",
+  "exact_candidate_identity": "2222222222222222222222222222222222222222",
+  "deterministic_counterexample_or_static_proof": "pytest::test_repro",
+  "authority_boundary_crossed": true,
+  "remediation_scope": "src/parser.py",
+  "appeals": []
+}
+```
+
+Without every proof field or in-model IDs, use `provisional`/P2 and add the
+finding to `residual_risks`. One appeal has `adjudicator_id` distinct from the
+reviewer and decision `upheld`, `rejected`, or `downgraded`; it cannot add a new
+criterion.
+
+## Evaluator outcomes
+
+The host signs canonical UTF-8 JSON (sorted keys, compact separators) with the
+top-level `attestation` field omitted. The verifier uses the candidate-external
+public key passed with `--public-key` and requires its file hash to equal
+`trust.root_anchor.external_signing_public_key_sha256`.
+
+`check_iteration_convergence.py` returns:
+
+- `invalid`: schema, identity, trust, finding, or ledger contradiction;
+- `continue`: valid iteration with unsatisfied closure conditions;
+- `human_checkpoint`: budget or adjudicated emergency requires a person;
+- `ready_for_external_acceptance`: a gate-tool upgrade passed diagnostics but
+  its candidate-contained new verifier cannot authorize itself;
+- `close`: the pinned external verifier proved the finite closure formula.
+
+Use `--require-close` for product promotion. Never treat
+`ready_for_external_acceptance` as product closure.
+
+## Handoff format
+
+The stable Markdown handoff includes nonempty metadata `status`,
+`updated_at_utc`, `iteration`, `contract`, and frozen `candidate`, plus sections
+for intent, non-goals, current truth, phase-neutral candidate instructions,
+completed changes, verification evidence, residual risks, allowed claims, and
+exact next action. Post-freeze reviewer turns and phase changes belong only in
+the external ledger.

@@ -44,7 +44,7 @@ current contract and every current required capture at review time. Stale,
 absent, foreign, or incomplete identities must yield one typed rejection before
 installation or launch; a provider-successful review turn cannot make them
 current. Bind this pre-chain edge in the same causal trace, observer receipt,
-incident fixture, and candidate-origin completeness check as the ten stages.
+incident fixture, and external-verifier completeness check as the ten stages.
 
 When graph/plan projections are reachable, stage 6 includes the real accepted
 graph, queue, DAG, canonical active-plan, route, and next-round admission
@@ -88,7 +88,7 @@ schema, but it may not weaken or silently discard the signature.
 The baseline three are necessary but not sufficient when the current incident
 has another causal shape. Add one sanitized incident-derived profile for every
 distinct observed chain and bind it separately in the iteration contract,
-candidate-origin checker, combined receipt, and host attestation. Do not merge
+external pinned verifier, combined receipt, and host attestation. Do not merge
 distinct failures merely because their final health color or provider status is
 the same.
 
@@ -232,7 +232,10 @@ target-local test path and SHA-256, baseline and incident fixture-manifest
 SHA-256 values, and a
 producer/consumer/assertion triple for all ten stages. It records all three
 archetype results and happy-path invariants, and has
-a valid host-controlled HMAC attestation from outside the candidate repository. The
+a valid host-controlled attestation from outside the candidate repository. If a
+legacy HMAC receipt is still consumed, only the external verifier/signing host
+may read the symmetric secret; candidate processes inherit neither the secret
+nor its path. The
 attested command must use the constrained pytest form, name the bound test path
 as its only test target, and emit a hash-bound JUnit report. The checker must
 find at least one testcase from that module and zero failures, errors, or skips;
@@ -256,7 +259,7 @@ candidate-generated hash chain is insufficient. The
 `boundary_mode` must be `target_local_real_producers_consumers`;
 `skill_gate_meta_validation` is diagnostic only and never satisfies a required
 runtime gate. The
-validator and candidate-origin checker must fail closed for a missing stage,
+external pinned validator and verifier must fail closed for a missing stage,
 changed fixture hash, leaked absolute path, missing source provenance, absent
 baseline or contract-bound incident, dropped causal fact/edge, incomplete
 closure assertion, or nonzero repeated zero-work wakeups.
@@ -289,29 +292,31 @@ python3 skills/delivery-alignment-iteration/scripts/validate_harp_chain_evidence
   --chain-receipt docs/evidence/<iteration>/combined_chain_receipt.json
 ```
 
-The promotion checker additionally receives the host records explicitly:
+The external phase ledger binds these receipts. Validate finite closure with a
+pinned verifier outside the HARP candidate repository:
 
 ```bash
-python3 skills/delivery-alignment-iteration/scripts/check_delivery_contract.py \
+python3 /trusted/skills/delivery-alignment-iteration/scripts/check_iteration_convergence.py \
   --contract docs/iteration_contracts/<iteration>.yaml \
-  --handoff docs/harp_iteration_handoff.md --root . \
-  --expected-candidate <sha> \
-  --expected-forward-patch-sha256 <sha256> \
-  --scope-classification <outside-repo-signed-json> \
-  --chain-observer-receipt <outside-repo-signed-json>
+  --ledger /external/phase-ledgers/<iteration>.json \
+  --candidate-root . \
+  --public-key /external/trust/ledger-ed25519-public.pem \
+  --expected-verifier-sha256 <host-pinned-sha256> \
+  --require-close --json
 ```
 
-`--scope-classification` is required for combined-chain N/A.
-`--chain-observer-receipt` is required for a target-local combined-chain pass.
-The unused option may be omitted. Neither record may live beneath the candidate
-root.
+The ledger gate rows point to the separately signed scope-classification record
+for combined-chain N/A and the call-boundary observer receipt for a required
+target-local pass. Neither the ledger nor either host record may live beneath
+the candidate root.
 
 Before any candidate code runs, the trusted runner computes the complete
 tracked `candidate..worktree` patch with `git diff --binary --full-index`,
-requires its SHA-256 to equal the patch reviewed by the exact-diff Agent, and
-extracts the checker from the immutable candidate Git tree. That checker loads
-the lifecycle validator and capture-tool digest directly from content-addressed
-candidate Git objects, never from a mutable sibling after a prior hash check.
-Validation runs against a host-frozen read-only tree and records the forward
-digest before and after. A worktree checker, validator TOCTOU, an unreviewed
-post-freeze edit, or a signed receipt without this binding cannot promote.
+requires its SHA-256 to equal the T2.5-reviewed patch, then loads the verifier
+and lifecycle validator from the installed, version-pinned external TCB. The
+verifier treats candidate checkers, traces, and manifests only as evidence and
+semantically parses every receipt it authorizes. Validation runs against a
+host-frozen read-only tree and records the forward digest before and after. A
+candidate-origin checker, candidate-visible private key, path-only hash check,
+validator TOCTOU, opaque receipt, unreviewed post-freeze edit, or receipt without
+this binding cannot promote.

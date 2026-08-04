@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Validate that an iteration contract contains the minimum alignment fields."""
+"""Audit historical schema-v1/v2 evidence without granting promotion.
+
+New iterations use schema v3 and the candidate-external
+``check_iteration_convergence.py`` verifier.  This module keeps its parsing and
+recomputation APIs so archived receipts remain inspectable, but its CLI always
+fails the authorization boundary.
+"""
 
 from __future__ import annotations
 
@@ -846,7 +852,11 @@ def validate_forward_patch_binding(
 
 
 def validate_checker_origin(root: Path, candidate: str) -> dict:
-    """Prove this process is running the checker and validator from candidate blobs."""
+    """Audit the archived v2 candidate-origin tool binding.
+
+    This is historical evidence only. Candidate-origin tools are never a schema
+    v3 promotion authority.
+    """
 
     relative_checker = (
         "skills/delivery-alignment-iteration/scripts/check_delivery_contract.py"
@@ -1140,7 +1150,7 @@ def _contained_file(root: Path, raw: object, field: str) -> tuple[Path | None, s
 
 
 def _load_chain_validator(root: Path | None = None, candidate: str = ""):
-    """Load validator bytes from the immutable candidate blob when promoting."""
+    """Load archived v2 validator bytes for evidence recomputation only."""
 
     if root is not None and re.fullmatch(r"[0-9a-f]{40}", candidate):
         validator_relative = (
@@ -2562,13 +2572,21 @@ def main() -> int:
     result["contract"] = args.contract
     result["root"] = str(Path(args.root).resolve())
 
+    result["authorization"] = {
+        "ok": False,
+        "mode": "historical_v1_v2_audit_only",
+        "error": (
+            "schema v1/v2 and candidate-origin proof tools cannot authorize a "
+            "new candidate; use a pinned external schema-v3 convergence verifier"
+        ),
+    }
+    result["ok"] = False
+
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
-    elif result["ok"]:
-        print("delivery contract OK")
     else:
         print(json.dumps(result, ensure_ascii=False, indent=2))
-    return 0 if result["ok"] else 2
+    return 4
 
 
 if __name__ == "__main__":
