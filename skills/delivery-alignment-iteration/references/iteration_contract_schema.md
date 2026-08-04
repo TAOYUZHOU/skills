@@ -265,6 +265,39 @@ shape:
       "reviewed_at_utc": "2026-08-04T00:00:00Z"
     }
   ],
+  "phase_chain": {
+    "stage": "closure",
+    "t3_authorization": {
+      "schema_version": 1,
+      "receipt_type": "t3_authorize_execution",
+      "decision": "authorize_execution",
+      "input_ledger_payload_sha256": "<signed pre-execution ledger payload SHA-256>",
+      "candidate": "2222222222222222222222222222222222222222",
+      "candidate_tree": "3333333333333333333333333333333333333333",
+      "candidate_patch_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "contract_sha256": "<exact contract SHA-256>",
+      "threat_model_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "verifier_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "static_review_receipts_sha256": "<canonical receipt-set SHA-256>",
+      "authorized_at_utc": "2026-08-04T00:01:00Z",
+      "attestation": {"algorithm": "ed25519", "payload_sha256": "<SHA-256>", "signature_base64": "<base64>"}
+    },
+    "t4_t5_runner": {
+      "schema_version": 1,
+      "receipt_type": "t4_t5_evidence",
+      "predecessor_authorization_payload_sha256": "<T3 authorization payload SHA-256>",
+      "candidate": "2222222222222222222222222222222222222222",
+      "candidate_tree": "3333333333333333333333333333333333333333",
+      "candidate_patch_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "contract_sha256": "<exact contract SHA-256>",
+      "threat_model_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "verifier_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "gate_results_sha256": "<canonical gate-results SHA-256>",
+      "acceptance_results_sha256": "<canonical acceptance-results SHA-256>",
+      "evidence_recorded_at_utc": "2026-08-04T00:02:00Z",
+      "attestation": {"algorithm": "ed25519", "payload_sha256": "<SHA-256>", "signature_base64": "<base64>"}
+    }
+  },
   "budget_usage": {
     "candidate_rejections": 0,
     "adversarial_rounds": 1,
@@ -309,6 +342,12 @@ the reviewer and author and decision `upheld`, `rejected`, or `downgraded`; it
 cannot add a new criterion. `rejected` releases the original veto and
 `downgraded` requires a residual-risk entry.
 
+An out-of-model emergency P0 additionally uses
+`"emergency_reopen": true` and a strict
+`"emergency_adjudication": {"adjudicator_id": "...", "decision": "upheld"}`
+record. Its adjudicator must differ from both author and reviewer. Missing or
+self-adjudicated emergency records are invalid.
+
 ## Evaluator outcomes
 
 The host signs canonical UTF-8 JSON (sorted keys, compact separators) with the
@@ -325,6 +364,13 @@ Copying a new verifier outside the candidate does not accept it: without
 `--accepted-verifier-sha256` the evaluator returns only
 `ready_for_external_acceptance`; after explicit acceptance the host may pass the
 new hash and request closure.
+
+For `--phase pre_execution`, all dynamic result collections are empty and
+`phase_chain` is exactly `{"stage":"pre_execution_request"}`. After an
+`authorize_execution` result, the host signs a T3 receipt bound to that input
+ledger payload. T4/T5 signs a runner receipt whose predecessor is the T3
+payload digest and whose gate/acceptance digests match the closure ledger.
+`--phase closure` rejects any missing or mismatched predecessor chain.
 
 `check_iteration_convergence.py` returns:
 

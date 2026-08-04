@@ -157,6 +157,7 @@ def _ledger(contract: dict) -> dict:
         ],
         "residual_risks": [],
         "static_review_receipts": [],
+        "phase_chain": {"stage": "pending"},
         "budget_usage": {
             "candidate_rejections": 0,
             "adversarial_rounds": len(rounds),
@@ -312,6 +313,7 @@ def _bind_contract_and_sign(
     private_key: Path,
     public_key: Path,
     tmp_path: Path,
+    evaluation_phase: str = "closure",
 ) -> None:
     contract["trust"]["root_anchor"]["external_signing_public_key_sha256"] = (
         hashlib.sha256(public_key.read_bytes()).hexdigest()
@@ -344,6 +346,57 @@ def _bind_contract_and_sign(
             }
         )
     ledger["static_review_receipts"] = receipts
+    if evaluation_phase == "pre_execution":
+        for field in checker.PRE_EXECUTION_EMPTY_FIELDS:
+            ledger[field] = {} if field == "gate_results" else []
+        ledger["phase_chain"] = {"stage": "pre_execution_request"}
+        _sign_ledger(ledger, private_key, tmp_path)
+        return
+
+    pre_execution_ledger = copy.deepcopy(ledger)
+    for field in checker.PRE_EXECUTION_EMPTY_FIELDS:
+        pre_execution_ledger[field] = {} if field == "gate_results" else []
+    pre_execution_ledger["phase_chain"] = {"stage": "pre_execution_request"}
+    _sign_ledger(pre_execution_ledger, private_key, tmp_path)
+    bindings = {
+        "candidate": ledger["candidate"],
+        "candidate_tree": ledger["candidate_tree"],
+        "candidate_patch_sha256": ledger["candidate_patch_sha256"],
+        "contract_sha256": ledger["contract_sha256"],
+        "threat_model_sha256": ledger["threat_model_sha256"],
+        "verifier_sha256": ledger["verifier_sha256"],
+    }
+    authorization = {
+        "schema_version": 1,
+        "receipt_type": "t3_authorize_execution",
+        "decision": "authorize_execution",
+        "input_ledger_payload_sha256": pre_execution_ledger["attestation"][
+            "payload_sha256"
+        ],
+        **bindings,
+        "static_review_receipts_sha256": checker._canonical_sha256(receipts),
+        "authorized_at_utc": "2026-08-04T00:01:00Z",
+    }
+    _sign_ledger(authorization, private_key, tmp_path)
+    runner = {
+        "schema_version": 1,
+        "receipt_type": "t4_t5_evidence",
+        "predecessor_authorization_payload_sha256": authorization["attestation"][
+            "payload_sha256"
+        ],
+        **bindings,
+        "gate_results_sha256": checker._canonical_sha256(ledger["gate_results"]),
+        "acceptance_results_sha256": checker._canonical_sha256(
+            ledger["acceptance_results"]
+        ),
+        "evidence_recorded_at_utc": "2026-08-04T00:02:00Z",
+    }
+    _sign_ledger(runner, private_key, tmp_path)
+    ledger["phase_chain"] = {
+        "stage": "closure",
+        "t3_authorization": authorization,
+        "t4_t5_runner": runner,
+    }
     _sign_ledger(ledger, private_key, tmp_path)
 
 
@@ -357,6 +410,8 @@ def _evaluate(
     expected_root_anchor_sha256: str = "",
     evaluation_phase: str = "closure",
     static_review_receipts_override: list[dict] | None = None,
+    phase_chain_override: dict | None = None,
+    break_runner_predecessor: bool = False,
     poison_candidate_git: bool = False,
 ):
     candidate_root = tmp_path / "candidate"
@@ -388,9 +443,18 @@ def _evaluate(
         private_key=private_key,
         public_key=public_key,
         tmp_path=tmp_path,
+        evaluation_phase=evaluation_phase,
     )
     if static_review_receipts_override is not None:
         ledger["static_review_receipts"] = static_review_receipts_override
+        _sign_ledger(ledger, private_key, tmp_path)
+    if phase_chain_override is not None:
+        ledger["phase_chain"] = phase_chain_override
+        _sign_ledger(ledger, private_key, tmp_path)
+    if break_runner_predecessor:
+        runner = ledger["phase_chain"]["t4_t5_runner"]
+        runner["predecessor_authorization_payload_sha256"] = "0" * 64
+        _sign_ledger(runner, private_key, tmp_path)
         _sign_ledger(ledger, private_key, tmp_path)
     ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
     contract_sha = hashlib.sha256(contract_path.read_bytes()).hexdigest()
@@ -444,6 +508,9 @@ def test_pre_execution_requires_bound_static_review_receipts(tmp_path: Path) -> 
         evaluation_phase="pre_execution",
     )
     assert accepted["decision"] == "authorize_execution", accepted
+    assert accepted["authorization_binding"]["receipt_type"] == (
+        "t3_authorize_execution"
+    )
 
     missing_contract = _contract("R2")
     missing = _evaluate(
@@ -455,6 +522,30 @@ def test_pre_execution_requires_bound_static_review_receipts(tmp_path: Path) -> 
     )
     assert missing["decision"] == "invalid", missing
     assert any("exactly 1 receipts" in error for error in missing["errors"])
+
+
+def test_closure_requires_signed_t3_and_t4_t5_predecessor_chain(
+    tmp_path: Path,
+) -> None:
+    contract = _contract("R2")
+    missing = _evaluate(
+        tmp_path / "missing",
+        contract,
+        _ledger(contract),
+        phase_chain_override={"stage": "closure"},
+    )
+    assert missing["decision"] == "invalid", missing
+    assert any("phase_chain fields" in error for error in missing["errors"])
+
+    mismatch_contract = _contract("R2")
+    mismatch = _evaluate(
+        tmp_path / "mismatch",
+        mismatch_contract,
+        _ledger(mismatch_contract),
+        break_runner_predecessor=True,
+    )
+    assert mismatch["decision"] == "invalid", mismatch
+    assert any("predecessor" in error for error in mismatch["errors"])
 
 
 def test_candidate_git_config_cannot_influence_freeze_recomputation(
@@ -721,6 +812,60 @@ def test_author_cannot_adjudicate_appeal_against_independent_blocker(
     result = _evaluate(tmp_path, contract, ledger)
     assert result["decision"] == "invalid", result
     assert any("independent of author" in error for error in result["errors"])
+
+
+def test_emergency_p0_requires_adjudicator_independent_of_author_and_reviewer(
+    tmp_path: Path,
+) -> None:
+    def run_case(case: str, adjudication) -> dict:
+        contract = _contract("R1")
+        ledger = _ledger(contract)
+        finding = {
+            "id": "F-emergency",
+            "status": "confirmed_open",
+            "severity": "P0",
+            "reviewer_id": "reviewer-1",
+            "violated_predeclared_property": "OUT_OF_MODEL",
+            "attacker_capability": "unmodeled emergency",
+            "exact_candidate_identity": CANDIDATE,
+            "deterministic_counterexample_or_static_proof": "static proof",
+            "authority_boundary_crossed": True,
+            "remediation_scope": "README.md",
+            "appeals": [],
+            "emergency_reopen": True,
+        }
+        if adjudication is not None:
+            finding["emergency_adjudication"] = adjudication
+        ledger["findings"] = [finding]
+        return _evaluate(tmp_path / case, contract, ledger)
+
+    missing = run_case("missing", None)
+    assert missing["decision"] == "invalid", missing
+    assert any("must be a mapping" in error for error in missing["errors"])
+
+    reviewer = run_case(
+        "reviewer",
+        {"adjudicator_id": "reviewer-1", "decision": "upheld"},
+    )
+    assert reviewer["decision"] == "invalid", reviewer
+    assert any("differ from reviewer" in error for error in reviewer["errors"])
+
+    author = run_case(
+        "author",
+        {"adjudicator_id": "author", "decision": "upheld"},
+    )
+    assert author["decision"] == "invalid", author
+    assert any("differ from author" in error for error in author["errors"])
+
+    independent = run_case(
+        "independent",
+        {"adjudicator_id": "emergency-adjudicator", "decision": "upheld"},
+    )
+    assert independent["decision"] == "human_checkpoint", independent
+    assert any(
+        "emergency P0" in checkpoint
+        for checkpoint in independent["human_checkpoints"]
+    )
 
 
 def test_phase_ledger_inside_candidate_is_rejected(tmp_path: Path) -> None:

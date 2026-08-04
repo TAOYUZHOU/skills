@@ -39,9 +39,9 @@ acceptance_criteria:
   - id: A3
     description: R0 through R3 select distinct ordered gate sets based on authority reachability and blast radius.
   - id: A4
-    description: Reviewer findings cannot expand frozen criteria; one appeal is adjudicated by an identity distinct from author and reviewer, and out-of-model findings are nonblocking absent an adjudicated emergency P0.
+    description: Reviewer findings cannot expand frozen criteria; ordinary appeals and emergency-P0 rulings require an adjudicator identity distinct from author and reviewer.
   - id: A5
-    description: Candidate identity is recomputed from a host-prepared bare Git store, and the signed ledger binds tree, patch, paths, contract, model, verifier, and accepted T2.5 receipts without candidate-hash self-reference.
+    description: Candidate identity is recomputed from a host-prepared bare Git store, and signed T3 then T4/T5 predecessor receipts bind static review, gate, and acceptance evidence in order.
   - id: A6
     description: Historical v1/v2 CLI execution can audit evidence but always refuses promotion authority.
   - id: A7
@@ -56,7 +56,7 @@ verification:
   - id: V4
     command_or_check: Two independent reviewers inspect the exact frozen diff and execute forward scenarios.
   - id: V5
-    command_or_check: A pinned external copy of check_iteration_convergence.py first reports authorize_execution from the trusted Git store and T2.5 receipts, then reports ready_for_external_acceptance from closure evidence.
+    command_or_check: A pinned external copy first reports authorize_execution, then rejects closure without its signed T3 authorization and T4/T5 predecessor receipt, and finally reports ready_for_external_acceptance from the complete chain.
 traceability:
   - acceptance: A1
     deliverables: [D1, D2, D3]
@@ -83,6 +83,8 @@ risks:
   - This is a gate-tool upgrade; the new verifier can reach only ready_for_external_acceptance until its hash is accepted externally.
   - OpenSSL 3.x is a host dependency for Ed25519 ledger verification.
   - Existing schema-v2 evidence remains readable but is deliberately non-authorizing.
+  - Nonblocking P2: the reusable gate-tool-upgrade pre-execution path relies on runner discipline to place the verifier outside the candidate; this iteration uses an external copy.
+  - Nonblocking P2: requested_state open is not yet a closure veto; this exact contract requests close.
 final_claims_allowed:
   - The schema-v3 skill candidate passed its bounded validation and is ready for external acceptance.
   - The accepted verifier may govern a separately frozen post-v19 decision; this iteration did not start that successor.
@@ -92,7 +94,7 @@ handoff:
 trust:
   verifier_origin: installed_skill
   verifier_version: trust-convergence-v1
-  verifier_sha256: 7ef01327d7909c24919ee902beee9928afb14591f5f12ebf2a66d050f1cdd054
+  verifier_sha256: ffb4c0410956040a63d30c238d83a87daf96aa636f8b8e4256c51f4c933cb17c
   candidate_tool_role: untrusted_evidence_producer
   candidate_private_signing_material: forbidden
   bootstrap_mode: gate_tool_upgrade
@@ -130,11 +132,11 @@ threat_model:
     - id: SP1
       description: Candidate-contained code cannot issue a closure decision for its own or another product promotion.
     - id: SP2
-      description: Only predeclared in-model deterministic P0/P1 findings block the frozen candidate, and neither author nor original reviewer may adjudicate its appeal.
+      description: Only predeclared in-model deterministic P0/P1 findings block the frozen candidate; neither author nor original reviewer may adjudicate an ordinary appeal or emergency-P0 exception.
     - id: SP3
       description: Tier-specific clean rounds and bounded budgets produce a finite close, continue, or human-checkpoint decision.
     - id: SP4
-      description: External signed phase truth binds the exact contract, candidate, tree, patch, paths, model, verifier, and accepted T2.5 receipts; Git identity comes only from the host bare store.
+      description: External signed phase truth binds the exact contract, candidate, tree, patch, paths, model, verifier, accepted T2.5 receipts, T3 authorization, and T4/T5 predecessor evidence; Git identity comes only from the host bare store.
     - id: SP5
       description: No private signing material or private-key path enters candidate inputs or subprocesses.
     - id: SP6
@@ -142,7 +144,7 @@ threat_model:
   evidence_formats:
     - Strict YAML schema-v3 contract with duplicate-key rejection.
     - Canonical strict JSON phase ledger with detached Ed25519 signature.
-    - Pytest/JUnit and hash-bound static review receipts.
+    - Hash-bound static review, T3 authorization, T4/T5 runner, and Pytest/JUnit receipts.
 risk_profile:
   tier: R3
   authority_reachability: true

@@ -62,8 +62,10 @@ closure, or changing this skill's proof tools.
    store, root anchors, and the required accepted T2.5 receipts. It must return
    `authorize_execution`. Scrub private key material and key paths from every
    candidate subprocess. Candidate bytes have zero execution before this stage.
-9. At T4/T5 run only the gates required by the risk tier, then bind receipts to
-   candidate, threat model, verifier, commands, and evidence identities.
+9. At T4/T5 run only the gates required by the risk tier. The host-signed
+   runner receipt must name the T3 authorization payload as its predecessor and
+   bind candidate, threat model, verifier, gate, acceptance, command, and
+   evidence identities.
 10. At T6 run the required independent review rounds. A P0/P1 blocks only when
     it satisfies the frozen finding-admissibility schema. Out-of-model concerns
     become `scope_expansion_proposal` or provisional/P2 residual risk unless an
@@ -124,7 +126,8 @@ capability, exact candidate, deterministic counterexample or static proof,
 crossed authority boundary, severity, and bounded remediation scope. Otherwise
 record it as provisional/P2. One adjudicator, distinct from both the candidate
 author and original reviewer, may decide one appeal against the frozen criteria
-and may not invent new criteria.
+and may not invent new criteria. The same identity separation is mandatory for
+the exceptional out-of-model emergency-P0 adjudication path.
 
 For every declared affected path/dependency, record exactly one disposition:
 `changed_and_verified`, `unchanged_dependency_verified`, or
@@ -253,8 +256,11 @@ IDs and rounds, findings and appeals, gate receipts, acceptance results,
 completeness dispositions, residual risks, budget use, checkpoints, and
 closure. It binds exact candidate, model, verifier, contract, and evidence
 hashes. Its public key is hash-bound in the root anchor;
-the signing key and its path never enter a candidate subprocess. T2+ updates to
-this ledger must never alter candidate bytes.
+the signing key and its path never enter a candidate subprocess. The signed T3
+authorization receipt binds the pre-execution ledger payload; the signed T4/T5
+runner receipt binds that authorization as predecessor plus the gate and
+acceptance result digests. Closure without this monotonic chain is invalid.
+T2+ updates to this ledger must never alter candidate bytes.
 
 For a gate-tool upgrade, copying the new verifier outside the candidate does
 not constitute acceptance. Until the host supplies the independently accepted

@@ -29,9 +29,9 @@ Use this total order. Freezing names bytes; review authorizes promotion.
 | T1 | Implement only. Do not test or build candidate bytes in the candidate tree. Diagnostics use a candidate-external scratch clone and stay outside the evidence tree. | T0 | none |
 | T2 | Byte-copy only object-database contents into a newly initialized candidate-external bare store; never invoke or copy candidate Git config, hooks, refs, or alternates. Freeze base, candidate, tree, path set, contract hashes, and patch hash. | T1 | none |
 | T2.5 | Review the exact static `base..candidate` patch, checker source, schemas, and frozen contract. Accepted reviews emit external receipts bound to those hashes; a rejection archives this freeze. | T2 | static bytes |
-| T3 | A host-pinned verifier recomputes identity only from the trusted bare store and requires the tier's accepted T2.5 receipts before returning `authorize_execution`. | T2.5 | none |
-| T4 | The host-constrained runner executes only the gates selected by the risk tier. | T3 | none |
-| T5 | The host records post-execution evidence and revalidates candidate, patch, verifier, and evidence identities. | T4 | none |
+| T3 | A host-pinned verifier recomputes identity only from the trusted bare store and requires the tier's accepted T2.5 receipts before returning `authorize_execution`; the host signs that authorization binding. | T2.5 | none |
+| T4 | The host-constrained runner executes only the gates selected by the risk tier and carries the signed T3 authorization digest as predecessor. | signed T3 receipt | none |
+| T5 | The host signs post-execution evidence bound to the T3 predecessor, candidate, patch, verifier, gates, and acceptance results. | T4 | none |
 | T6 | Independent reviewers examine dynamic receipts and findings for the required number of rounds. | T5 | dynamic evidence |
 | T7 | Cutover or synchronization receives separate authorization. | T6 closure receipt | release action |
 
@@ -49,6 +49,9 @@ Invariants:
    T2 lives in a candidate-external durable phase ledger.
 6. Candidate Git configuration, hooks, replacement refs, text conversion, and
    external diff drivers are never consulted by the authorizing verifier.
+7. Closure requires a verified signed chain from the pre-execution ledger to
+   T3 authorization and then to the T4/T5 evidence receipt. Recomputing static
+   eligibility at closure does not substitute for that predecessor chain.
 
 ## Frozen threat model
 
@@ -88,6 +91,11 @@ or reject/downgrade it. `upheld` preserves the blocker, `rejected` removes the
 reviewer's veto, and `downgraded` makes it a nonblocking residual risk. The
 adjudicator cannot add criteria. A second appeal or a new criterion requires a
 human checkpoint or a successor contract.
+
+The exceptional out-of-model emergency-P0 path uses a strict adjudication
+record with `adjudicator_id` and `decision`. That adjudicator must also differ
+from both author and original reviewer. Missing or self-adjudicated emergency
+records are invalid and cannot expand the frozen frontier.
 
 Completeness is a mapping obligation, not a forced-diff obligation. Keep exact
 Git `changed_paths` separate from declared `affected_dependencies`. Every item
@@ -175,7 +183,11 @@ verifier, root-anchor, contract, and (for a gate-tool upgrade) prior-verifier
 hashes independently of candidate data. The verifier disables candidate Git
 configuration, replacement objects, hooks, external diff, and text conversion.
 The signed ledger carries the exact tier-required accepted T2.5 receipts; they
-are a hard precondition for T3, not optional prose evidence. A new verifier
+are a hard precondition for T3, not optional prose evidence. The host signs the
+T3 authorization binding to the pre-execution ledger payload. The T4/T5 runner
+receipt is separately signed and names the authorization payload digest as its
+predecessor while binding the gate and acceptance result digests. Closure
+rejects a missing, reordered, mismatched, or tampered chain. A new verifier
 copied to an external path remains unaccepted until the host supplies its
 separately accepted hash. Path placement is never approval evidence.
 

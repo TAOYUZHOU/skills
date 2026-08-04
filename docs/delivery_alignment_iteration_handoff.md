@@ -36,19 +36,23 @@ does not assert a mutable T-stage and cannot authorize promotion.
   T2.5 receipts a hard T3 precondition.
 - Required finding reviewers and appeal adjudicators to remain independent of
   the candidate author, with the adjudicator also distinct from the reviewer.
+- Added signed T3 authorization and T4/T5 predecessor receipts; closure rejects
+  a missing, reordered, or evidence-mismatched phase chain.
+- Applied the same author/reviewer independence rule to emergency-P0 rulings and
+  aligned the HARP replay runbook with the trusted-bare/T3 interface.
 - Demoted schema-v1/v2 CLI behavior to non-authorizing historical audit.
 - Added directed tests for low-cost R0 closure, R3 review rounds, moving review
   criteria, real blockers, budget checkpoints, external verifier/ledger
   boundaries, malicious candidate Git configuration, missing static-review
-  receipts, author self-adjudication, signature tamper, and completeness
-  dispositions.
+  receipts, missing/mismatched phase predecessors, ordinary and emergency
+  self-adjudication, signature tamper, and completeness dispositions.
 
 ## Verification evidence
 
-Development diagnostics showed skill quick validation and the directed test
-modules passing. They are non-authorizing T1 observations. The exact frozen
-candidate must be rerun only after T3 authorization; T4/T6 receipts belong in
-the external phase ledger.
+Candidate-external scratch diagnostics showed skill quick validation and 138
+directed/legacy tests passing. They are non-authorizing T1 observations. This
+final candidate tree differs from the diagnostic tree and must be run only
+after T3 authorization; T4/T6 receipts belong in the external phase ledger.
 
 ## Residual risks and authorization boundary
 
@@ -56,6 +60,10 @@ the external phase ledger.
   only. This gate-tool upgrade requires a host-supplied accepted verifier hash
   before it can become product promotion authority.
 - OpenSSL 3.x remains a declared external dependency.
+- The reusable upgrade checker does not itself force external verifier
+  placement at pre-execution; this iteration's runner supplies an external
+  copy. `requested_state: open` is also not yet a generic closure veto; this
+  exact contract requests `close`.
 
 ## Exact next action
 

@@ -292,31 +292,43 @@ python3 skills/delivery-alignment-iteration/scripts/validate_harp_chain_evidence
   --chain-receipt docs/evidence/<iteration>/combined_chain_receipt.json
 ```
 
-The external phase ledger binds these receipts. Validate finite closure with a
-pinned verifier outside the HARP candidate repository:
+The external phase ledger binds these receipts. Before candidate execution,
+authorize T3 with the pinned verifier and host-created object-only bare store:
 
 ```bash
 python3 /trusted/skills/delivery-alignment-iteration/scripts/check_iteration_convergence.py \
-  --contract docs/iteration_contracts/<iteration>.yaml \
+  --contract /external/contracts/<iteration>.yaml \
   --ledger /external/phase-ledgers/<iteration>.json \
-  --candidate-root . \
+  --candidate-root /path/to/frozen-candidate \
+  --trusted-git-dir /external/trust/<candidate>.git \
   --public-key /external/trust/ledger-ed25519-public.pem \
   --expected-verifier-sha256 <host-pinned-sha256> \
-  --require-close --json
+  --expected-root-anchor-sha256 <host-pinned-sha256> \
+  --expected-contract-sha256 <host-pinned-sha256> \
+  --expected-prior-verifier-sha256 <host-pinned-sha256-if-upgrade> \
+  --phase pre_execution --json
 ```
+
+The host signs the returned T3 authorization binding. T4/T5 runner evidence
+must carry that signed authorization payload digest as its predecessor. After
+T6, validate finite closure with the same arguments, the updated signed ledger,
+`--phase closure`, and `--require-close` (plus
+`--accepted-verifier-sha256` for an accepted gate-tool upgrade).
 
 The ledger gate rows point to the separately signed scope-classification record
 for combined-chain N/A and the call-boundary observer receipt for a required
 target-local pass. Neither the ledger nor either host record may live beneath
 the candidate root.
 
-Before any candidate code runs, the trusted runner computes the complete
-tracked `candidate..worktree` patch with `git diff --binary --full-index`,
-requires its SHA-256 to equal the T2.5-reviewed patch, then loads the verifier
-and lifecycle validator from the installed, version-pinned external TCB. The
-verifier treats candidate checkers, traces, and manifests only as evidence and
-semantically parses every receipt it authorizes. Validation runs against a
-host-frozen read-only tree and records the forward digest before and after. A
-candidate-origin checker, candidate-visible private key, path-only hash check,
-validator TOCTOU, opaque receipt, unreviewed post-freeze edit, or receipt without
-this binding cannot promote.
+Before any candidate code runs, the host byte-copies only Git object-database
+contents into a newly initialized external bare store; it copies no candidate
+config, hooks, refs, or alternates. The pinned verifier computes the complete
+`base..candidate` binary/full-index patch there with replacement objects,
+external diff, and text conversion disabled, and requires its digest to equal
+the T2.5-reviewed patch. Mutable-tree cleanliness checks, if required, occur
+only inside the separately constrained post-T3 runner. The verifier treats
+candidate checkers, traces, and manifests only as evidence and semantically
+parses every receipt it authorizes. A candidate-origin checker,
+candidate-visible private key, path-only hash check, validator TOCTOU, opaque
+receipt, unreviewed post-freeze edit, or receipt without this binding cannot
+promote.

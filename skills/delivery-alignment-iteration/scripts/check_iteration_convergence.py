@@ -126,7 +126,46 @@ LEDGER_REQUIRED = {
     "residual_risks",
     "budget_usage",
     "static_review_receipts",
+    "phase_chain",
     "attestation",
+}
+T3_AUTHORIZATION_REQUIRED = {
+    "schema_version",
+    "receipt_type",
+    "decision",
+    "input_ledger_payload_sha256",
+    "candidate",
+    "candidate_tree",
+    "candidate_patch_sha256",
+    "contract_sha256",
+    "threat_model_sha256",
+    "verifier_sha256",
+    "static_review_receipts_sha256",
+    "authorized_at_utc",
+    "attestation",
+}
+T4_T5_RUNNER_REQUIRED = {
+    "schema_version",
+    "receipt_type",
+    "predecessor_authorization_payload_sha256",
+    "candidate",
+    "candidate_tree",
+    "candidate_patch_sha256",
+    "contract_sha256",
+    "threat_model_sha256",
+    "verifier_sha256",
+    "gate_results_sha256",
+    "acceptance_results_sha256",
+    "evidence_recorded_at_utc",
+    "attestation",
+}
+PRE_EXECUTION_EMPTY_FIELDS = {
+    "acceptance_results",
+    "gate_results",
+    "findings",
+    "review_rounds",
+    "completeness_map",
+    "residual_risks",
 }
 
 
@@ -256,35 +295,39 @@ def _git_bytes(git_dir: Path, *args: str) -> bytes:
     return completed.stdout
 
 
-def _canonical_ledger_payload(ledger: dict[str, Any]) -> bytes:
-    payload = {key: value for key, value in ledger.items() if key != "attestation"}
+def _canonical_signed_payload(record: dict[str, Any]) -> bytes:
+    payload = {key: value for key, value in record.items() if key != "attestation"}
     return json.dumps(
         payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     ).encode()
 
 
-def _verify_ledger_attestation(
-    ledger: dict[str, Any], public_key_bytes: bytes
+def _canonical_ledger_payload(ledger: dict[str, Any]) -> bytes:
+    return _canonical_signed_payload(ledger)
+
+
+def _verify_signed_attestation(
+    record: dict[str, Any], public_key_bytes: bytes, *, label: str
 ) -> tuple[bool, str]:
-    attestation = ledger.get("attestation")
+    attestation = record.get("attestation")
     if not isinstance(attestation, dict):
-        return False, "phase ledger attestation must be a mapping"
+        return False, f"{label} attestation must be a mapping"
     if set(attestation) != {"algorithm", "payload_sha256", "signature_base64"}:
-        return False, "phase ledger attestation fields are invalid"
+        return False, f"{label} attestation fields are invalid"
     if attestation.get("algorithm") != "ed25519":
-        return False, "phase ledger attestation algorithm must be ed25519"
-    payload = _canonical_ledger_payload(ledger)
+        return False, f"{label} attestation algorithm must be ed25519"
+    payload = _canonical_signed_payload(record)
     payload_sha = hashlib.sha256(payload).hexdigest()
     if attestation.get("payload_sha256") != payload_sha:
-        return False, "phase ledger attestation payload digest is invalid"
+        return False, f"{label} attestation payload digest is invalid"
     try:
         signature = base64.b64decode(
             str(attestation.get("signature_base64") or ""), validate=True
         )
     except (ValueError, TypeError):
-        return False, "phase ledger attestation signature is not valid base64"
+        return False, f"{label} attestation signature is not valid base64"
     if len(signature) != 64:
-        return False, "phase ledger Ed25519 signature must be 64 bytes"
+        return False, f"{label} Ed25519 signature must be 64 bytes"
     try:
         with tempfile.TemporaryDirectory(prefix="iteration-ledger-verify-") as raw:
             temp_root = Path(raw)
@@ -315,8 +358,16 @@ def _verify_ledger_attestation(
     except OSError as exc:
         return False, f"cannot run Ed25519 verifier: {exc}"
     if completed.returncode != 0:
-        return False, "phase ledger Ed25519 signature is invalid"
+        return False, f"{label} Ed25519 signature is invalid"
     return True, ""
+
+
+def _verify_ledger_attestation(
+    ledger: dict[str, Any], public_key_bytes: bytes
+) -> tuple[bool, str]:
+    return _verify_signed_attestation(
+        ledger, public_key_bytes, label="phase ledger"
+    )
 
 
 def _nonempty(value: Any) -> bool:
@@ -774,6 +825,21 @@ def validate_contract(contract: dict[str, Any], verifier_path: Path) -> dict[str
     }
 
 
+def _independent_emergency_upheld(finding: dict[str, Any], author_id: str) -> bool:
+    adjudication = finding.get("emergency_adjudication")
+    reviewer_id = str(finding.get("reviewer_id") or "")
+    if not isinstance(adjudication, dict):
+        return False
+    adjudicator_id = str(adjudication.get("adjudicator_id") or "")
+    return bool(
+        finding.get("emergency_reopen") is True
+        and finding.get("severity") == "P0"
+        and adjudication.get("decision") == "upheld"
+        and adjudicator_id
+        and adjudicator_id not in {reviewer_id, author_id}
+    )
+
+
 def _validate_finding(
     finding: Any,
     index: int,
@@ -825,6 +891,40 @@ def _validate_finding(
             errors.append(f"{label} appeal adjudicator must be independent of author")
 
     emergency = finding.get("emergency_reopen") is True
+    emergency_adjudication = finding.get("emergency_adjudication")
+    emergency_adjudicator = ""
+    emergency_upheld = False
+    if emergency:
+        if not isinstance(emergency_adjudication, dict):
+            errors.append(f"{label}.emergency_adjudication must be a mapping")
+        elif set(emergency_adjudication) != {"adjudicator_id", "decision"}:
+            errors.append(f"{label}.emergency_adjudication fields are invalid")
+        else:
+            emergency_adjudicator = str(
+                emergency_adjudication.get("adjudicator_id") or ""
+            )
+            if not emergency_adjudicator:
+                errors.append(
+                    f"{label}.emergency adjudicator identity must be nonempty"
+                )
+            elif emergency_adjudicator == reviewer_id:
+                errors.append(
+                    f"{label} emergency adjudicator must differ from reviewer"
+                )
+            elif emergency_adjudicator == author_id:
+                errors.append(
+                    f"{label} emergency adjudicator must differ from author"
+                )
+            if emergency_adjudication.get("decision") not in {
+                "upheld",
+                "rejected",
+            }:
+                errors.append(f"{label}.emergency_adjudication.decision is invalid")
+            emergency_upheld = _independent_emergency_upheld(finding, author_id)
+    elif emergency_adjudication is not None:
+        errors.append(
+            f"{label}.emergency_adjudication requires emergency_reopen: true"
+        )
     appeal_decision = ""
     if appeals and isinstance(appeals[-1], dict):
         appeal_decision = str(appeals[-1].get("decision") or "")
@@ -836,7 +936,7 @@ def _validate_finding(
     adjudicated_emergency = bool(
         emergency
         and severity == "P0"
-        and finding.get("emergency_adjudication") == "upheld"
+        and emergency_upheld
     )
     blocking = bool(
         claims_blocking
@@ -946,6 +1046,146 @@ def _validate_static_review_receipts(
     if len(reviewer_ids) != len(set(reviewer_ids)):
         errors.append("static review receipts must use distinct reviewers")
     return not errors, errors, normalized
+
+
+def _validate_phase_chain(
+    ledger: dict[str, Any],
+    *,
+    evaluation_phase: str,
+    public_key_bytes: bytes,
+    candidate: str,
+    candidate_tree: str,
+    candidate_patch_sha256: str,
+    contract_sha256: str,
+    threat_model_sha256: str,
+    verifier_sha256: str,
+) -> tuple[bool, list[str], dict[str, Any]]:
+    errors: list[str] = []
+    chain = ledger.get("phase_chain")
+    if not isinstance(chain, dict):
+        return False, ["phase_chain must be a mapping"], {}
+
+    bindings = {
+        "candidate": candidate,
+        "candidate_tree": candidate_tree,
+        "candidate_patch_sha256": candidate_patch_sha256,
+        "contract_sha256": contract_sha256,
+        "threat_model_sha256": threat_model_sha256,
+        "verifier_sha256": verifier_sha256,
+    }
+    static_review_sha = _canonical_sha256(ledger.get("static_review_receipts"))
+
+    if evaluation_phase == "pre_execution":
+        if chain != {"stage": "pre_execution_request"}:
+            errors.append(
+                "pre_execution phase_chain must be exactly a pre_execution_request"
+            )
+        for field in sorted(PRE_EXECUTION_EMPTY_FIELDS):
+            value = ledger.get(field)
+            if field == "gate_results":
+                empty = value == {}
+            else:
+                empty = value == []
+            if not empty:
+                errors.append(
+                    f"pre_execution ledger must not contain dynamic {field}"
+                )
+        attestation = ledger.get("attestation")
+        input_payload_sha = (
+            str(attestation.get("payload_sha256") or "")
+            if isinstance(attestation, dict)
+            else ""
+        )
+        authorization_binding = {
+            "schema_version": 1,
+            "receipt_type": "t3_authorize_execution",
+            "decision": "authorize_execution",
+            "input_ledger_payload_sha256": input_payload_sha,
+            **bindings,
+            "static_review_receipts_sha256": static_review_sha,
+        }
+        return not errors, errors, authorization_binding
+
+    if evaluation_phase != "closure":
+        return False, ["evaluation_phase must be pre_execution or closure"], {}
+    if set(chain) != {"stage", "t3_authorization", "t4_t5_runner"}:
+        errors.append("closure phase_chain fields are invalid")
+    if chain.get("stage") != "closure":
+        errors.append("closure phase_chain.stage must be closure")
+
+    authorization = chain.get("t3_authorization")
+    if not isinstance(authorization, dict):
+        errors.append("phase_chain.t3_authorization must be a mapping")
+        authorization = {}
+    elif set(authorization) != T3_AUTHORIZATION_REQUIRED:
+        errors.append("phase_chain.t3_authorization fields are invalid")
+    if authorization:
+        authorization_ok, authorization_error = _verify_signed_attestation(
+            authorization,
+            public_key_bytes,
+            label="T3 authorization receipt",
+        )
+        if not authorization_ok:
+            errors.append(authorization_error)
+        if authorization.get("schema_version") != 1:
+            errors.append("T3 authorization receipt schema_version must be 1")
+        if authorization.get("receipt_type") != "t3_authorize_execution":
+            errors.append("T3 authorization receipt type is invalid")
+        if authorization.get("decision") != "authorize_execution":
+            errors.append("T3 authorization receipt decision is invalid")
+        if not SHA256_RE.fullmatch(
+            str(authorization.get("input_ledger_payload_sha256") or "")
+        ):
+            errors.append("T3 authorization input ledger digest is invalid")
+        if not str(authorization.get("authorized_at_utc") or "").strip():
+            errors.append("T3 authorization time must be nonempty")
+        for key, expected in bindings.items():
+            if authorization.get(key) != expected:
+                errors.append(f"T3 authorization {key} does not match freeze")
+        if authorization.get("static_review_receipts_sha256") != static_review_sha:
+            errors.append("T3 authorization static review set does not match ledger")
+
+    runner = chain.get("t4_t5_runner")
+    if not isinstance(runner, dict):
+        errors.append("phase_chain.t4_t5_runner must be a mapping")
+        runner = {}
+    elif set(runner) != T4_T5_RUNNER_REQUIRED:
+        errors.append("phase_chain.t4_t5_runner fields are invalid")
+    if runner:
+        runner_ok, runner_error = _verify_signed_attestation(
+            runner,
+            public_key_bytes,
+            label="T4/T5 runner receipt",
+        )
+        if not runner_ok:
+            errors.append(runner_error)
+        if runner.get("schema_version") != 1:
+            errors.append("T4/T5 runner receipt schema_version must be 1")
+        if runner.get("receipt_type") != "t4_t5_evidence":
+            errors.append("T4/T5 runner receipt type is invalid")
+        authorization_attestation = authorization.get("attestation")
+        predecessor = (
+            str(authorization_attestation.get("payload_sha256") or "")
+            if isinstance(authorization_attestation, dict)
+            else ""
+        )
+        if runner.get("predecessor_authorization_payload_sha256") != predecessor:
+            errors.append("T4/T5 runner predecessor does not match T3 authorization")
+        for key, expected in bindings.items():
+            if runner.get(key) != expected:
+                errors.append(f"T4/T5 runner {key} does not match freeze")
+        if runner.get("gate_results_sha256") != _canonical_sha256(
+            ledger.get("gate_results")
+        ):
+            errors.append("T4/T5 runner gate results do not match ledger")
+        if runner.get("acceptance_results_sha256") != _canonical_sha256(
+            ledger.get("acceptance_results")
+        ):
+            errors.append("T4/T5 runner acceptance results do not match ledger")
+        if not str(runner.get("evidence_recorded_at_utc") or "").strip():
+            errors.append("T4/T5 runner evidence time must be nonempty")
+
+    return not errors, errors, {}
 
 
 def evaluate(
@@ -1195,7 +1435,23 @@ def evaluate(
         )
     )
     errors.extend(static_review_errors)
-    pre_execution_authorized = bool(not errors and static_reviews_ok)
+    phase_chain_ok, phase_chain_errors, authorization_binding = (
+        _validate_phase_chain(
+            ledger,
+            evaluation_phase=evaluation_phase,
+            public_key_bytes=bound_public_key_bytes,
+            candidate=candidate,
+            candidate_tree=candidate_tree,
+            candidate_patch_sha256=candidate_patch_sha,
+            contract_sha256=contract_sha,
+            threat_model_sha256=contract_result["threat_model_sha256"],
+            verifier_sha256=contract_result["verifier_sha256"],
+        )
+    )
+    errors.extend(phase_chain_errors)
+    pre_execution_authorized = bool(
+        not errors and static_reviews_ok and phase_chain_ok
+    )
     if evaluation_phase == "pre_execution":
         decision = "authorize_execution" if pre_execution_authorized else "invalid"
         return {
@@ -1206,6 +1462,8 @@ def evaluate(
             "closure_reasons": [],
             "human_checkpoints": [],
             "pre_execution_authorized": pre_execution_authorized,
+            "phase_chain_valid": phase_chain_ok,
+            "authorization_binding": authorization_binding,
             "static_review_receipts": static_review_records,
             "trust": {
                 "policy_version": POLICY_VERSION,
@@ -1232,9 +1490,6 @@ def evaluate(
                 "threat_model_sha256": contract_result["threat_model_sha256"],
             },
         }
-    if evaluation_phase != "closure":
-        errors.append("evaluation_phase must be pre_execution or closure")
-
     acceptance_ids = set((contract.get("convergence") or {}).get("acceptance_ids") or [])
     acceptance_results = ledger.get("acceptance_results")
     passed_acceptance: set[str] = set()
@@ -1348,11 +1603,7 @@ def evaluate(
             or row.get("attacker_capability")
             not in set(contract_result["attacker_capabilities"])
         )
-        and not (
-            row.get("emergency_reopen") is True
-            and row.get("severity") == "P0"
-            and row.get("emergency_adjudication") == "upheld"
-        )
+        and not _independent_emergency_upheld(row, finding_author_id)
     )
     required_residuals.update(
         str(row.get("id"))
@@ -1530,6 +1781,7 @@ def evaluate(
         "closure_reasons": closure_reasons,
         "human_checkpoints": checkpoints,
         "pre_execution_authorized": pre_execution_authorized,
+        "phase_chain_valid": phase_chain_ok,
         "static_review_receipts": static_review_records,
         "trust": {
             "policy_version": POLICY_VERSION,
