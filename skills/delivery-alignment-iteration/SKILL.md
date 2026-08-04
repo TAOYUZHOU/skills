@@ -173,6 +173,7 @@ risk_profile:
   blast_radius: system
   rationale: "Changes promotion authority."
   changed_paths: ["path/to/file"]
+  affected_dependencies: ["unchanged/path/whose contract is reverified"]
   required_gates: [static, targeted_regression, atomic_boundary,
     combined_chain_if_reachable, historical_replay_if_reachable, host_tcb,
     independent_adversarial_1, independent_adversarial_2, full_dynamic]
@@ -207,6 +208,9 @@ python3 /trusted/skills/delivery-alignment-iteration/scripts/check_iteration_con
   --candidate-root /path/to/candidate \
   --public-key /external/trust/ledger-ed25519-public.pem \
   --expected-verifier-sha256 <host-pinned-sha256> \
+  --expected-root-anchor-sha256 <host-pinned-sha256> \
+  --expected-contract-sha256 <host-pinned-sha256> \
+  --expected-prior-verifier-sha256 <host-pinned-sha256-if-upgrade> \
   --require-close --json
 ```
 
@@ -224,6 +228,12 @@ budget use, checkpoints, and closure. It binds exact candidate, model, verifier,
 contract, and evidence hashes. Its public key is hash-bound in the root anchor;
 the signing key and its path never enter a candidate subprocess. T2+ updates to
 this ledger must never alter candidate bytes.
+
+For a gate-tool upgrade, copying the new verifier outside the candidate does
+not constitute acceptance. Until the host supplies the independently accepted
+new verifier hash, the only successful outcome is
+`ready_for_external_acceptance`; only a later invocation with that host value
+may return `close`.
 
 ## Diff-directed adversarial gate
 

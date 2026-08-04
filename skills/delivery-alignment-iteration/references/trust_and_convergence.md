@@ -81,12 +81,14 @@ are provisional/P2 and enter the residual-risk register. They may seed the next
 iteration but cannot expand the current review criteria.
 
 The author may appeal a finding once. One independent adjudicator must either
-uphold it against the frozen criteria or reject/downgrade it. The adjudicator
-cannot add criteria. A second appeal or a new criterion requires a human
-checkpoint or a successor contract.
+uphold it against the frozen criteria or reject/downgrade it. `upheld` preserves
+the blocker, `rejected` removes the reviewer's veto, and `downgraded` makes it a
+nonblocking residual risk. The adjudicator cannot add criteria. A second appeal
+or a new criterion requires a human checkpoint or a successor contract.
 
-Completeness is a mapping obligation, not a forced-diff obligation. Every
-declared affected path or dependency receives exactly one disposition:
+Completeness is a mapping obligation, not a forced-diff obligation. Keep exact
+Git `changed_paths` separate from declared `affected_dependencies`. Every item
+in their union receives exactly one disposition:
 
 - `changed_and_verified`;
 - `unchanged_dependency_verified`; or
@@ -164,6 +166,11 @@ The ledger is bound to candidate, threat-model, verifier, and contract hashes
 and carries a detached Ed25519 attestation verified with the root-anchored
 external public key. Updating it cannot mutate frozen candidate bytes. The host
 signer keeps its private key and key path out of every candidate subprocess.
+
+The runner also supplies expected verifier, root-anchor, contract, and (for a
+gate-tool upgrade) prior-verifier hashes independently of candidate data. A new
+verifier copied to an external path remains unaccepted until the host supplies
+its separately accepted hash. Path placement is never approval evidence.
 
 Use `scripts/check_iteration_convergence.py` to validate a schema-v3 contract
 and its external phase ledger. The script is a policy evaluator; authorization

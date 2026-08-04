@@ -60,7 +60,9 @@ Risk fields:
 - `authority_reachability`: boolean; `true` cannot be lower than R2.
 - `blast_radius`: `local`, `bounded`, `system`, or `release`.
 - `rationale`: authority/blast-radius justification.
-- `changed_paths`: complete declared affected-path set.
+- `changed_paths`: complete expected Git diff path set.
+- `affected_dependencies`: unchanged dependencies whose contracts must be
+  reverified; may be empty and must not overlap `changed_paths`.
 - `required_gates`: the exact ordered tier gate set below.
 
 ```yaml
@@ -151,6 +153,7 @@ risk_profile:
   blast_radius: bounded
   rationale: "The parser output crosses one decision boundary."
   changed_paths: [src/parser.py, tests/test_parser.py]
+  affected_dependencies: [docs/parser_contract.md]
   required_gates: [static, targeted_regression, atomic_boundary,
     combined_chain_if_reachable, historical_replay_if_reachable,
     independent_adversarial_1]
@@ -235,6 +238,11 @@ shape:
       "path": "tests/test_parser.py",
       "disposition": "changed_and_verified",
       "proof": "V1"
+    },
+    {
+      "path": "docs/parser_contract.md",
+      "disposition": "unchanged_dependency_verified",
+      "proof": "static contract comparison"
     }
   ],
   "residual_risks": [],
@@ -243,7 +251,8 @@ shape:
     "adversarial_rounds": 1,
     "new_attacks_by_round": [3],
     "active_engineering_hours": 2,
-    "candidate_reviews_since_human_report": 1
+    "candidate_reviews_since_human_report": 1,
+    "human_reports": []
   },
   "attestation": {
     "algorithm": "ed25519",
@@ -277,7 +286,8 @@ Allowed statuses are `confirmed_open`, `resolved`, `provisional`, and
 Without every proof field or in-model IDs, use `provisional`/P2 and add the
 finding to `residual_risks`. One appeal has `adjudicator_id` distinct from the
 reviewer and decision `upheld`, `rejected`, or `downgraded`; it cannot add a new
-criterion.
+criterion. `rejected` releases the original veto and `downgraded` requires a
+residual-risk entry.
 
 ## Evaluator outcomes
 
@@ -285,6 +295,13 @@ The host signs canonical UTF-8 JSON (sorted keys, compact separators) with the
 top-level `attestation` field omitted. The verifier uses the candidate-external
 public key passed with `--public-key` and requires its file hash to equal
 `trust.root_anchor.external_signing_public_key_sha256`.
+
+The CLI additionally requires host-supplied expected hashes for the verifier,
+root anchor, and exact contract bytes. `gate_tool_upgrade` also requires the
+host-expected prior verifier. Copying a new verifier outside the candidate does
+not accept it: without `--accepted-verifier-sha256` the evaluator returns only
+`ready_for_external_acceptance`; after explicit acceptance the host may pass the
+new hash and request closure.
 
 `check_iteration_convergence.py` returns:
 

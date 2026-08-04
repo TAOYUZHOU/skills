@@ -21,12 +21,11 @@ T0 policy. Exact candidate, tree, patch, actual path set, reviews, budgets, and
 phase state are external signed T2+ facts and therefore do not create a commit
 self-reference in this file.
 
-## Current phase
+## Candidate operating instructions
 
-Implementation and local directed diagnostics are complete under the prior
-skill's gate-tool bootstrap rules. The next immutable candidate will enter T2,
-followed by exact static and forward review. This phase statement is
-informational and does not authorize promotion.
+Resolve all current phase, reviewer, budget, rejection, and closure truth from
+the external signed ledger identified by the contract. This candidate handoff
+does not assert a mutable T-stage and cannot authorize promotion.
 
 ## Completed changes
 
@@ -44,21 +43,21 @@ Local diagnostics currently show skill quick validation and the new directed
 test module passing. These are pre-freeze diagnostics, not T4/T6 authorization
 receipts. Frozen-candidate results belong in the external phase ledger.
 
-## Open blockers and risks
+## Residual risks and authorization boundary
 
-- The candidate has not yet been frozen or independently reviewed.
-- The verifier hash in the contract must be reconciled after the final code edit.
-- This gate-tool upgrade requires external acceptance before use as a product
-  promotion authority.
+- A candidate-contained or merely externally copied verifier is diagnostic
+  only. This gate-tool upgrade requires a host-supplied accepted verifier hash
+  before it can become product promotion authority.
+- OpenSSL 3.x remains a declared external dependency.
 
 ## Exact next action
 
-Freeze one commit containing only this iteration's files, compute its tree,
-binary patch, contract/model/verifier hashes and path set, then obtain two
-independent exact-diff reviews and sign the external phase ledger.
+Use the externally signed ledger to determine whether the frozen candidate is
+rejected, ready for external acceptance, or accepted; never infer that phase
+from these candidate bytes.
 
 ## Final claims allowed now
 
-The implementation draft exists and local diagnostics pass. No claim of skill
-acceptance, post-v19 launch, cutover, or live-runtime repair is currently
-allowed.
+Only claims listed in the schema-v3 contract and authorized by an external
+closure receipt are allowed. These bytes alone authorize no skill acceptance,
+post-v19 launch, cutover, or live-runtime repair.

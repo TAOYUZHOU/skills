@@ -306,6 +306,7 @@ def _required_mapping(
     errors: list[str],
     *,
     optional: set[str] | None = None,
+    empty_allowed: set[str] | None = None,
 ) -> dict[str, Any]:
     if not isinstance(value, dict):
         errors.append(f"{label} must be a mapping")
@@ -319,7 +320,11 @@ def _required_mapping(
     for key in sorted(required & set(value)):
         if isinstance(value[key], bool):
             continue
-        if not _nonempty(value[key]) and key != "excluded_capabilities":
+        if (
+            not _nonempty(value[key])
+            and key != "excluded_capabilities"
+            and key not in (empty_allowed or set())
+        ):
             errors.append(f"{label}.{key} must be nonempty")
     return value
 
@@ -585,10 +590,12 @@ def validate_contract(contract: dict[str, Any], verifier_path: Path) -> dict[str
             "blast_radius",
             "rationale",
             "changed_paths",
+            "affected_dependencies",
             "required_gates",
         },
         "risk_profile",
         errors,
+        empty_allowed={"affected_dependencies"},
     )
     tier = str(risk.get("tier") or "")
     changed_paths: list[str] = []
@@ -604,6 +611,16 @@ def validate_contract(contract: dict[str, Any], verifier_path: Path) -> dict[str
         changed_paths = _string_list(
             risk.get("changed_paths"), "risk_profile.changed_paths", errors
         )
+        affected_dependencies = _string_list(
+            risk.get("affected_dependencies"),
+            "risk_profile.affected_dependencies",
+            errors,
+            empty_ok=True,
+        )
+        if set(changed_paths) & set(affected_dependencies):
+            errors.append(
+                "risk_profile.changed_paths and affected_dependencies must not overlap"
+            )
         gates = _string_list(
             risk.get("required_gates"), "risk_profile.required_gates", errors
         )
@@ -707,6 +724,7 @@ def validate_contract(contract: dict[str, Any], verifier_path: Path) -> dict[str
         "property_ids": sorted(property_ids),
         "attacker_capabilities": sorted(attacker_capabilities),
         "changed_paths": changed_paths,
+        "affected_dependencies": list(risk.get("affected_dependencies") or []),
         "threat_model_sha256": threat_model_sha256,
         "verifier_sha256": _sha256_file(verifier_path),
     }
@@ -756,30 +774,33 @@ def _validate_finding(
             errors.append(f"{label} appeal adjudicator must be independent")
 
     emergency = finding.get("emergency_reopen") is True
-    blocking = status == "confirmed_open" and severity in {"P0", "P1"}
+    appeal_decision = ""
+    if appeals and isinstance(appeals[-1], dict):
+        appeal_decision = str(appeals[-1].get("decision") or "")
+    claims_blocking = status == "confirmed_open" and severity in {"P0", "P1"}
+    in_model = (
+        finding.get("violated_predeclared_property") in property_ids
+        and finding.get("attacker_capability") in capabilities
+    )
+    adjudicated_emergency = bool(
+        emergency
+        and severity == "P0"
+        and finding.get("emergency_adjudication") == "upheld"
+    )
+    blocking = bool(
+        claims_blocking
+        and (in_model or adjudicated_emergency)
+        and appeal_decision not in {"rejected", "downgraded"}
+    )
     if blocking:
         for field in sorted(FINDING_PROOF_FIELDS):
             if field not in finding or not _nonempty(finding[field]):
                 errors.append(f"{label}.{field} is required for a blocking finding")
         if finding.get("authority_boundary_crossed") is not True:
             errors.append(f"{label}.authority_boundary_crossed must be true")
-        in_model = (
-            finding.get("violated_predeclared_property") in property_ids
-            and finding.get("attacker_capability") in capabilities
-        )
-        if not in_model:
-            if not (
-                emergency
-                and severity == "P0"
-                and finding.get("emergency_adjudication") == "upheld"
-            ):
-                errors.append(
-                    f"{label} is out of model and must be provisional or an adjudicated emergency P0"
-                )
-                blocking = False
         if finding.get("exact_candidate_identity") != candidate:
             errors.append(f"{label}.exact_candidate_identity does not match ledger")
-    return str(finding_id), blocking, emergency and blocking
+    return str(finding_id), blocking, adjudicated_emergency and blocking and not in_model
 
 
 def evaluate(
@@ -791,6 +812,11 @@ def evaluate(
     candidate_root: Path,
     verifier_path: Path,
     public_key_path: Path,
+    expected_root_anchor_sha256: str,
+    expected_contract_sha256: str,
+    expected_verifier_sha256: str,
+    expected_prior_verifier_sha256: str = "",
+    accepted_verifier_sha256: str = "",
     contract_bytes: bytes | None = None,
     ledger_bytes: bytes | None = None,
     public_key_bytes: bytes | None = None,
@@ -873,6 +899,19 @@ def evaluate(
     if ledger.get("contract_sha256") != contract_sha:
         errors.append("phase ledger contract hash does not match contract bytes")
     anchor = trust.get("root_anchor") if isinstance(trust.get("root_anchor"), dict) else {}
+    root_anchor_sha = _canonical_sha256(anchor)
+    if expected_root_anchor_sha256 != root_anchor_sha:
+        errors.append("contract root anchor does not match host-expected digest")
+    if expected_contract_sha256 != contract_sha:
+        errors.append("contract bytes do not match host-expected digest")
+    if expected_verifier_sha256 != contract_result["verifier_sha256"]:
+        errors.append("executing verifier does not match host-expected digest")
+    declared_prior_verifier = str(trust.get("prior_verifier_sha256") or "")
+    if bootstrap_mode == "gate_tool_upgrade":
+        if expected_prior_verifier_sha256 != declared_prior_verifier:
+            errors.append("prior verifier does not match host-expected digest")
+    elif expected_prior_verifier_sha256:
+        errors.append("normal mode must not receive an expected prior verifier")
     base_commit = str(anchor.get("base_commit") or "")
     if ledger.get("base_commit") != base_commit:
         errors.append("phase ledger base commit does not match root anchor")
@@ -1059,10 +1098,39 @@ def evaluate(
         for row in findings
         if isinstance(row, dict) and row.get("status") == "provisional"
     )
+    required_residuals.update(
+        str(row.get("id"))
+        for row in findings
+        if isinstance(row, dict)
+        and row.get("status") == "confirmed_open"
+        and row.get("severity") in {"P0", "P1"}
+        and (
+            row.get("violated_predeclared_property")
+            not in set(contract_result["property_ids"])
+            or row.get("attacker_capability")
+            not in set(contract_result["attacker_capabilities"])
+        )
+        and not (
+            row.get("emergency_reopen") is True
+            and row.get("severity") == "P0"
+            and row.get("emergency_adjudication") == "upheld"
+        )
+    )
+    required_residuals.update(
+        str(row.get("id"))
+        for row in findings
+        if isinstance(row, dict)
+        and isinstance(row.get("appeals"), list)
+        and row.get("appeals")
+        and isinstance(row["appeals"][-1], dict)
+        and row["appeals"][-1].get("decision") == "downgraded"
+    )
     if not required_residuals.issubset(residual_ids):
         closure_reasons.append("provisional/P2 findings missing from residual-risk register")
 
     changed_paths = set(contract_result["changed_paths"])
+    affected_dependencies = set(contract_result["affected_dependencies"])
+    completeness_scope = changed_paths | affected_dependencies
     completeness = ledger.get("completeness_map")
     mapped_paths: set[str] = set()
     if not isinstance(completeness, list):
@@ -1075,7 +1143,7 @@ def evaluate(
             path = row.get("path")
             disposition = row.get("disposition")
             proof = row.get("proof")
-            if path not in changed_paths:
+            if path not in completeness_scope:
                 errors.append(f"completeness_map[{index}] has undeclared path")
             elif path in mapped_paths:
                 errors.append(f"completeness_map duplicates path: {path}")
@@ -1083,9 +1151,20 @@ def evaluate(
                 mapped_paths.add(str(path))
             if disposition not in COMPLETENESS_DISPOSITIONS:
                 errors.append(f"completeness_map[{index}].disposition is invalid")
+            elif path in changed_paths and disposition != "changed_and_verified":
+                errors.append(
+                    f"completeness_map[{index}] changed path must be changed_and_verified"
+                )
+            elif (
+                path in affected_dependencies
+                and disposition == "changed_and_verified"
+            ):
+                errors.append(
+                    f"completeness_map[{index}] unchanged dependency cannot be changed_and_verified"
+                )
             if not _nonempty(proof):
                 errors.append(f"completeness_map[{index}].proof must be nonempty")
-    missing_paths = sorted(changed_paths - mapped_paths)
+    missing_paths = sorted(completeness_scope - mapped_paths)
     if missing_paths:
         closure_reasons.append("missing completeness mappings: " + ", ".join(missing_paths))
 
@@ -1158,6 +1237,35 @@ def evaluate(
         for value in attacks_by_round
     ):
         checkpoints.append("budget exhausted: max_new_attacks_per_round")
+    if usage.get("adversarial_rounds") != len(review_rounds):
+        errors.append("budget_usage.adversarial_rounds must equal review_rounds length")
+    if isinstance(attacks_by_round, list) and len(attacks_by_round) != len(review_rounds):
+        errors.append("budget_usage.new_attacks_by_round must align with review_rounds")
+    human_reports = usage.get("human_reports")
+    if not isinstance(human_reports, list):
+        errors.append("budget_usage.human_reports must be a list")
+        human_reports = []
+    valid_report_counts: list[int] = []
+    for index, report in enumerate(human_reports):
+        if not isinstance(report, dict):
+            errors.append(f"budget_usage.human_reports[{index}] must be a mapping")
+            continue
+        count = report.get("after_review_count")
+        if (
+            type(count) is not int
+            or count <= 0
+            or count > len(review_rounds)
+            or not _nonempty(report.get("evidence"))
+        ):
+            errors.append(f"budget_usage.human_reports[{index}] is invalid")
+        else:
+            valid_report_counts.append(count)
+    last_report_count = max(valid_report_counts, default=0)
+    expected_reviews_since_report = len(review_rounds) - last_report_count
+    if review_count != expected_reviews_since_report:
+        errors.append(
+            "budget_usage.candidate_reviews_since_human_report is inconsistent"
+        )
 
     if errors:
         decision = "invalid"
@@ -1165,8 +1273,14 @@ def evaluate(
         decision = "human_checkpoint"
     elif closure_reasons:
         decision = "continue"
-    elif bootstrap_mode == "gate_tool_upgrade" and not verifier_external:
-        decision = "ready_for_external_acceptance"
+    elif bootstrap_mode == "gate_tool_upgrade":
+        if (
+            verifier_external
+            and accepted_verifier_sha256 == contract_result["verifier_sha256"]
+        ):
+            decision = "close"
+        else:
+            decision = "ready_for_external_acceptance"
     else:
         decision = "close"
 
@@ -1183,6 +1297,10 @@ def evaluate(
             "verifier_sha256": contract_result["verifier_sha256"],
             "verifier_external_to_candidate": verifier_external,
             "bootstrap_mode": bootstrap_mode,
+            "root_anchor_sha256": root_anchor_sha,
+            "host_accepted_verifier": bool(
+                accepted_verifier_sha256 == contract_result["verifier_sha256"]
+            ),
             "ledger_external_to_candidate": ledger_external,
             "public_key_external_to_candidate": public_key_external,
             "public_key_sha256": public_key_sha,
@@ -1216,7 +1334,28 @@ def main() -> int:
     )
     parser.add_argument(
         "--expected-verifier-sha256",
-        help="Optional root-anchor hash supplied by the host runner.",
+        required=True,
+        help="Verifier SHA-256 supplied independently by the host runner.",
+    )
+    parser.add_argument(
+        "--expected-root-anchor-sha256",
+        required=True,
+        help="Canonical root-anchor SHA-256 supplied independently by the host.",
+    )
+    parser.add_argument(
+        "--expected-contract-sha256",
+        required=True,
+        help="Exact contract-byte SHA-256 supplied independently by the host.",
+    )
+    parser.add_argument(
+        "--expected-prior-verifier-sha256",
+        default="",
+        help="Prior accepted verifier SHA-256 required for gate-tool upgrades.",
+    )
+    parser.add_argument(
+        "--accepted-verifier-sha256",
+        default="",
+        help="Human-accepted new verifier hash; omit while the upgrade is pending.",
     )
     parser.add_argument("--require-close", action="store_true")
     parser.add_argument("--json", action="store_true")
@@ -1238,6 +1377,11 @@ def main() -> int:
             candidate_root=Path(args.candidate_root).resolve(),
             verifier_path=verifier_path,
             public_key_path=public_key_path,
+            expected_root_anchor_sha256=args.expected_root_anchor_sha256,
+            expected_contract_sha256=args.expected_contract_sha256,
+            expected_verifier_sha256=args.expected_verifier_sha256,
+            expected_prior_verifier_sha256=args.expected_prior_verifier_sha256,
+            accepted_verifier_sha256=args.accepted_verifier_sha256,
             contract_bytes=contract_bytes,
             ledger_bytes=ledger_bytes,
             public_key_bytes=public_key_bytes,
@@ -1249,16 +1393,6 @@ def main() -> int:
             "decision": "invalid",
             "errors": [str(exc)],
         }
-
-    if args.expected_verifier_sha256:
-        actual = (result.get("trust") or {}).get("verifier_sha256")
-        if actual != args.expected_verifier_sha256:
-            result.setdefault("errors", []).append(
-                "executing verifier does not match host-expected SHA-256"
-            )
-            result["ok"] = False
-            result["closed"] = False
-            result["decision"] = "invalid"
 
     if args.json or not result.get("ok"):
         print(json.dumps(result, ensure_ascii=False, indent=2))

@@ -92,7 +92,7 @@ handoff:
 trust:
   verifier_origin: installed_skill
   verifier_version: trust-convergence-v1
-  verifier_sha256: 683f2a14079b31ddd7da2be9bab92afe3b5f74e2fb8681d927769d450d5c36f8
+  verifier_sha256: 30a8d0f9a115e393b196ad02951a3fae4b09c94b4a431b723b76d19042f6a4b6
   candidate_tool_role: untrusted_evidence_producer
   candidate_private_signing_material: forbidden
   bootstrap_mode: gate_tool_upgrade
@@ -159,6 +159,7 @@ risk_profile:
     - skills/delivery-alignment-iteration/scripts/validate_harp_chain_evidence.py
     - tests/test_delivery_alignment_contract_checker.py
     - tests/test_delivery_alignment_convergence.py
+  affected_dependencies: []
   required_gates:
     - static
     - targeted_regression

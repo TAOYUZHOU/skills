@@ -10,6 +10,7 @@ import subprocess
 from pathlib import Path
 
 import yaml
+import pytest
 
 
 CHECKER = (
@@ -81,6 +82,7 @@ def _contract(tier: str = "R0", *, verifier: Path = CHECKER) -> dict:
             "blast_radius": blast,
             "rationale": "fixture classification",
             "changed_paths": ["README.md"],
+            "affected_dependencies": [],
             "required_gates": checker.TIER_GATES[tier],
         },
         "review_policy": {
@@ -120,6 +122,14 @@ def _ledger(contract: dict) -> dict:
                 "new_confirmed_blocker_ids": [],
             }
         )
+    human_reports = (
+        [{"after_review_count": 2, "evidence": "sha256:human-report"}]
+        if len(rounds) >= 2
+        else []
+    )
+    last_report = max(
+        (row["after_review_count"] for row in human_reports), default=0
+    )
     return {
         "schema_version": 1,
         "ledger_id": "fixture-r1",
@@ -150,7 +160,8 @@ def _ledger(contract: dict) -> dict:
             "adversarial_rounds": len(rounds),
             "new_attacks_by_round": [0] * len(rounds),
             "active_engineering_hours": 1,
-            "candidate_reviews_since_human_report": 0,
+            "candidate_reviews_since_human_report": len(rounds) - last_report,
+            "human_reports": human_reports,
         },
     }
 
@@ -282,9 +293,17 @@ def _bind_contract_and_sign(
     _sign_ledger(ledger, private_key, tmp_path)
 
 
-def _evaluate(tmp_path: Path, contract: dict, ledger: dict, *, verifier=CHECKER):
+def _evaluate(
+    tmp_path: Path,
+    contract: dict,
+    ledger: dict,
+    *,
+    verifier=CHECKER,
+    accepted_verifier_sha256: str = "",
+    expected_root_anchor_sha256: str = "",
+):
     candidate_root = tmp_path / "candidate"
-    candidate_root.mkdir(exist_ok=True)
+    candidate_root.mkdir(parents=True, exist_ok=True)
     _freeze_repo(candidate_root, contract, ledger)
     private_key, public_key = _host_key(tmp_path)
     contract_path = tmp_path / "contract.yaml"
@@ -298,6 +317,8 @@ def _evaluate(tmp_path: Path, contract: dict, ledger: dict, *, verifier=CHECKER)
         tmp_path=tmp_path,
     )
     ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+    contract_sha = hashlib.sha256(contract_path.read_bytes()).hexdigest()
+    root_anchor_sha = checker._canonical_sha256(contract["trust"]["root_anchor"])
     return checker.evaluate(
         contract,
         ledger,
@@ -306,6 +327,15 @@ def _evaluate(tmp_path: Path, contract: dict, ledger: dict, *, verifier=CHECKER)
         candidate_root=candidate_root,
         verifier_path=verifier,
         public_key_path=public_key,
+        expected_root_anchor_sha256=(
+            expected_root_anchor_sha256 or root_anchor_sha
+        ),
+        expected_contract_sha256=contract_sha,
+        expected_verifier_sha256=contract["trust"]["verifier_sha256"],
+        expected_prior_verifier_sha256=str(
+            contract["trust"].get("prior_verifier_sha256") or ""
+        ),
+        accepted_verifier_sha256=accepted_verifier_sha256,
     )
 
 
@@ -346,7 +376,7 @@ def test_out_of_model_reviewer_requirement_cannot_block_current_candidate(
     assert result["decision"] == "close", result
 
 
-def test_mislabeled_out_of_model_p1_is_invalid_not_a_moving_blocker(
+def test_mislabeled_out_of_model_p1_becomes_nonblocking_scope_proposal(
     tmp_path: Path,
 ) -> None:
     contract = _contract("R1")
@@ -366,9 +396,11 @@ def test_mislabeled_out_of_model_p1_is_invalid_not_a_moving_blocker(
             "appeals": [],
         }
     ]
+    ledger["residual_risks"] = [
+        {"finding_id": "F-out", "disposition": "scope_expansion_proposal"}
+    ]
     result = _evaluate(tmp_path, contract, ledger)
-    assert result["decision"] == "invalid"
-    assert any("out of model" in error for error in result["errors"])
+    assert result["decision"] == "close", result
 
 
 def test_confirmed_in_model_p1_blocks_closure(tmp_path: Path) -> None:
@@ -395,8 +427,9 @@ def test_confirmed_in_model_p1_blocks_closure(tmp_path: Path) -> None:
 
 
 def test_budget_exhaustion_forces_human_checkpoint(tmp_path: Path) -> None:
-    contract = _contract("R1")
+    contract = _contract("R3")
     ledger = _ledger(contract)
+    ledger["budget_usage"]["human_reports"] = []
     ledger["budget_usage"]["candidate_reviews_since_human_report"] = 2
     result = _evaluate(tmp_path, contract, ledger)
     assert result["decision"] == "human_checkpoint"
@@ -433,6 +466,11 @@ def test_candidate_contained_verifier_cannot_close_normal_iteration(
         candidate_root=candidate_root,
         verifier_path=candidate_checker,
         public_key_path=public_key,
+        expected_root_anchor_sha256=checker._canonical_sha256(
+            contract["trust"]["root_anchor"]
+        ),
+        expected_contract_sha256=hashlib.sha256(contract_path.read_bytes()).hexdigest(),
+        expected_verifier_sha256=contract["trust"]["verifier_sha256"],
     )
     assert result["decision"] == "invalid"
     assert any("verifier must resolve outside" in error for error in result["errors"])
@@ -470,9 +508,75 @@ def test_gate_tool_upgrade_can_only_be_ready_for_external_acceptance(
         candidate_root=candidate_root,
         verifier_path=candidate_checker,
         public_key_path=public_key,
+        expected_root_anchor_sha256=checker._canonical_sha256(
+            contract["trust"]["root_anchor"]
+        ),
+        expected_contract_sha256=hashlib.sha256(contract_path.read_bytes()).hexdigest(),
+        expected_verifier_sha256=contract["trust"]["verifier_sha256"],
+        expected_prior_verifier_sha256=contract["trust"]["prior_verifier_sha256"],
     )
     assert result["decision"] == "ready_for_external_acceptance", result
     assert not result["closed"]
+
+
+def test_external_copy_of_unaccepted_gate_tool_still_cannot_close(
+    tmp_path: Path,
+) -> None:
+    contract = _contract("R0", verifier=CHECKER)
+    contract["trust"]["bootstrap_mode"] = "gate_tool_upgrade"
+    contract["trust"]["prior_verifier_sha256"] = "e" * 64
+    result = _evaluate(tmp_path / "pending", contract, _ledger(contract))
+    assert result["decision"] == "ready_for_external_acceptance", result
+
+    accepted_contract = _contract("R0", verifier=CHECKER)
+    accepted_contract["trust"]["bootstrap_mode"] = "gate_tool_upgrade"
+    accepted_contract["trust"]["prior_verifier_sha256"] = "e" * 64
+    accepted_hash = accepted_contract["trust"]["verifier_sha256"]
+    accepted = _evaluate(
+        tmp_path / "accepted",
+        accepted_contract,
+        _ledger(accepted_contract),
+        accepted_verifier_sha256=accepted_hash,
+    )
+    assert accepted["decision"] == "close", accepted
+
+
+def test_candidate_declared_root_cannot_replace_host_expected_anchor(
+    tmp_path: Path,
+) -> None:
+    contract = _contract("R0")
+    result = _evaluate(
+        tmp_path,
+        contract,
+        _ledger(contract),
+        expected_root_anchor_sha256="0" * 64,
+    )
+    assert result["decision"] == "invalid"
+    assert any("host-expected" in error for error in result["errors"])
+
+
+def test_rejected_independent_appeal_releases_reviewer_veto(tmp_path: Path) -> None:
+    contract = _contract("R1")
+    ledger = _ledger(contract)
+    ledger["findings"] = [
+        {
+            "id": "F1",
+            "status": "confirmed_open",
+            "severity": "P1",
+            "reviewer_id": "reviewer-1",
+            "violated_predeclared_property": "SP1",
+            "attacker_capability": "candidate controls repository bytes",
+            "exact_candidate_identity": CANDIDATE,
+            "deterministic_counterexample_or_static_proof": "static proof",
+            "authority_boundary_crossed": True,
+            "remediation_scope": "README.md",
+            "appeals": [
+                {"adjudicator_id": "adjudicator-2", "decision": "rejected"}
+            ],
+        }
+    ]
+    result = _evaluate(tmp_path, contract, ledger)
+    assert result["decision"] == "close", result
 
 
 def test_phase_ledger_inside_candidate_is_rejected(tmp_path: Path) -> None:
@@ -501,6 +605,11 @@ def test_phase_ledger_inside_candidate_is_rejected(tmp_path: Path) -> None:
         candidate_root=candidate_root,
         verifier_path=CHECKER,
         public_key_path=public_key,
+        expected_root_anchor_sha256=checker._canonical_sha256(
+            contract["trust"]["root_anchor"]
+        ),
+        expected_contract_sha256=hashlib.sha256(contract_path.read_bytes()).hexdigest(),
+        expected_verifier_sha256=contract["trust"]["verifier_sha256"],
     )
     assert result["decision"] == "invalid"
     assert any("phase ledger must resolve outside" in error for error in result["errors"])
@@ -541,6 +650,11 @@ def test_phase_ledger_tamper_after_host_signature_is_rejected(tmp_path: Path) ->
         candidate_root=candidate_root,
         verifier_path=CHECKER,
         public_key_path=public_key,
+        expected_root_anchor_sha256=checker._canonical_sha256(
+            contract["trust"]["root_anchor"]
+        ),
+        expected_contract_sha256=hashlib.sha256(contract_path.read_bytes()).hexdigest(),
+        expected_verifier_sha256=contract["trust"]["verifier_sha256"],
     )
     assert result["decision"] == "invalid"
     assert any("payload digest is invalid" in error for error in result["errors"])
@@ -548,7 +662,32 @@ def test_phase_ledger_tamper_after_host_signature_is_rejected(tmp_path: Path) ->
 
 def test_completeness_accepts_verified_unchanged_dependency(tmp_path: Path) -> None:
     contract = _contract("R1")
+    contract["risk_profile"]["affected_dependencies"] = ["docs/spec.md"]
+    ledger = _ledger(contract)
+    ledger["completeness_map"].append(
+        {
+            "path": "docs/spec.md",
+            "disposition": "unchanged_dependency_verified",
+            "proof": "V1",
+        }
+    )
+    result = _evaluate(tmp_path, contract, ledger)
+    assert result["decision"] == "close", result
+
+
+def test_changed_path_cannot_claim_unchanged_dependency_disposition(
+    tmp_path: Path,
+) -> None:
+    contract = _contract("R1")
     ledger = _ledger(contract)
     ledger["completeness_map"][0]["disposition"] = "unchanged_dependency_verified"
     result = _evaluate(tmp_path, contract, ledger)
-    assert result["decision"] == "close", result
+    assert result["decision"] == "invalid"
+    assert any("changed path" in error for error in result["errors"])
+
+
+def test_duplicate_json_ledger_keys_are_rejected(tmp_path: Path) -> None:
+    path = tmp_path / "ledger.json"
+    path.write_text('{"schema_version": 1, "schema_version": 1}', encoding="utf-8")
+    with pytest.raises(ValueError, match="duplicate JSON key"):
+        checker._load_json(path)
