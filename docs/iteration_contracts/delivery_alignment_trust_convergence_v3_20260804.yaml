@@ -83,8 +83,8 @@ risks:
   - This is a gate-tool upgrade; the new verifier can reach only ready_for_external_acceptance until its hash is accepted externally.
   - OpenSSL 3.x is a host dependency for Ed25519 ledger verification.
   - Existing schema-v2 evidence remains readable but is deliberately non-authorizing.
-  - Nonblocking P2: the reusable gate-tool-upgrade pre-execution path relies on runner discipline to place the verifier outside the candidate; this iteration uses an external copy.
-  - Nonblocking P2: requested_state open is not yet a closure veto; this exact contract requests close.
+  - "Nonblocking P2: the reusable gate-tool-upgrade pre-execution path relies on runner discipline to place the verifier outside the candidate; this iteration uses an external copy."
+  - "Nonblocking P2: requested_state open is not yet a closure veto; this exact contract requests close."
 final_claims_allowed:
   - The schema-v3 skill candidate passed its bounded validation and is ready for external acceptance.
   - The accepted verifier may govern a separately frozen post-v19 decision; this iteration did not start that successor.
