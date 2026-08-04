@@ -49,15 +49,19 @@ closure, or changing this skill's proof tools.
 5. During T1 implement only. Do not test or build candidate bytes inside the
    candidate tree. If diagnostics are needed, use a candidate-external scratch
    clone and keep its outputs outside the evidence tree.
-6. At T2 freeze immutable base, candidate, tree, exact changed-path set, exact
-   binary patch digest, contract hashes, and threat-model hash. Freezing only
-   names bytes; it is always allowed and carries no approval meaning.
+6. At T2 the host byte-copies only Git object-database contents into a newly
+   initialized candidate-external bare store; do not invoke candidate Git
+   configuration or copy hooks, refs, config, or alternates. Then freeze
+   immutable base, candidate, tree, exact changed-path set, exact binary patch
+   digest, contract hashes, and threat-model hash. Freezing only names bytes;
+   it is always allowed and carries no approval meaning.
 7. At T2.5 independently review only static objects: the exact patch, contract,
-   schemas, and any checker/runner source. Rejection archives that freeze and
-   returns to T1/T2; it does not block a successor candidate.
-8. At T3 run the pinned external verifier over root anchors and pre-execution
-   inputs. Scrub private key material and key paths from every candidate
-   subprocess. Candidate bytes have zero execution before this stage.
+   schemas, and any checker/runner source. Accepted reviews produce external
+   hash-bound receipts; rejection archives that freeze and returns to T1/T2.
+8. At T3 run the pinned external verifier over the host-prepared bare object
+   store, root anchors, and the required accepted T2.5 receipts. It must return
+   `authorize_execution`. Scrub private key material and key paths from every
+   candidate subprocess. Candidate bytes have zero execution before this stage.
 9. At T4/T5 run only the gates required by the risk tier, then bind receipts to
    candidate, threat model, verifier, commands, and evidence identities.
 10. At T6 run the required independent review rounds. A P0/P1 blocks only when
@@ -118,8 +122,9 @@ gate merely because the patch is executable.
 A blocking P0/P1 must name the violated predeclared property, included attacker
 capability, exact candidate, deterministic counterexample or static proof,
 crossed authority boundary, severity, and bounded remediation scope. Otherwise
-record it as provisional/P2. One independent adjudicator may decide one appeal
-against the frozen criteria and may not invent new criteria.
+record it as provisional/P2. One adjudicator, distinct from both the candidate
+author and original reviewer, may decide one appeal against the frozen criteria
+and may not invent new criteria.
 
 For every declared affected path/dependency, record exactly one disposition:
 `changed_and_verified`, `unchanged_dependency_verified`, or
@@ -179,6 +184,7 @@ risk_profile:
     independent_adversarial_1, independent_adversarial_2, full_dynamic]
 review_policy:
   author_id: primary
+  required_static_reviews: 2
   required_clean_rounds: 2
   max_appeals_per_finding: 1
   out_of_model_disposition: scope_expansion_proposal
@@ -206,11 +212,31 @@ python3 /trusted/skills/delivery-alignment-iteration/scripts/check_iteration_con
   --contract /path/to/iteration.yaml \
   --ledger /external/phase-ledger.json \
   --candidate-root /path/to/candidate \
+  --trusted-git-dir /external/trust/candidate.git \
   --public-key /external/trust/ledger-ed25519-public.pem \
   --expected-verifier-sha256 <host-pinned-sha256> \
   --expected-root-anchor-sha256 <host-pinned-sha256> \
   --expected-contract-sha256 <host-pinned-sha256> \
   --expected-prior-verifier-sha256 <host-pinned-sha256-if-upgrade> \
+  --phase pre_execution --json
+```
+
+Only after that invocation returns `authorize_execution` may T4 run candidate
+bytes. Re-run the same pinned verifier with `--phase closure` after T5/T6; for a
+gate-tool upgrade, also supply the independently accepted verifier hash:
+
+```bash
+python3 /trusted/skills/delivery-alignment-iteration/scripts/check_iteration_convergence.py \
+  --contract /path/to/iteration.yaml \
+  --ledger /external/phase-ledger.json \
+  --candidate-root /path/to/candidate \
+  --trusted-git-dir /external/trust/candidate.git \
+  --public-key /external/trust/ledger-ed25519-public.pem \
+  --expected-verifier-sha256 <host-pinned-sha256> \
+  --expected-root-anchor-sha256 <host-pinned-sha256> \
+  --expected-contract-sha256 <host-pinned-sha256> \
+  --expected-prior-verifier-sha256 <host-pinned-sha256-if-upgrade> \
+  --phase closure \
   --require-close --json
 ```
 
@@ -222,10 +248,11 @@ and exact next action. It is not an append-only event log and cannot claim a fix
 before mapped verification passes.
 
 The Ed25519-signed external phase ledger records the T2 candidate commit, tree,
-patch digest, actual path set, reviewer IDs and rounds, findings and appeals,
-gate receipts, acceptance results, completeness dispositions, residual risks,
-budget use, checkpoints, and closure. It binds exact candidate, model, verifier,
-contract, and evidence hashes. Its public key is hash-bound in the root anchor;
+patch digest, actual path set, accepted T2.5 static-review receipts, reviewer
+IDs and rounds, findings and appeals, gate receipts, acceptance results,
+completeness dispositions, residual risks, budget use, checkpoints, and
+closure. It binds exact candidate, model, verifier, contract, and evidence
+hashes. Its public key is hash-bound in the root anchor;
 the signing key and its path never enter a candidate subprocess. T2+ updates to
 this ledger must never alter candidate bytes.
 

@@ -7,6 +7,7 @@ import argparse
 import base64
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -22,6 +23,7 @@ SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 TIERS = {"R0", "R1", "R2", "R3"}
 TIER_CLEAN_ROUNDS = {"R0": 0, "R1": 1, "R2": 1, "R3": 2}
+TIER_STATIC_REVIEWS = {"R0": 0, "R1": 1, "R2": 1, "R3": 2}
 TIER_GATES = {
     "R0": ["static"],
     "R1": ["static", "targeted_regression", "independent_review_1"],
@@ -123,6 +125,7 @@ LEDGER_REQUIRED = {
     "completeness_map",
     "residual_risks",
     "budget_usage",
+    "static_review_receipts",
     "attestation",
 }
 
@@ -196,10 +199,35 @@ def _canonical_sha256(value: Any) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
-def _git_text(root: Path, *args: str) -> str:
+def _trusted_git_command(git_dir: Path, *args: str) -> tuple[list[str], dict[str, str]]:
+    command = [
+        "git",
+        f"--git-dir={git_dir}",
+        "--no-pager",
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "diff.external=",
+        *args,
+    ]
+    env = {
+        "PATH": os.environ.get("PATH", os.defpath),
+        "LANG": "C",
+        "LC_ALL": "C",
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_CONFIG_GLOBAL": "/dev/null",
+        "GIT_NO_REPLACE_OBJECTS": "1",
+        "GIT_OPTIONAL_LOCKS": "0",
+    }
+    return command, env
+
+
+def _git_text(git_dir: Path, *args: str) -> str:
+    command, env = _trusted_git_command(git_dir, *args)
     completed = subprocess.run(
-        ["git", *args],
-        cwd=root,
+        command,
+        cwd=git_dir.parent,
+        env=env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -210,10 +238,12 @@ def _git_text(root: Path, *args: str) -> str:
     return completed.stdout
 
 
-def _git_bytes(root: Path, *args: str) -> bytes:
+def _git_bytes(git_dir: Path, *args: str) -> bytes:
+    command, env = _trusted_git_command(git_dir, *args)
     completed = subprocess.run(
-        ["git", *args],
-        cwd=root,
+        command,
+        cwd=git_dir.parent,
+        env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,
@@ -635,6 +665,7 @@ def validate_contract(contract: dict[str, Any], verifier_path: Path) -> dict[str
         contract.get("review_policy"),
         {
             "author_id",
+            "required_static_reviews",
             "required_clean_rounds",
             "max_appeals_per_finding",
             "out_of_model_disposition",
@@ -645,6 +676,13 @@ def validate_contract(contract: dict[str, Any], verifier_path: Path) -> dict[str
         errors,
     )
     if review:
+        if (
+            tier in TIER_STATIC_REVIEWS
+            and review.get("required_static_reviews") != TIER_STATIC_REVIEWS[tier]
+        ):
+            errors.append(
+                f"review_policy.required_static_reviews must be {TIER_STATIC_REVIEWS.get(tier)} for {tier}"
+            )
         if tier in TIER_CLEAN_ROUNDS and review.get("required_clean_rounds") != TIER_CLEAN_ROUNDS[tier]:
             errors.append(
                 f"review_policy.required_clean_rounds must be {TIER_CLEAN_ROUNDS.get(tier)} for {tier}"
@@ -674,6 +712,12 @@ def validate_contract(contract: dict[str, Any], verifier_path: Path) -> dict[str
                 errors.append(
                     f"budgets.{field} may be stricter but cannot exceed default {default}"
                 )
+        if review and budgets.get("max_appeals_per_finding") != review.get(
+            "max_appeals_per_finding"
+        ):
+            errors.append(
+                "budgets.max_appeals_per_finding must match review policy"
+            )
 
     convergence = _required_mapping(
         contract.get("convergence"),
@@ -737,6 +781,7 @@ def _validate_finding(
     candidate: str,
     property_ids: set[str],
     capabilities: set[str],
+    author_id: str,
     max_appeals: int,
     errors: list[str],
 ) -> tuple[str, bool, bool]:
@@ -762,6 +807,10 @@ def _validate_finding(
     if len(appeals) > max_appeals:
         errors.append(f"{label} exceeds the one-appeal limit")
     reviewer_id = str(finding.get("reviewer_id") or "")
+    if not reviewer_id:
+        errors.append(f"{label}.reviewer_id must be nonempty")
+    elif reviewer_id == author_id:
+        errors.append(f"{label}.reviewer_id must be independent of author")
     for appeal_index, appeal in enumerate(appeals):
         if not isinstance(appeal, dict):
             errors.append(f"{label}.appeals[{appeal_index}] must be a mapping")
@@ -772,6 +821,8 @@ def _validate_finding(
             errors.append(f"{label}.appeals[{appeal_index}].adjudicator_id is empty")
         elif appeal.get("adjudicator_id") == reviewer_id:
             errors.append(f"{label} appeal adjudicator must be independent")
+        elif appeal.get("adjudicator_id") == author_id:
+            errors.append(f"{label} appeal adjudicator must be independent of author")
 
     emergency = finding.get("emergency_reopen") is True
     appeal_decision = ""
@@ -803,6 +854,100 @@ def _validate_finding(
     return str(finding_id), blocking, adjudicated_emergency and blocking and not in_model
 
 
+def _validate_static_review_receipts(
+    receipts: Any,
+    *,
+    required_count: int,
+    author_id: str,
+    candidate: str,
+    candidate_tree: str,
+    candidate_patch_sha256: str,
+    contract_sha256: str,
+    verifier_sha256: str,
+    candidate_root: Path,
+) -> tuple[bool, list[str], list[dict[str, Any]]]:
+    errors: list[str] = []
+    normalized: list[dict[str, Any]] = []
+    if not isinstance(receipts, list):
+        return False, ["static_review_receipts must be a list"], []
+    if len(receipts) != required_count:
+        errors.append(
+            f"static_review_receipts must contain exactly {required_count} receipts"
+        )
+    expected_fields = {
+        "reviewer_id",
+        "independent",
+        "verdict",
+        "review_object",
+        "candidate",
+        "candidate_tree",
+        "candidate_patch_sha256",
+        "contract_sha256",
+        "verifier_sha256",
+        "report_path",
+        "report_sha256",
+        "reviewed_at_utc",
+    }
+    reviewer_ids: list[str] = []
+    for index, receipt in enumerate(receipts):
+        label = f"static_review_receipts[{index}]"
+        if not isinstance(receipt, dict):
+            errors.append(f"{label} must be a mapping")
+            continue
+        if set(receipt) != expected_fields:
+            errors.append(f"{label} fields are invalid")
+            continue
+        reviewer_id = str(receipt.get("reviewer_id") or "")
+        reviewer_ids.append(reviewer_id)
+        if not reviewer_id or reviewer_id == author_id:
+            errors.append(f"{label}.reviewer_id must be independent of author")
+        if receipt.get("independent") is not True:
+            errors.append(f"{label}.independent must be true")
+        if receipt.get("verdict") != "accepted":
+            errors.append(f"{label}.verdict must be accepted")
+        if receipt.get("review_object") != "static_exact_diff":
+            errors.append(f"{label}.review_object must be static_exact_diff")
+        bindings = {
+            "candidate": candidate,
+            "candidate_tree": candidate_tree,
+            "candidate_patch_sha256": candidate_patch_sha256,
+            "contract_sha256": contract_sha256,
+            "verifier_sha256": verifier_sha256,
+        }
+        for key, expected in bindings.items():
+            if receipt.get(key) != expected:
+                errors.append(f"{label}.{key} does not match frozen identity")
+        if not str(receipt.get("reviewed_at_utc") or "").strip():
+            errors.append(f"{label}.reviewed_at_utc must be nonempty")
+        report_path = Path(str(receipt.get("report_path") or "")).resolve()
+        try:
+            report_path.relative_to(candidate_root.resolve())
+        except ValueError:
+            report_external = True
+        else:
+            report_external = False
+            errors.append(f"{label}.report_path must be candidate-external")
+        try:
+            report_bytes = report_path.read_bytes()
+        except OSError as exc:
+            report_bytes = b""
+            errors.append(f"{label}.report_path cannot be read: {exc}")
+        report_sha = hashlib.sha256(report_bytes).hexdigest()
+        if receipt.get("report_sha256") != report_sha:
+            errors.append(f"{label}.report_sha256 does not match report bytes")
+        normalized.append(
+            {
+                "reviewer_id": reviewer_id,
+                "report_path": str(report_path),
+                "report_sha256": report_sha,
+                "report_external": report_external,
+            }
+        )
+    if len(reviewer_ids) != len(set(reviewer_ids)):
+        errors.append("static review receipts must use distinct reviewers")
+    return not errors, errors, normalized
+
+
 def evaluate(
     contract: dict[str, Any],
     ledger: dict[str, Any],
@@ -810,6 +955,7 @@ def evaluate(
     contract_path: Path,
     ledger_path: Path,
     candidate_root: Path,
+    trusted_git_dir: Path,
     verifier_path: Path,
     public_key_path: Path,
     expected_root_anchor_sha256: str,
@@ -817,6 +963,7 @@ def evaluate(
     expected_verifier_sha256: str,
     expected_prior_verifier_sha256: str = "",
     accepted_verifier_sha256: str = "",
+    evaluation_phase: str = "closure",
     contract_bytes: bytes | None = None,
     ledger_bytes: bytes | None = None,
     public_key_bytes: bytes | None = None,
@@ -886,6 +1033,19 @@ def evaluate(
         if bootstrap_mode != "gate_tool_upgrade":
             errors.append("verifier must resolve outside the candidate repository")
 
+    try:
+        trusted_git_dir.resolve().relative_to(candidate_root.resolve())
+    except ValueError:
+        trusted_git_external = True
+    else:
+        trusted_git_external = False
+        errors.append("trusted Git object store must be candidate-external")
+    try:
+        if _git_text(trusted_git_dir, "rev-parse", "--is-bare-repository").strip() != "true":
+            errors.append("trusted Git object store must be a bare repository")
+    except ValueError as exc:
+        errors.append(f"cannot validate trusted Git object store: {exc}")
+
     phase = contract.get("phase_ledger") if isinstance(contract.get("phase_ledger"), dict) else {}
     if ledger.get("schema_version") != 1:
         errors.append("phase ledger schema_version must be integer 1")
@@ -939,14 +1099,22 @@ def evaluate(
     if COMMIT_RE.fullmatch(base_commit) and COMMIT_RE.fullmatch(candidate):
         try:
             resolved_base = _git_text(
-                candidate_root, "rev-parse", f"{base_commit}^{{commit}}"
+                trusted_git_dir, "rev-parse", f"{base_commit}^{{commit}}"
             ).strip()
             resolved_candidate = _git_text(
-                candidate_root, "rev-parse", f"{candidate}^{{commit}}"
+                trusted_git_dir, "rev-parse", f"{candidate}^{{commit}}"
             ).strip()
+            ancestry_command, ancestry_env = _trusted_git_command(
+                trusted_git_dir,
+                "merge-base",
+                "--is-ancestor",
+                resolved_base,
+                resolved_candidate,
+            )
             ancestry = subprocess.run(
-                ["git", "merge-base", "--is-ancestor", resolved_base, resolved_candidate],
-                cwd=candidate_root,
+                ancestry_command,
+                cwd=trusted_git_dir.parent,
+                env=ancestry_env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 check=False,
@@ -954,13 +1122,15 @@ def evaluate(
             if ancestry.returncode != 0:
                 errors.append("phase ledger candidate must descend from base")
             actual_tree = _git_text(
-                candidate_root, "rev-parse", f"{resolved_candidate}^{{tree}}"
+                trusted_git_dir, "rev-parse", f"{resolved_candidate}^{{tree}}"
             ).strip()
             git_paths = sorted(
                 path
                 for path in _git_text(
-                    candidate_root,
+                    trusted_git_dir,
                     "diff",
+                    "--no-ext-diff",
+                    "--no-textconv",
                     "--name-only",
                     resolved_base,
                     resolved_candidate,
@@ -970,8 +1140,10 @@ def evaluate(
             )
             git_patch_sha = hashlib.sha256(
                 _git_bytes(
-                    candidate_root,
+                    trusted_git_dir,
                     "diff",
+                    "--no-ext-diff",
+                    "--no-textconv",
                     "--binary",
                     "--full-index",
                     resolved_base,
@@ -993,7 +1165,7 @@ def evaluate(
                 relative_contract = None
             if relative_contract is not None:
                 candidate_contract = _git_bytes(
-                    candidate_root,
+                    trusted_git_dir,
                     "show",
                     f"{resolved_candidate}:{relative_contract.as_posix()}",
                 )
@@ -1003,6 +1175,65 @@ def evaluate(
                     )
         except ValueError as exc:
             errors.append(f"cannot recompute Git freeze binding: {exc}")
+
+    pre_review_policy = (
+        contract.get("review_policy")
+        if isinstance(contract.get("review_policy"), dict)
+        else {}
+    )
+    static_reviews_ok, static_review_errors, static_review_records = (
+        _validate_static_review_receipts(
+            ledger.get("static_review_receipts"),
+            required_count=int(pre_review_policy.get("required_static_reviews") or 0),
+            author_id=str(pre_review_policy.get("author_id") or ""),
+            candidate=candidate,
+            candidate_tree=candidate_tree,
+            candidate_patch_sha256=candidate_patch_sha,
+            contract_sha256=contract_sha,
+            verifier_sha256=contract_result["verifier_sha256"],
+            candidate_root=candidate_root,
+        )
+    )
+    errors.extend(static_review_errors)
+    pre_execution_authorized = bool(not errors and static_reviews_ok)
+    if evaluation_phase == "pre_execution":
+        decision = "authorize_execution" if pre_execution_authorized else "invalid"
+        return {
+            "ok": not errors,
+            "closed": False,
+            "decision": decision,
+            "errors": errors,
+            "closure_reasons": [],
+            "human_checkpoints": [],
+            "pre_execution_authorized": pre_execution_authorized,
+            "static_review_receipts": static_review_records,
+            "trust": {
+                "policy_version": POLICY_VERSION,
+                "verifier_path": str(verifier_path.resolve()),
+                "verifier_sha256": contract_result["verifier_sha256"],
+                "verifier_external_to_candidate": verifier_external,
+                "bootstrap_mode": bootstrap_mode,
+                "root_anchor_sha256": root_anchor_sha,
+                "ledger_external_to_candidate": ledger_external,
+                "public_key_external_to_candidate": public_key_external,
+                "public_key_sha256": public_key_sha,
+                "ledger_attestation_valid": attestation_ok,
+                "trusted_git_external_to_candidate": trusted_git_external,
+                "trusted_git_dir": str(trusted_git_dir.resolve()),
+            },
+            "identity": {
+                "contract_path": str(contract_path.resolve()),
+                "contract_sha256": contract_sha,
+                "ledger_path": str(ledger_path.resolve()),
+                "ledger_sha256": hashlib.sha256(bound_ledger_bytes).hexdigest(),
+                "candidate": candidate,
+                "candidate_tree": candidate_tree,
+                "candidate_patch_sha256": candidate_patch_sha,
+                "threat_model_sha256": contract_result["threat_model_sha256"],
+            },
+        }
+    if evaluation_phase != "closure":
+        errors.append("evaluation_phase must be pre_execution or closure")
 
     acceptance_ids = set((contract.get("convergence") or {}).get("acceptance_ids") or [])
     acceptance_results = ledger.get("acceptance_results")
@@ -1054,7 +1285,13 @@ def evaluate(
     finding_ids: list[str] = []
     blockers: list[str] = []
     emergency = False
-    max_appeals = int((contract.get("review_policy") or {}).get("max_appeals_per_finding") or 0)
+    finding_review_policy = (
+        contract.get("review_policy")
+        if isinstance(contract.get("review_policy"), dict)
+        else {}
+    )
+    max_appeals = int(finding_review_policy.get("max_appeals_per_finding") or 0)
+    finding_author_id = str(finding_review_policy.get("author_id") or "")
     for index, finding in enumerate(findings):
         identifier, blocking, emergency_blocker = _validate_finding(
             finding,
@@ -1062,6 +1299,7 @@ def evaluate(
             candidate=candidate,
             property_ids=set(contract_result["property_ids"]),
             capabilities=set(contract_result["attacker_capabilities"]),
+            author_id=finding_author_id,
             max_appeals=max_appeals,
             errors=errors,
         )
@@ -1291,6 +1529,8 @@ def evaluate(
         "errors": errors,
         "closure_reasons": closure_reasons,
         "human_checkpoints": checkpoints,
+        "pre_execution_authorized": pre_execution_authorized,
+        "static_review_receipts": static_review_records,
         "trust": {
             "policy_version": POLICY_VERSION,
             "verifier_path": str(verifier_path.resolve()),
@@ -1305,6 +1545,8 @@ def evaluate(
             "public_key_external_to_candidate": public_key_external,
             "public_key_sha256": public_key_sha,
             "ledger_attestation_valid": attestation_ok,
+            "trusted_git_external_to_candidate": trusted_git_external,
+            "trusted_git_dir": str(trusted_git_dir.resolve()),
         },
         "identity": {
             "contract_path": str(contract_path.resolve()),
@@ -1327,6 +1569,11 @@ def main() -> int:
     parser.add_argument("--contract", required=True)
     parser.add_argument("--ledger", required=True)
     parser.add_argument("--candidate-root", required=True)
+    parser.add_argument(
+        "--trusted-git-dir",
+        required=True,
+        help="Host-prepared candidate-external bare Git object store.",
+    )
     parser.add_argument(
         "--public-key",
         required=True,
@@ -1357,6 +1604,12 @@ def main() -> int:
         default="",
         help="Human-accepted new verifier hash; omit while the upgrade is pending.",
     )
+    parser.add_argument(
+        "--phase",
+        choices=("pre_execution", "closure"),
+        default="closure",
+        help="Evaluate T2.5->T3 authorization or final finite closure.",
+    )
     parser.add_argument("--require-close", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
@@ -1375,6 +1628,7 @@ def main() -> int:
             contract_path=contract_path,
             ledger_path=ledger_path,
             candidate_root=Path(args.candidate_root).resolve(),
+            trusted_git_dir=Path(args.trusted_git_dir).resolve(),
             verifier_path=verifier_path,
             public_key_path=public_key_path,
             expected_root_anchor_sha256=args.expected_root_anchor_sha256,
@@ -1382,6 +1636,7 @@ def main() -> int:
             expected_verifier_sha256=args.expected_verifier_sha256,
             expected_prior_verifier_sha256=args.expected_prior_verifier_sha256,
             accepted_verifier_sha256=args.accepted_verifier_sha256,
+            evaluation_phase=args.phase,
             contract_bytes=contract_bytes,
             ledger_bytes=ledger_bytes,
             public_key_bytes=public_key_bytes,

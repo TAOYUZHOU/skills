@@ -79,6 +79,8 @@ R3: [static, targeted_regression, atomic_boundary,
 Review, budget, and closure fields:
 
 - `review_policy.author_id`: candidate author identity.
+- `required_static_reviews`: R0 `0`, R1/R2 `1`, R3 `2`; every accepted
+  T2.5 receipt must be from a distinct reviewer who is not the author.
 - `required_clean_rounds`: R0 `0`, R1/R2 `1`, R3 `2`.
 - `max_appeals_per_finding`: exactly `1`.
 - `out_of_model_disposition`: exactly `scope_expansion_proposal`.
@@ -159,6 +161,7 @@ risk_profile:
     independent_adversarial_1]
 review_policy:
   author_id: primary-agent
+  required_static_reviews: 1
   required_clean_rounds: 1
   max_appeals_per_finding: 1
   out_of_model_disposition: scope_expansion_proposal
@@ -246,6 +249,22 @@ shape:
     }
   ],
   "residual_risks": [],
+  "static_review_receipts": [
+    {
+      "reviewer_id": "static-reviewer-1",
+      "independent": true,
+      "verdict": "accepted",
+      "review_object": "static_exact_diff",
+      "candidate": "2222222222222222222222222222222222222222",
+      "candidate_tree": "3333333333333333333333333333333333333333",
+      "candidate_patch_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "contract_sha256": "<SHA-256 of the exact schema-v3 contract bytes>",
+      "verifier_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "report_path": "/external/reviews/static-review-1.md",
+      "report_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "reviewed_at_utc": "2026-08-04T00:00:00Z"
+    }
+  ],
   "budget_usage": {
     "candidate_rejections": 0,
     "adversarial_rounds": 1,
@@ -284,10 +303,11 @@ Allowed statuses are `confirmed_open`, `resolved`, `provisional`, and
 ```
 
 Without every proof field or in-model IDs, use `provisional`/P2 and add the
-finding to `residual_risks`. One appeal has `adjudicator_id` distinct from the
-reviewer and decision `upheld`, `rejected`, or `downgraded`; it cannot add a new
-criterion. `rejected` releases the original veto and `downgraded` requires a
-residual-risk entry.
+finding to `residual_risks`. The reviewer must differ from
+`review_policy.author_id`. One appeal has an `adjudicator_id` distinct from both
+the reviewer and author and decision `upheld`, `rejected`, or `downgraded`; it
+cannot add a new criterion. `rejected` releases the original veto and
+`downgraded` requires a residual-risk entry.
 
 ## Evaluator outcomes
 
@@ -296,16 +316,21 @@ top-level `attestation` field omitted. The verifier uses the candidate-external
 public key passed with `--public-key` and requires its file hash to equal
 `trust.root_anchor.external_signing_public_key_sha256`.
 
-The CLI additionally requires host-supplied expected hashes for the verifier,
-root anchor, and exact contract bytes. `gate_tool_upgrade` also requires the
-host-expected prior verifier. Copying a new verifier outside the candidate does
-not accept it: without `--accepted-verifier-sha256` the evaluator returns only
+The CLI additionally requires `--trusted-git-dir`, a host-prepared
+candidate-external bare object store, plus host-supplied expected hashes for the
+verifier, root anchor, and exact contract bytes. Git runs with replacement
+objects, external diff/text conversion, hooks, and user/system configuration
+disabled. `gate_tool_upgrade` also requires the host-expected prior verifier.
+Copying a new verifier outside the candidate does not accept it: without
+`--accepted-verifier-sha256` the evaluator returns only
 `ready_for_external_acceptance`; after explicit acceptance the host may pass the
 new hash and request closure.
 
 `check_iteration_convergence.py` returns:
 
 - `invalid`: schema, identity, trust, finding, or ledger contradiction;
+- `authorize_execution`: `--phase pre_execution` verified the frozen Git
+  identity and the exact tier-required accepted T2.5 receipts;
 - `continue`: valid iteration with unsatisfied closure conditions;
 - `human_checkpoint`: budget or adjudicated emergency requires a person;
 - `ready_for_external_acceptance`: a gate-tool upgrade passed diagnostics but
