@@ -123,6 +123,23 @@ Classify by authority reachability and blast radius, not line count.
 not applicable only with a deterministic unreachability proof. R0/R1 must not
 pay R2/R3 gate cost unless a reachable authority boundary raises their tier.
 
+### Product-invariant test-harness fast path
+
+An explicit human authorization or frozen T0 contract may reuse prior T2.5/T6
+reviews for a successor that fixes deterministic collateral in a non-shipping
+test or fixture. Eligibility requires byte-identical product/runtime/scripts,
+release configuration, gate selection, verifier, runner, and contract
+semantics; an exact diff proving no removed or weakened assertion, timeout,
+leak check, skip, xfail, or negative cell; and passing results for both the
+previously failing node and its declared affected regression boundary. Record
+the authorization, cause, diff, product-tree hashes, and before/after evidence
+in the external ledger.
+
+This is review reuse, not product authorization or a lower risk label. Any
+shipping reachability, product-tree change, ambiguity, or gate weakening uses
+the ordinary tier. The fast path cannot be used to accept changes to this skill,
+its verifier, runner, schemas, receipt semantics, or signing path.
+
 ## Finite closure rule
 
 The frozen candidate closes when and only when all of the following are true:

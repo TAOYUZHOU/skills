@@ -101,6 +101,31 @@ candidate, eight new attacks per round, four active engineering hours without a
 checkpoint, a human report every two candidate reviews, and one appeal per
 finding. T0 may make them stricter, not looser, without explicit human approval.
 
+### Product-invariant test-harness fast path
+
+Do not spend an independent review round on a locally discovered test-harness
+defect when an explicit human authorization or the frozen T0 contract selects
+this fast path and all of these conditions are machine-evidenced:
+
+- the failure is deterministic in an already authorized gate;
+- the successor changes only non-shipping tests or fixtures and external phase
+  records; product, runtime, scripts, release configuration, gate selection,
+  verifier, runner, and contract semantics are byte-identical;
+- the delta only removes test collateral (for example shared-module mock
+  leakage) and does not delete or weaken an assertion, timeout, leak check,
+  skip, xfail, or negative cell; and
+- the exact failed node plus its declared affected regression boundary pass,
+  while reused gates remain bound to identical product-tree hashes.
+
+The author records the deterministic cause, exact diff, product-tree identity,
+targeted before/after result, affected regression result, and the human/T0
+authorization in the external ledger. T2 still freezes the successor bytes,
+but T2.5/T6 may reuse the previously accepted reviews without a new reviewer
+for this delta. Any ambiguity, shipping-code reachability, gate weakening, or
+product-tree change exits the fast path and follows the normal risk tier. This
+exception cannot authorize a change to this skill or its proof tools; those
+remain `gate_tool_upgrade` work.
+
 ## Risk routing
 
 Classify by reachable authority and blast radius, not by line count:
