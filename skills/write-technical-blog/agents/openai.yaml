@@ -1,0 +1,4 @@
+interface:
+  display_name: "Write Technical Blog"
+  short_description: "Write rigorous, readable theory-first technical blogs"
+  default_prompt: "Use $write-technical-blog to turn this technical work into a rigorous standalone HTML blog."

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="{{LANG}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{TITLE}}</title>
+  <script>
+    window.MathJax = {tex: {inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']]}};
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    :root { color-scheme:light dark; --ink:#18222d; --muted:#5d6975; --paper:#f7f5f0;
+      --card:#fff; --line:#d9d6cf; --accent:#356b9b; --code:#eff2f4;
+      --shadow:0 14px 40px rgba(20,30,40,.08); }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--paper); line-height:1.75;
+      font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC",sans-serif; }
+    main { max-width:980px; margin:0 auto; padding:64px 28px 90px; }
+    header { padding:44px 0 34px; border-bottom:1px solid var(--line); }
+    .eyebrow { color:var(--accent); letter-spacing:.12em; font-size:.82rem; font-weight:600; }
+    h1,h2 { font-family:Georgia,"Songti SC",serif; }
+    h1 { max-width:850px; margin:.4rem 0 1rem; font-size:clamp(2.2rem,5vw,4rem); line-height:1.14; }
+    h2 { margin:3.5rem 0 1rem; font-size:2rem; line-height:1.3; }
+    h3 { margin:2rem 0 .65rem; font-size:1.25rem; }
+    p,li { font-size:1.02rem; }
+    .dek,.muted,figcaption { color:var(--muted); }
+    .dek { max-width:800px; margin:0; font-size:1.16rem; }
+    .callout { margin:2rem 0; padding:1.25rem 1.4rem; background:var(--card);
+      border-left:4px solid var(--accent); border-radius:0 10px 10px 0; box-shadow:var(--shadow); }
+    .table-wrap { width:100%; overflow-x:auto; margin:1.2rem 0 2rem; }
+    table { width:100%; min-width:720px; border-collapse:collapse; background:var(--card); }
+    th,td { padding:.72rem .8rem; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { color:var(--muted); font-size:.9rem; }
+    figure { margin:2.4rem 0 3rem; padding:14px; background:var(--card); border:1px solid var(--line);
+      border-radius:14px; box-shadow:var(--shadow); }
+    figure img { width:100%; height:auto; display:block; border-radius:8px; }
+    figcaption { padding:12px 8px 3px; font-size:.92rem; }
+    code { padding:.14em .38em; border-radius:5px; background:var(--code); color:var(--ink); }
+    pre { overflow:auto; padding:18px; border-radius:10px; background:#17212b; color:#e7edf2; }
+    a { color:var(--accent); text-underline-offset:3px; }
+    footer { margin-top:4rem; padding-top:1.5rem; border-top:1px solid var(--line); color:var(--muted); }
+    @media (prefers-color-scheme:dark) {
+      :root { --ink:#edf2f5; --muted:#aeb9c2; --paper:#111820; --card:#18222c;
+        --line:#34414d; --accent:#75add8; --code:#24313c; --shadow:none; }
+    }
+    @media (max-width:720px) { main{padding:34px 18px 64px} h2{font-size:1.65rem} }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">{{EYEBROW}}</div>
+    <h1>{{TITLE}}</h1>
+    <p class="dek">{{SUBTITLE}}</p>
+  </header>
+
+  <section>
+    <h2>{{THESIS_HEADING}}</h2>
+    <p>{{THESIS}}</p>
+    <div class="callout"><strong>Evidence boundary:</strong> {{EVIDENCE_BOUNDARY}}</div>
+  </section>
+
+  <section>
+    <h2>Mental model</h2>
+    <p>{{MENTAL_MODEL}}</p>
+    \[
+      {{CORE_EQUATION}}
+    \]
+  </section>
+
+  <section>
+    <h2>Notation</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Symbol</th><th>Type / unit</th><th>Definition</th><th>Layer</th></tr></thead>
+      <tbody>
+        <tr><td>\({{SYMBOL}}\)</td><td>{{TYPE_UNIT}}</td><td>{{DEFINITION}}</td><td>{{LAYER}}</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>{{MECHANISM_HEADING}}</h2>
+    <p>{{MECHANISM_TEXT}}</p>
+  </section>
+
+  <section>
+    <h2>Evidence</h2>
+    <p>{{EVIDENCE_INTERPRETATION}}</p>
+    <figure>
+      <img src="{{FIGURE_PATH}}" alt="{{FIGURE_ALT}}">
+      <figcaption>{{FIGURE_CAPTION}}</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Failure modes and applicability</h2>
+    <ul><li>{{FAILURE_MODE}}</li></ul>
+  </section>
+
+  <section>
+    <h2>Reproduction and references</h2>
+    <pre><code>{{REPRO_COMMAND}}</code></pre>
+    <ol><li><a href="{{PRIMARY_SOURCE_URL}}">{{PRIMARY_SOURCE}}</a></li></ol>
+  </section>
+
+  <footer>{{FOOTER}}</footer>
+</main>
+</body>
+</html>
