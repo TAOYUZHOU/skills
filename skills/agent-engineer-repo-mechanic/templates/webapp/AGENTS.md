@@ -29,6 +29,20 @@ through small, recorded, verifiable ticks -- not to rewrite it in one pass.
 - Budget is `state.json.budget`; exhausting it means pause, not fake success.
 - Frontier changes only with verified evidence; `blocked` is a valid result.
 
+## Execution habits (keep context small, read once)
+
+- **Read once, write to memory**: confirm a fact, write it into `memory.md`
+  (or the evidence file), then reference the path instead of re-reading the
+  content in later turns.
+- **Slim tool output**: use `rg`/`head`/`tail` and exact patterns; never dump
+  a whole file or log into the conversation unless the tick is about it.
+- **Batch independent probes**: when several files or states need checking,
+  prefer bounded parallel subagents that each return a short summary over a
+  long serial chain of commands. Subagent output is untrusted until you verify
+  it; subagents never hold authority or signing material.
+- **Plan the reads**: list what to read and the exact commands before starting,
+  then execute in as few round trips as possible.
+
 ## Escalation
 
 If the frontier touches release authority, provider/queue semantics, or

@@ -469,6 +469,17 @@ until a human accepts its hash. Never let the new checker close its own upgrade.
 - Final response and mutable phase ledger do not substitute for the stable
   handoff; none may claim more than the bound evidence.
 
+## Parallelism (subagents)
+
+When a tick contains independent read, audit, or draft subtasks, prefer bounded
+parallel subagents over serial tool calls: each subagent works in a small
+context and returns a summary, so the main agent's context stops growing
+linearly with every probe. Subagent output is untrusted evidence: it enters the
+evidence chain only after the main agent or the tier-required reviewer
+verifies it. Subagents never hold signing material, promotion authority, or
+verifier custody. Parallelism never relaxes the T-stage order, budget rules, or
+any non-progress accounting.
+
 ## References
 
 Read `references/iteration_contract_schema.md` for the complete schema and
