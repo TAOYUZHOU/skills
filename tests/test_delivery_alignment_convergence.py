@@ -413,6 +413,8 @@ def _evaluate(
     phase_chain_override: dict | None = None,
     break_runner_predecessor: bool = False,
     poison_candidate_git: bool = False,
+    authority_map: dict[str, str] | None = None,
+    spent_credits: float = 0.0,
 ):
     candidate_root = tmp_path / "candidate"
     candidate_root.mkdir(parents=True, exist_ok=True)
@@ -478,6 +480,8 @@ def _evaluate(
         ),
         accepted_verifier_sha256=accepted_verifier_sha256,
         evaluation_phase=evaluation_phase,
+        authority_map=authority_map,
+        spent_credits=spent_credits,
     )
 
 
@@ -984,3 +988,65 @@ def test_duplicate_json_ledger_keys_are_rejected(tmp_path: Path) -> None:
     path.write_text('{"schema_version": 1, "schema_version": 1}', encoding="utf-8")
     with pytest.raises(ValueError, match="duplicate JSON key"):
         checker._load_json(path)
+
+
+def test_release_kind_validation(tmp_path: Path) -> None:
+    contract = _contract("R0")
+    contract["release_kind"] = "release_bootstrap"
+    result = _evaluate(tmp_path, contract, _ledger(contract))
+    assert result["decision"] == "close", result
+
+    contract["release_kind"] = "not-a-kind"
+    result = _evaluate(tmp_path, contract, _ledger(contract))
+    assert result["decision"] == "invalid"
+    assert any("release_kind" in error for error in result["errors"])
+
+
+def test_verifier_requirements_validation(tmp_path: Path) -> None:
+    contract = _contract("R0")
+    contract["verifier_requirements"] = [
+        {"id": "git_integrity_verifier", "version": "v1",
+         "params": {"base": "1" * 40, "candidate": "2" * 40}}
+    ]
+    result = _evaluate(tmp_path, contract, _ledger(contract))
+    assert result["decision"] == "close", result
+
+    contract["verifier_requirements"] = [{"id": "x", "version": "v1", "params": "bad"}]
+    result = _evaluate(tmp_path, contract, _ledger(contract))
+    assert result["decision"] == "invalid"
+    assert any("verifier_requirements[0].params" in error for error in result["errors"])
+
+
+def test_budgets_legacy_alias_is_accepted(tmp_path: Path) -> None:
+    contract = _contract("R0")
+    budgets = dict(contract["budgets"])
+    budgets.pop("max_consecutive_no_progress_rejections")
+    budgets["max_candidate_rejections"] = 2
+    contract["budgets"] = budgets
+    result = _evaluate(tmp_path, contract, _ledger(contract))
+    assert result["decision"] == "close", result
+
+
+def test_tier_derivation_overrides_declared_tier(tmp_path: Path) -> None:
+    contract = _contract("R0")
+    # _freeze_repo sets changed_paths from the real diff (README.md); the
+    # authority map must match that actual path to exercise derivation.
+    authority_map = {"README.md": "R2"}
+    result = _evaluate(
+        tmp_path, contract, _ledger(contract), authority_map=authority_map
+    )
+    assert result["decision"] == "invalid"
+    assert result["declared_tier"] == "R0"
+    assert result["derived_tier"] == "R2"
+    assert any("R2" in error for error in result["errors"])
+
+
+def test_cost_value_threshold_raises_checkpoint(tmp_path: Path) -> None:
+    contract = _contract("R0")
+    ledger = _ledger(contract)
+    result = _evaluate(
+        tmp_path, contract, ledger, spent_credits=10_000_000
+    )
+    assert result["decision"] == "close"
+    assert result["cost_value"]["exceeded"] is True
+    assert any("cost/value threshold" in c for c in result["human_checkpoints"])

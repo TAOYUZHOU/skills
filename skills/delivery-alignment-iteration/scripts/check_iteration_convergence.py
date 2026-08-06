@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import fnmatch
 import hashlib
 import json
 import os
@@ -100,13 +101,20 @@ COMPLETENESS_DISPOSITIONS = {
     "not_applicable_with_proof",
 }
 DEFAULT_BUDGETS = {
-    "max_candidate_rejections": 2,
+    "max_consecutive_no_progress_rejections": 2,
     "max_adversarial_rounds_per_candidate": 2,
     "max_new_attacks_per_round": 8,
     "max_active_engineering_hours_without_checkpoint": 4,
     "human_report_every_candidate_reviews": 2,
     "max_appeals_per_finding": 1,
+    "cost_value_threshold": 10,
 }
+LEGACY_BUDGET_ALIASES = {
+    "max_candidate_rejections": "max_consecutive_no_progress_rejections"
+}
+ALLOWED_OPTIONAL_TOP_LEVEL = {"release_kind", "verifier_requirements"}
+RELEASE_KINDS = {"product_patch", "release_bootstrap", "tool_upgrade"}
+TIER_RANK = {"R0": 0, "R1": 1, "R2": 2, "R3": 3}
 LEDGER_REQUIRED = {
     "schema_version",
     "ledger_id",
@@ -416,6 +424,7 @@ def _record_list(
     label: str,
     required: set[str],
     errors: list[str],
+    optional: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     if not isinstance(value, list) or not value:
         errors.append(f"{label} must be a nonempty list")
@@ -426,7 +435,7 @@ def _record_list(
             errors.append(f"{label}[{index}] must be a mapping")
             continue
         missing = sorted(required - set(item))
-        unexpected = sorted(set(item) - required)
+        unexpected = sorted(set(item) - required - (optional or set()))
         if missing:
             errors.append(
                 f"{label}[{index}] missing fields: {', '.join(missing)}"
@@ -478,7 +487,31 @@ def _property_ids(value: Any, errors: list[str]) -> set[str]:
     return set(ids)
 
 
-def validate_contract(contract: dict[str, Any], verifier_path: Path) -> dict[str, Any]:
+def derive_tier(
+    changed_paths: list[str],
+    authority_map: dict[str, str] | None,
+    declared_tier: str,
+) -> str:
+    """Derive the risk tier from the exact changed-path set and an authority map.
+
+    The declared tier is a floor: the derived tier wins when it is higher.
+    Empty authority map keeps the declared tier.
+    """
+    derived = declared_tier if declared_tier in TIER_RANK else "R0"
+    for path in changed_paths:
+        for pattern, tier in (authority_map or {}).items():
+            if tier not in TIER_RANK:
+                continue
+            if fnmatch.fnmatch(path, pattern) and TIER_RANK[tier] > TIER_RANK[derived]:
+                derived = tier
+    return derived
+
+
+def validate_contract(
+    contract: dict[str, Any],
+    verifier_path: Path,
+    authority_map: dict[str, str] | None = None,
+) -> dict[str, Any]:
     errors: list[str] = []
     if contract.get("schema_version") != 3:
         errors.append("schema_version must be integer 3")
@@ -488,7 +521,9 @@ def validate_contract(contract: dict[str, Any], verifier_path: Path) -> dict[str
         elif not _nonempty(contract[field]):
             errors.append(f"empty top-level field: {field}")
 
-    allowed_top_level = {"schema_version"} | COMMON_REQUIRED | V3_REQUIRED
+    allowed_top_level = (
+        {"schema_version"} | COMMON_REQUIRED | V3_REQUIRED | ALLOWED_OPTIONAL_TOP_LEVEL
+    )
     unexpected_top_level = sorted(set(contract) - allowed_top_level)
     if unexpected_top_level:
         errors.append(
@@ -568,6 +603,26 @@ def validate_contract(contract: dict[str, Any], verifier_path: Path) -> dict[str
         or not handoff_path.startswith("docs/")
     ):
         errors.append("handoff.path must be a contained repository docs path")
+
+    release_kind = contract.get("release_kind")
+    if release_kind is not None and release_kind not in RELEASE_KINDS:
+        errors.append(
+            "release_kind must be one of: " + ", ".join(sorted(RELEASE_KINDS))
+        )
+    verifier_requirements: list[dict[str, Any]] = []
+    if contract.get("verifier_requirements") is not None:
+        verifier_requirements = _record_list(
+            contract.get("verifier_requirements"),
+            label="verifier_requirements",
+            required={"id", "version"},
+            optional={"params"},
+            errors=errors,
+        )
+    for index, req in enumerate(verifier_requirements):
+        if not isinstance(req.get("params"), (dict, list, type(None))):
+            errors.append(
+                f"verifier_requirements[{index}].params must be a mapping/list/absent"
+            )
 
     trust = _required_mapping(
         contract.get("trust"),
@@ -678,10 +733,11 @@ def validate_contract(contract: dict[str, Any], verifier_path: Path) -> dict[str
         errors,
         empty_allowed={"affected_dependencies"},
     )
-    tier = str(risk.get("tier") or "")
+    declared_tier = str(risk.get("tier") or "")
+    tier = declared_tier
     changed_paths: list[str] = []
     if risk:
-        if tier not in TIERS:
+        if declared_tier not in TIERS:
             errors.append("risk_profile.tier must be R0, R1, R2, or R3")
         if type(risk.get("authority_reachability")) is not bool:
             errors.append("risk_profile.authority_reachability must be boolean")
@@ -692,6 +748,9 @@ def validate_contract(contract: dict[str, Any], verifier_path: Path) -> dict[str
         changed_paths = _string_list(
             risk.get("changed_paths"), "risk_profile.changed_paths", errors
         )
+        derived = derive_tier(changed_paths, authority_map, declared_tier)
+        if derived != declared_tier:
+            tier = derived
         affected_dependencies = _string_list(
             risk.get("affected_dependencies"),
             "risk_profile.affected_dependencies",
@@ -751,8 +810,22 @@ def validate_contract(contract: dict[str, Any], verifier_path: Path) -> dict[str
                 "review_policy.reopen_rule must be signed_property_invalidated"
             )
 
+    budgets_raw = contract.get("budgets")
+    if isinstance(budgets_raw, dict):
+        budgets_norm = dict(budgets_raw)
+        # legacy alias: a v3 contract frozen before the rename may still carry
+        # max_candidate_rejections; treat it as the no-progress ceiling.
+        for legacy, canonical in LEGACY_BUDGET_ALIASES.items():
+            if legacy in budgets_norm and canonical not in budgets_norm:
+                budgets_norm[canonical] = budgets_norm[legacy]
+    else:
+        budgets_norm = budgets_raw
     budgets = _required_mapping(
-        contract.get("budgets"), set(DEFAULT_BUDGETS), "budgets", errors
+        budgets_norm,
+        set(DEFAULT_BUDGETS),
+        "budgets",
+        errors,
+        optional=set(LEGACY_BUDGET_ALIASES),
     )
     if budgets:
         for field, default in DEFAULT_BUDGETS.items():
@@ -816,6 +889,8 @@ def validate_contract(contract: dict[str, Any], verifier_path: Path) -> dict[str
         "ok": not errors,
         "errors": errors,
         "tier": tier,
+        "declared_tier": declared_tier,
+        "derived_tier": tier if tier != declared_tier else declared_tier,
         "property_ids": sorted(property_ids),
         "attacker_capabilities": sorted(attacker_capabilities),
         "changed_paths": changed_paths,
@@ -1207,8 +1282,10 @@ def evaluate(
     contract_bytes: bytes | None = None,
     ledger_bytes: bytes | None = None,
     public_key_bytes: bytes | None = None,
+    authority_map: dict[str, str] | None = None,
+    spent_credits: float = 0.0,
 ) -> dict[str, Any]:
-    contract_result = validate_contract(contract, verifier_path)
+    contract_result = validate_contract(contract, verifier_path, authority_map)
     errors = list(contract_result["errors"])
     closure_reasons: list[str] = []
     checkpoints: list[str] = []
@@ -1698,8 +1775,10 @@ def evaluate(
     if not isinstance(usage, dict):
         errors.append("phase ledger budget_usage must be a mapping")
         usage = {}
+    if "no_progress_rejections" not in usage and "candidate_rejections" in usage:
+        usage["no_progress_rejections"] = usage["candidate_rejections"]
     numeric_checks = {
-        "candidate_rejections": "max_candidate_rejections",
+        "no_progress_rejections": "max_consecutive_no_progress_rejections",
         "adversarial_rounds": "max_adversarial_rounds_per_candidate",
         "active_engineering_hours": "max_active_engineering_hours_without_checkpoint",
     }
@@ -1773,11 +1852,41 @@ def evaluate(
     else:
         decision = "close"
 
+    # cost/value convergence: spent credits vs a tier-based value proxy
+    tier = str(contract_result.get("tier") or "")
+    tier_weight = TIER_RANK.get(tier, 0) + 1
+    protected_assets = (
+        (contract.get("threat_model") or {}).get("protected_assets")
+        if isinstance(contract.get("threat_model"), dict)
+        else []
+    )
+    value_proxy = float(tier_weight * 100 + len(protected_assets or []) * 10)
+    threshold = float(
+        (contract.get("budgets") or {}).get("cost_value_threshold", 10)
+        if isinstance(contract.get("budgets"), dict)
+        else 10
+    )
+    cost_value_exceeded = spent_credits > 0 and spent_credits > threshold * value_proxy
+    if cost_value_exceeded:
+        checkpoints.append(
+            "cost/value threshold exceeded: offer residual-risk fast path or "
+            "explicit additional budget at a durable human checkpoint"
+        )
+
     return {
         "ok": not errors,
         "closed": decision == "close",
         "decision": decision,
         "errors": errors,
+        "tier": tier,
+        "declared_tier": contract_result.get("declared_tier"),
+        "derived_tier": contract_result.get("derived_tier"),
+        "cost_value": {
+            "spent_credits": spent_credits,
+            "value_proxy": value_proxy,
+            "threshold": threshold,
+            "exceeded": cost_value_exceeded,
+        },
         "closure_reasons": closure_reasons,
         "human_checkpoints": checkpoints,
         "pre_execution_authorized": pre_execution_authorized,
@@ -1857,6 +1966,18 @@ def main() -> int:
         help="Human-accepted new verifier hash; omit while the upgrade is pending.",
     )
     parser.add_argument(
+        "--authority-map",
+        default="",
+        help="Optional JSON file mapping path globs to tiers (e.g. "
+        '{"harp/runtime/*": "R3"}) for automatic tier derivation.',
+    )
+    parser.add_argument(
+        "--spent-credits",
+        type=float,
+        default=0.0,
+        help="Credits/hours spent so far, for the cost/value convergence clause.",
+    )
+    parser.add_argument(
         "--phase",
         choices=("pre_execution", "closure"),
         default="closure",
@@ -1869,6 +1990,13 @@ def main() -> int:
     contract_path = Path(args.contract).resolve()
     ledger_path = Path(args.ledger).resolve()
     verifier_path = Path(__file__).resolve()
+    authority_map: dict[str, str] | None = None
+    if args.authority_map:
+        authority_map = json.loads(Path(args.authority_map).resolve().read_text())
+        if not isinstance(authority_map, dict) or not all(
+            isinstance(k, str) and isinstance(v, str) for k, v in authority_map.items()
+        ):
+            raise ValueError("--authority-map must be a JSON object of string->string")
     try:
         contract, contract_bytes = _load_yaml(contract_path)
         ledger, ledger_bytes = _load_json(ledger_path)
@@ -1892,6 +2020,8 @@ def main() -> int:
             contract_bytes=contract_bytes,
             ledger_bytes=ledger_bytes,
             public_key_bytes=public_key_bytes,
+            authority_map=authority_map,
+            spent_credits=args.spent_credits,
         )
     except (OSError, ValueError, json.JSONDecodeError, yaml.YAMLError) as exc:
         result = {
