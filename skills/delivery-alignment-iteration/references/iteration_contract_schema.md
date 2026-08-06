@@ -29,6 +29,13 @@ Common delivery fields:
 - `traceability`: acceptance-to-deliverable-to-verification mapping.
 - `risks`: known risks before execution.
 - `final_claims_allowed`: bounded claims permitted only after closure.
+- `release_kind`: `product_patch`, `release_bootstrap`, or `tool_upgrade`.
+  `release_bootstrap` selects the release fast path (see
+  [`verifier_pool.md`](verifier_pool.md)) when the derived tier is R0/R1 and
+  the diff is packaging/governance-only over already accepted bytes.
+- `verifier_requirements`: optional list of `{id, version, params}` naming
+  accepted verifier-pool members. The contract ships data, never verifier code;
+  verification logic always lives in the pinned pool.
 - `handoff`: stable candidate-tree path and phase-neutral update policy.
 
 Trust fields:
@@ -56,7 +63,9 @@ Threat-model fields:
 
 Risk fields:
 
-- `risk_profile.tier`: `R0`, `R1`, `R2`, or `R3`.
+- `risk_profile.tier`: `R0`, `R1`, `R2`, or `R3`. The runner derives the tier
+  from the exact changed-path set and the authority map; a declared tier lower
+  than the derived tier is overridden upward (see SKILL.md "Tier derivation").
 - `authority_reachability`: boolean; `true` cannot be lower than R2.
 - `blast_radius`: `local`, `bounded`, `system`, or `release`.
 - `rationale`: authority/blast-radius justification.
@@ -88,6 +97,12 @@ Review, budget, and closure fields:
 - `reopen_rule`: exactly `signed_property_invalidated`.
 - `budgets`: every field shown below; values may be stricter but not looser
   without explicit human approval.
+  - `max_consecutive_no_progress_rejections`: ceiling on consecutive
+    rejections that fix no previously confirmed P1 semantic root; a successor
+    that fixes at least one prior P1 does not consume the budget.
+  - `cost_value_threshold`: ratio of spent credits/hours to the value proxy at
+    which the runner must offer residual-risk fast path or explicit additional
+    budget at a durable checkpoint.
 - `convergence.acceptance_ids`: exact acceptance ID set.
 - `completeness_required`: exactly `true`.
 - `residual_risk_policy`: exactly

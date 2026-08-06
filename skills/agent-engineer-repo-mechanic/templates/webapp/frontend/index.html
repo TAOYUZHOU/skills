@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Engineer Workbench</title>
+<style>
+:root{
+  --bg:#0f1419; --panel:#1a2332; --ink:#e8eef6; --muted:#9aa8b8;
+  --accent:#d9a44a; --ok:#3d9a7a; --bad:#c45c5c;
+  --font:"Source Sans 3","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --serif:"Fraunces",Georgia,"Songti SC",serif;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--font);color:var(--ink);line-height:1.6;
+  background:radial-gradient(900px 460px at 12% -8%,rgba(217,164,74,.12),transparent 55%),
+  linear-gradient(168deg,#0f1419,#17202b 55%,#121a23);min-height:100vh}
+.wrap{max-width:960px;margin:0 auto;padding:0 24px}
+header{padding:64px 0 26px}
+h1{font-family:var(--serif);font-size:clamp(28px,4vw,40px);margin:0 0 8px;letter-spacing:-.01em}
+.lede{color:var(--muted);margin:0 0 18px}
+.pill{display:inline-flex;gap:8px;align-items:center;border:1px solid rgba(255,255,255,.12);
+  border-radius:999px;padding:6px 14px;font-size:13px;background:rgba(255,255,255,.035)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.dot.ok{background:var(--ok)} .dot.bad{background:var(--bad)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:22px 0}
+.card{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:18px}
+.card h3{margin:0 0 10px;font-size:15px;color:var(--accent)}
+.card ul{margin:0;padding-left:18px;color:var(--muted);font-size:14px}
+.row{display:flex;justify-content:space-between;gap:12px;align-items:center}
+form{display:grid;gap:10px;margin:22px 0}
+input,select,textarea{width:100%;padding:10px 12px;border-radius:9px;border:1px solid rgba(255,255,255,.14);
+  background:#10161e;color:var(--ink);font:inherit}
+textarea{min-height:64px;resize:vertical}
+button{padding:10px 18px;border:none;border-radius:9px;background:var(--accent);color:#17110a;
+  font-weight:700;cursor:pointer;justify-self:start}
+button:disabled{opacity:.45;cursor:not-allowed}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top}
+th{color:var(--muted);font-weight:600}
+.tag{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px}
+.t-ok{background:rgba(61,154,122,.16);color:#6fc4a4}
+.t-fail{background:rgba(196,92,92,.16);color:#dd8b8b}
+.t-block{background:rgba(217,164,74,.14);color:#e2b968}
+.hint{color:var(--muted);font-size:13px}
+@media(max-width:640px){header{padding:44px 0 18px}.wrap{padding:0 16px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Agent Engineer Workbench</h1>
+    <p class="lede">Mechanic 迭代工作台：健康检查、当前状态、迭代记录。</p>
+    <span class="pill"><span class="dot" id="healthDot"></span><span id="healthText">checking…</span></span>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Frontier（待办前沿）</h3>
+      <ul id="frontier"></ul>
+    </div>
+    <div class="card">
+      <h3>Budget</h3>
+      <div class="row"><span class="hint">ticks</span><b id="budget"></b></div>
+      <div class="row"><span class="hint">converged</span><b id="converged"></b></div>
+    </div>
+  </div>
+
+  <form id="form">
+    <input name="hypothesis" placeholder="本次假设（一个 tick 一个假设）" required>
+    <input name="diff_summary" placeholder="改动摘要（app.py: …）">
+    <input name="evidence" placeholder="证据路径（evidence/xxx.json，逗号分隔）">
+    <select name="result">
+      <option value="verified">verified</option>
+      <option value="failed">failed</option>
+      <option value="blocked">blocked</option>
+    </select>
+    <button type="submit">记录 tick</button>
+  </form>
+
+  <h2 style="font-family:var(--serif);font-size:20px">Iteration History</h2>
+  <div style="overflow-x:auto"><table>
+    <thead><tr><th>#</th><th>假设</th><th>改动</th><th>结果</th><th>时间</th></tr></thead>
+    <tbody id="history"></tbody>
+  </table></div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+async function refresh() {
+  const [h, s] = await Promise.all([
+    fetch("/api/health").then(r => r.json()),
+    fetch("/api/state").then(r => r.json()),
+  ]);
+  const dot = $("#healthDot"), txt = $("#healthText");
+  dot.className = "dot " + (h.status === "ok" ? "ok" : "bad");
+  txt.textContent = h.status === "ok" ? `ok · v${h.version} · ${h.state_file}` : "degraded";
+  $("#frontier").innerHTML = (s.frontier || []).map(x => `<li>${x}</li>`).join("") || "<li>空</li>";
+  $("#budget").textContent = `${s.budget.spent_ticks} / ${s.budget.max_ticks}`;
+  $("#converged").textContent = s.converged ? "yes" : "no";
+  $("#history").innerHTML = (s.history || []).map(x => `
+    <tr><td>${x.tick}</td><td>${x.hypothesis}</td><td>${x.diff_summary || "—"}</td>
+    <td><span class="tag t-${x.result}">${x.result}</span></td>
+    <td>${new Date(x.ts * 1000).toLocaleString()}</td></tr>`).join("") || "<tr><td colspan=5 class=hint>还没有记录</td></tr>";
+}
+$("#form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const evidence = (f.get("evidence") || "").split(",").map(s => s.trim()).filter(Boolean);
+  const r = await fetch("/api/iterations", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      hypothesis: f.get("hypothesis"),
+      diff_summary: f.get("diff_summary"),
+      evidence,
+      result: f.get("result"),
+    }),
+  });
+  if (!r.ok) { alert((await r.json()).detail || "failed"); return; }
+  e.target.reset();
+  refresh();
+});
+refresh();
+</script>
+</body>
+</html>

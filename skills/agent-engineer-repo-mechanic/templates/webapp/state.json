@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "version": "0.1.0",
+  "frontier": [
+    "verify end-to-end front/back interaction",
+    "add one real feature the owner cares about"
+  ],
+  "history": [],
+  "budget": {
+    "max_ticks": 20,
+    "spent_ticks": 0
+  },
+  "converged": false
+}

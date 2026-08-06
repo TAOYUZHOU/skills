@@ -96,10 +96,23 @@ and unexhausted budgets. R0 needs no adversarial round, R1/R2 need one, and R3
 needs two. Do not substitute "keep reviewing until nobody imagines anything"
 for this formula.
 
-Default ceilings are two candidate rejections, two adversarial rounds per
-candidate, eight new attacks per round, four active engineering hours without a
-checkpoint, a human report every two candidate reviews, and one appeal per
-finding. T0 may make them stricter, not looser, without explicit human approval.
+Default ceilings are **two consecutive no-progress candidate rejections**, two
+adversarial rounds per candidate, eight new attacks per round, four active
+engineering hours without a checkpoint, a human report every two candidate
+reviews, and one appeal per finding. T0 may make them stricter, not looser,
+without explicit human approval.
+
+**Progress accounting (budget is consumed by stagnation, not by iteration).**
+A successor that fixes at least one previously confirmed P1 semantic root
+(machine-checked against the prior T2.5 `findings.json` and confirmed by the
+next reviewer) does not consume the no-progress budget. A successor that fixes
+no previously confirmed P1 consumes one no-progress unit; two consecutive such
+units enter the durable human pause. A diminishing-returns trigger fires when
+two consecutive candidates are rejected for defects in newly written
+checker/verifier code rather than in product bytes: the runner must emit
+`proof_tool_reuse_required`, and the next attempt must reuse an accepted
+verifier-pool member instead of authoring a new proof tool. See
+[`references/verifier_pool.md`](references/verifier_pool.md).
 
 ### Product-invariant test-harness fast path
 
@@ -126,6 +139,54 @@ product-tree change exits the fast path and follows the normal risk tier. This
 exception cannot authorize a change to this skill or its proof tools; those
 remain `gate_tool_upgrade` work.
 
+### Verifier pool: reusable proof tools
+
+Proof tools (checkers, runners, verifiers) are **pool members, not candidate
+deliverables**. A candidate supplies data (contract, path list, commit
+identities, expected digests); verification logic lives in versioned,
+SHA-256-pinned verifiers installed outside the candidate repository. This is
+what makes closure finite: each verifier is reviewed once at a high intensity
+and then reused for every release.
+
+Three layers, isolated by change frequency:
+
+1. **Parameters** (changes every release; data, not code): base/candidate
+   commits, path list, contract hash, expected tree and patch digests. A
+   parameter change needs no verifier review.
+2. **Domain adapters** (low frequency; declarations, not logic): HARP state
+   schemas, authority maps, event-type inventories. A new event type or state
+   object is a schema declaration change (light independent review), never a
+   verifier edit.
+3. **Kernel** (very low frequency; the only high-intensity-reviewed code):
+   Git object-database integrity, TOCTOU-safe object reads (dirfd-relative,
+   no checkout-path opens), digest and signature primitives. Kernel changes go
+   through the full `gate_tool_upgrade` sequence with the complete historical
+   fixture regression.
+
+**Non-regression guarantee.** Every historically confirmed defect becomes a
+frozen fixture (for example the v19 authority-root conflating candidate and
+the TOCTOU/mutable-checkout split). Any verifier change must pass the full
+fixture set before it can be pinned. See
+[`references/verifier_pool.md`](references/verifier_pool.md).
+
+### Release fast path: publish without re-authoring proof tools
+
+When a candidate is a release bootstrap or publication wrapper over bytes that
+were already independently accepted (`release_kind: release_bootstrap` in the
+contract) and the diff is packaging/governance-only with no runtime byte
+change, the workflow shrinks to:
+
+`T0 freeze contract -> T1 produce data (path list, digests) -> T2 freeze ->
+T2.5 independent review of the DATA (path list and contract) -> T3 invoke the
+accepted verifier-pool member with parameters -> T6 one reviewer on the verifier
+receipt -> T7 human cutover approval.`
+
+The review object collapses from proof-tool code to release data; dynamic
+gates are skipped unless the tier derivation detects runtime-byte changes.
+`git_integrity_verifier` in
+[`references/verifier_pool.md`](references/verifier_pool.md) is the worked
+example.
+
 ## Risk routing
 
 Classify by reachable authority and blast radius, not by line count:
@@ -144,6 +205,17 @@ Classify by reachable authority and blast radius, not by line count:
 machine-checked unreachability proof to be N/A. R0/R1 do not inherit the full R3
 gate merely because the patch is executable.
 
+### Tier derivation (automatic, not self-declared)
+
+The risk tier is **derived by the runner from the exact changed-path set and an
+authority map** (for example `harp/runtime/` provider/queue/checkpoint/state
+paths trigger R3; `docs/` and `prompts/` trigger R0/R1). A contract may declare
+`risk_profile.tier`, but the derived tier wins when it is higher; implementers
+cannot lower their own tier. When the derived tier is R0/R1 and the changed
+paths are packaging/governance-only over already accepted bytes, the runner
+selects the release fast path above. Gate selection, budget ceilings, and the
+required review count all come from the derived tier, not from prose.
+
 ## Finding and completeness rules
 
 A blocking P0/P1 must name the violated predeclared property, included attacker
@@ -158,6 +230,19 @@ For every declared affected path/dependency, record exactly one disposition:
 `changed_and_verified`, `unchanged_dependency_verified`, or
 `not_applicable_with_proof`. Completeness does not require editing an unchanged
 file merely to put it in the diff.
+
+### Cost/value convergence clause
+
+The closure formula is not purely logical; it also has an economic floor. At
+each durable checkpoint the runner computes `spent_credits_or_hours` against a
+value proxy (changed authority tier plus protected-asset weight). When the
+ratio exceeds the T0-frozen threshold (default 10x, stricter permitted), the
+runner must offer the human the choice between (a) continuing with an explicit
+additional budget, or (b) **recording the unresolved items as non-blocking
+residual risk and taking the release fast path**. Exhausted budget still never
+converts failure into acceptance; this clause only changes the intensity of the
+remaining proof, not its truthfulness. The threshold and the chosen branch are
+recorded in the external phase ledger.
 
 ## Schema-v3 contract
 
@@ -180,7 +265,9 @@ verification: [{id: V1, command_or_check: "exact check"}]
 traceability: [{acceptance: A1, deliverables: [D1], verification: [V1]}]
 risks: ["Known residual risk."]
 final_claims_allowed: ["Bounded claim after closure."]
+release_kind: product_patch  # or release_bootstrap | tool_upgrade
 handoff: {path: "docs/harp_iteration_handoff.md", policy: "phase neutral at T2"}
+verifier_requirements: []  # fast path: [{id: git_integrity_verifier, version: v1, params: {...}}]
 trust:
   verifier_origin: installed_skill
   verifier_version: trust-convergence-v1
@@ -219,7 +306,8 @@ review_policy:
   criteria_frozen: true
   reopen_rule: signed_property_invalidated
 budgets:
-  max_candidate_rejections: 2
+  max_consecutive_no_progress_rejections: 2
+  cost_value_threshold: 10
   max_adversarial_rounds_per_candidate: 2
   max_new_attacks_per_round: 8
   max_active_engineering_hours_without_checkpoint: 4
