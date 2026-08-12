@@ -48,7 +48,12 @@ closure, or changing this skill's proof tools.
    reproducibility, release contents, storage, generated artifacts, or debt.
 5. During T1 implement only. Do not test or build candidate bytes inside the
    candidate tree. If diagnostics are needed, use a candidate-external scratch
-   clone and keep its outputs outside the evidence tree.
+   clone and keep its outputs outside the evidence tree. For a mechanical
+   multi-module change, use a persistent scratch clone with one-way sync from
+   the candidate tree instead of a fresh clone per probe: the rule exists to
+   keep build and test residue out of the candidate bytes, not to make the
+   author's edit-verify loop expensive. Sync direction is candidate to scratch
+   only; a scratch-to-candidate copy makes the frozen bytes unattributable.
 6. At T2 the host byte-copies only Git object-database contents into a newly
    initialized candidate-external bare store; do not invoke candidate Git
    configuration or copy hooks, refs, config, or alternates. Then freeze
@@ -169,6 +174,18 @@ the TOCTOU/mutable-checkout split). Any verifier change must pass the full
 fixture set before it can be pinned. See
 [`references/verifier_pool.md`](references/verifier_pool.md).
 
+**Product-defect fixtures are mandatory, not only proof-tool fixtures.** A
+fixture set that covers verifier bugs while product defects live only in
+candidate-authored `tests/` grounds regression protection in evidence this
+skill itself declares untrusted. Every closure must contribute at least one
+`reject_<incident>` fixture to the pool: a base-negative/candidate-positive
+pair, stored outside the candidate repository, replayable by a pool member
+without candidate code. A contract may declare
+`convergence.product_fixture: not_applicable_with_proof` only with a
+machine-checked argument that the defect has no deterministic oracle. Closure
+that adds no fixture and claims none is not applicable is invalid, because the
+next candidate can silently reintroduce the same defect class.
+
 ### Release fast path: publish without re-authoring proof tools
 
 When a candidate is a release bootstrap or publication wrapper over bytes that
@@ -216,6 +233,31 @@ paths are packaging/governance-only over already accepted bytes, the runner
 selects the release fast path above. Gate selection, budget ceilings, and the
 required review count all come from the derived tier, not from prose.
 
+**Reachability downgrade (shadow deliverables).** Path-derived tiers cannot
+distinguish "rewrites the queue reducer" from "adds an observe-only module
+under the same directory", so they price a root-cause refactor and a one-line
+patch identically. A changed path set that a pool member proves
+control-unreachable derives one tier lower, floor R2, when all of these hold
+machine-checked: no control outcome, status, projection, event payload, or
+admission decision can differ with the new code present; the new surface is
+write-only into a diagnostic projection; and removing the new module leaves
+behavior byte-identical on the tier's replay corpus. The proof is a pool-member
+verdict over the exact patch, never an author declaration, and the downgrade is
+recorded with the verdict digest. Absent that verdict the path-derived tier
+stands. This preserves "implementers cannot lower their own tier" while making
+staged refactors affordable.
+
+**Root-cause credit.** An iteration that provably retires historical fixture
+classes is not priced like a patch of the same blast radius. When a candidate
+makes N >= 2 existing pool fixtures pass **by removing the mechanism they
+exercise** rather than by adding a guard per fixture, the runner records
+`root_cause_retirement: N` and raises the cost/value threshold and the active
+engineering-hours ceiling by the T0-frozen credit factor (default N, cap 4x).
+Gate selection, required review count, and adversarial rounds are unchanged:
+credit buys budget, never assurance. A candidate that adds one guard per
+fixture receives no credit, because sibling-path patching is the failure mode
+this clause exists to make expensive relative to its alternative.
+
 ## Finding and completeness rules
 
 A blocking P0/P1 must name the violated predeclared property, included attacker
@@ -230,6 +272,28 @@ For every declared affected path/dependency, record exactly one disposition:
 `changed_and_verified`, `unchanged_dependency_verified`, or
 `not_applicable_with_proof`. Completeness does not require editing an unchanged
 file merely to put it in the diff.
+
+### Sibling call-site completeness
+
+Path-level completeness does not catch the dominant recurrence pattern: a guard,
+resolution rule, filter, or registration is corrected at one call site while
+structurally identical siblings keep the defect, so the same root cause returns
+as a "new" bug in an adjacent path. When a diff changes a guard condition, an
+identity or anchor resolution, an input filter, a status-set membership test, or
+a registration side effect, the runner must enumerate the sibling call sites:
+the other callers of the same function, the other comparisons against the same
+status-set literal, the other paths that must perform the same registration.
+One disposition per sibling is then recorded using the vocabulary above. The
+enumeration is mechanical (identifier and literal search over the candidate
+tree) and its result is part of the evidence, not prose in a review.
+
+An unenumerated sibling is an incomplete candidate, not a residual risk: it is
+the specific thing that makes closure look clean while the defect class stays
+open. `not_applicable_with_proof` remains available for a sibling whose context
+genuinely differs, but the difference must be stated as a property, not as "not
+in scope". Declaring the sibling out of scope in `non_goals` does not satisfy
+this rule; a non-goal bounds what the candidate changes, never what the runner
+must enumerate.
 
 ### Cost/value convergence clause
 
@@ -294,6 +358,11 @@ risk_profile:
   rationale: "Changes promotion authority."
   changed_paths: ["path/to/file"]
   affected_dependencies: ["unchanged/path/whose contract is reverified"]
+  adds_repair_surface: false   # true requires the unavoidability mechanism + removal condition
+  reachability_downgrade:      # omit unless a pool member proved control-unreachability
+    requested: false
+    proof_verifier_id: ""
+    proof_verdict_sha256: ""
   required_gates: [static, targeted_regression, atomic_boundary,
     combined_chain_if_reachable, historical_replay_if_reachable, host_tcb,
     independent_adversarial_1, independent_adversarial_2, full_dynamic]
@@ -308,6 +377,7 @@ review_policy:
 budgets:
   max_consecutive_no_progress_rejections: 2
   cost_value_threshold: 10
+  root_cause_credit_cap: 4     # multiplier ceiling for root_cause_retirement credit
   max_adversarial_rounds_per_candidate: 2
   max_new_attacks_per_round: 8
   max_active_engineering_hours_without_checkpoint: 4
@@ -318,6 +388,9 @@ convergence:
   completeness_required: true
   residual_risk_policy: record_nonblocking_p2_and_provisional
   requested_state: open
+  product_fixture: {id: "reject_<incident>_<defect_class>", retires_classes: []}
+  sibling_call_sites: [{site: "module.function:line", disposition: changed_and_verified}]
+  root_cause_retirement: 0     # count of pool fixture classes retired by mechanism removal
 phase_ledger: {mode: candidate_external, ledger_id: "stable-id"}
 ```
 
@@ -414,10 +487,38 @@ owner-loss, and restart sequences that are reachable. Noncanonical inputs held
 against fixed canonical facts must not change control truth. Use a bounded model
 explorer and deterministic unreachability proofs for excluded sequences.
 
+**The model explorer is a pool member, not prose.** Enumerating those sequences
+by hand degrades to "we considered concurrency" instead of "we enumerated it".
+The explorer is a versioned, SHA-256-pinned pool member (`state_machine_explorer`
+in [`references/verifier_pool.md`](references/verifier_pool.md)) whose input is a
+declared transition table at the domain-adapter layer: for each entity, the
+status set, the status classes, and the legal `(status, event) -> status` cells.
+Adding an entity or a status is an adapter declaration under light independent
+review, never an explorer edit. The explorer must report a totality verdict (no
+undefined cell reachable from an initial status) and a unique-result verdict
+over the reachable duplicate/stale/concurrent/partial-write/owner-loss/restart
+product. A transition table that no explorer consumes is documentation, and
+this audit is not satisfied by it.
+
+**Bounded holds.** Every wait state (awaiting review, obligation transferred to
+a successor, nothing-changed suppression, admitted-without-outcome) must carry
+`held_since`, a `deadline`, and a typed `on_timeout` disposition (escalate,
+release, or human pause). Absence of an awaited event is then a typed timeout
+event, never a resting state. A hold field that can be constructed without a
+deadline is a finding: it makes permanent freeze representable, and permanent
+freeze is indistinguishable from correct waiting in every projection. Latches
+are subject to the same rule from the other direction: a one-shot boolean
+(`escalated: true`) that gates recovery must instead carry an occurrence count,
+last-occurrence time, and cooldown, so re-arming is expressible by construction
+rather than added later per latch.
+
 For HARP, the authority is the typed-event supervisor transaction and canonical
 reducer. Provider prose or availability cannot decide deterministic transition
 truth. Missing reconciliation ownership preserves the entity and enters a typed
 human pause with a durable wakeup; it must not silently strand or terminate it.
+Status-set membership is a property of the declared taxonomy; a diff that
+introduces a new hardcoded status-set literal where a taxonomy predicate exists
+is a finding under sibling call-site completeness above.
 
 ## Repository stewardship gate
 
@@ -468,6 +569,26 @@ until a human accepts its hash. Never let the new checker close its own upgrade.
   action.
 - Final response and mutable phase ledger do not substitute for the stable
   handoff; none may claim more than the bound evidence.
+
+### Repair-surface accounting (machine-checked)
+
+The preference for deletion over new repair lanes is unenforceable as prose: a
+subsystem can accumulate dozens of reconcilers, each individually justified by
+an incident, until the repair surface is the architecture. The runner therefore
+counts the repair surface on both sides of the diff (reconcile/repair/recover
+entry points, compatibility branches, fallback paths, and status-set literals)
+and records `repair_surface_delta`. A positive delta requires the contract to
+declare `adds_repair_surface: true` with the mechanism that made the repair
+unavoidable and the condition under which it can later be removed. A candidate
+that adds a repair lane whose function is to compensate for a missing invariant
+records the invariant as a P2 with a named successor, so the debt is visible
+instead of dissolving into "fixed".
+
+Two consecutive candidates in one subsystem with positive `repair_surface_delta`
+and no retired fixture class fire the same diminishing-returns signal as
+proof-tool churn: the runner emits `invariant_work_required`, and the next
+candidate in that subsystem must either retire a fixture class or carry an
+explicit human authorization to patch again.
 
 ## Parallelism (subagents)
 

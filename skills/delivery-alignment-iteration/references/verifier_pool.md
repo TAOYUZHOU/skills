@@ -65,6 +65,42 @@ cannot occur; `--repo` names a single read-only object store, so the
 authority-root conflation cannot occur. Fixes live in the kernel design, not in
 per-release script discipline.
 
+## 4.1 Second member: `state_machine_explorer`
+
+`git_integrity_verifier` answers "are these the bytes you claim". Nothing in the
+pool answers "does this state machine have a reachable undefined cell", which is
+the question the Canonical Control-State Audit actually asks. That audit's
+"bounded model explorer" is required by `SKILL.md` but has had no pool member, so
+in practice it was satisfied by prose enumeration.
+
+- **Input (adapter layer, declarative):** a transition table per entity:
+  `statuses`, `status_classes` (`open` / `held` / `terminal`), `initial`, and
+  legal `(status, event) -> status` cells, plus per-hold `deadline` and
+  `on_timeout` declarations.
+- **Input (parameters):** the entity set to explore, the reachable
+  fault-injection product to consider, and declared unreachability proofs.
+- **Kernel checks:**
+  - **E1 totality**: no `(reachable status, declared event)` cell is undefined;
+    an undefined cell is reported with the witness path from `initial`.
+  - **E2 unique result**: replaying duplicate, stale, concurrent,
+    partial-write, owner-loss, and restart sequences from each reachable status
+    converges to one status, or reports the diverging witness pair.
+  - **E3 bounded holds**: every status in class `held` declares a `deadline`
+    and an `on_timeout` target that is itself reachable; a held status whose
+    timeout target is absent or unreachable is a permanent-freeze witness.
+  - **E4 terminal absorption**: no `terminal` status has an outgoing cell
+    except through an explicitly declared typed re-open.
+  - **E5 taxonomy exclusivity**: every status belongs to exactly one class, and
+    no two entities disagree about a shared status name's class.
+- **Verdict:** `pass` with the explored state/edge counts, or `fail` naming the
+  witness sequence. Witnesses are directly usable as T6 counterexamples and as
+  `base_negative` bodies for product fixtures.
+
+Adding an entity or a status is an adapter declaration (light independent
+review). Changing E1-E5 semantics is a kernel change under
+`gate_tool_upgrade`. A transition table that no explorer consumes does not
+satisfy the audit.
+
 ## 5. Non-regression fixtures
 
 Every historically confirmed defect becomes a frozen fixture:
@@ -83,6 +119,41 @@ verifiers/fixtures/
 Any verifier change (including kernel changes) must pass the full fixture set
 before the new version can be pinned. This makes "reviewed once" durable:
 regression to a previously fixed defect is machine-blocked forever.
+
+### 5.1 Product-defect fixtures (not only proof-tool fixtures)
+
+The fixture names above are all **proof-tool** defects. That leaves the larger
+population (product defects) is protected only by candidate-authored `tests/`,
+which `SKILL.md` classifies as an untrusted evidence producer. Regression
+protection then rests on the thing the trust rule excludes.
+
+Every closure contributes at least one product fixture:
+
+```text
+verifiers/fixtures/product/
+  reject_<incident_id>_<defect_class>/
+    contract.json        # entity, invariant, oracle
+    base_negative.json   # must FAIL on base_commit
+    candidate_positive.json  # must PASS on candidate
+    replay.json          # pool-member parameters; no candidate code
+```
+
+Rules:
+
+1. The fixture is stored outside the candidate repository and replayed by a pool
+   member, so a candidate cannot weaken its own regression barrier.
+2. `base_negative` must actually fail on the frozen base. A fixture that passes
+   on both sides proves nothing and is rejected at T2.5.
+3. The fixture names a **defect class**, not a call site. `reject_r25_finalize_
+   stale_anchor` is a call site; `reject_identity_resolved_per_consumer` is a
+   class. Prefer the class: it is what blocks the sibling-path recurrence.
+4. `convergence.product_fixture: not_applicable_with_proof` is allowed only with
+   a machine-checked argument that no deterministic oracle exists (for example a
+   provider-empirical limit such as a prompt-size cliff).
+
+Fixture accumulation is the mechanism that converts "we fixed it and wrote a
+test" into "the class is machine-blocked", and it is the input to the
+`root_cause_retirement` credit in `SKILL.md`.
 
 ## 6. Upgrade governance
 
@@ -109,6 +180,17 @@ validation is traceable to the exact tool version that produced it.
   members to invoke; the contract does not ship verifier code.
 - `budgets.max_consecutive_no_progress_rejections` and
   `budgets.cost_value_threshold` replace the flat candidate-rejection ceiling.
+- `convergence.product_fixture` names the fixture this closure contributes and
+  the defect classes it retires; `convergence.root_cause_retirement` is the
+  machine-counted number of pool fixture classes retired by mechanism removal,
+  and feeds the credit clause bounded by `budgets.root_cause_credit_cap`.
+- `convergence.sibling_call_sites` carries one disposition per enumerated
+  sibling; an unenumerated sibling is an incomplete candidate.
+- `risk_profile.reachability_downgrade` requests a one-tier reduction (floor R2)
+  and is honored only when it names a pool-member verdict digest proving the
+  changed paths are control-unreachable.
+- `risk_profile.adds_repair_surface` must be `true` whenever the runner computes
+  a positive `repair_surface_delta`.
 
 Production gap list (prototype -> pool): Ed25519-signed receipt chain binding
 predecessor authorization; forced external bare-store + root-anchor binding;
