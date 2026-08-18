@@ -40,8 +40,7 @@
         "./skills/web-artifacts-builder",
         "./skills/webapp-testing"
       ]
-    }
-    ,
+    },
     {
       "name": "claude-api",
       "description": "Claude API and SDK documentation skill for building LLM-powered applications",
@@ -157,6 +156,15 @@
       "strict": false,
       "skills": [
         "./skills/public-html-report"
+      ]
+    },
+    {
+      "name": "retro-synth-viewer",
+      "description": "Build compact L-tree scoring-route comparison websites for retrosynthesis",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/retro-synth-viewer"
       ]
     }
   ]

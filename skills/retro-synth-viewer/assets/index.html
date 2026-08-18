@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Route comparison</title>
+  <link rel="stylesheet" href="styles.css?v=compact-ltree-v1">
+</head>
+<body>
+  <main class="page-shell">
+    <header class="hero">
+      <p class="eyebrow" id="eyebrow">Retro Engine</p>
+      <h1 id="pageTitle">评分路线对照</h1>
+      <p class="lede" id="lede">—</p>
+      <div class="hero-actions" id="heroActions"></div>
+    </header>
+
+    <nav class="case-nav" aria-label="案例导航">
+      <button type="button" id="prevBtn" class="nav-button">上一条</button>
+      <label for="targetSelect">案例</label>
+      <select id="targetSelect" aria-label="选择案例"></select>
+      <span id="progress" class="progress"></span>
+      <button type="button" id="nextBtn" class="nav-button">下一条</button>
+    </nav>
+
+    <section class="case-head" aria-labelledby="caseTitle">
+      <div>
+        <p class="case-kicker">当前案例</p>
+        <h2 id="caseTitle">—</h2>
+        <div id="shiftSummary" class="shift-summary"></div>
+        <div class="hero-actions" id="caseDownloads"></div>
+      </div>
+      <div id="targetMol" class="target-molecule" aria-label="目标分子结构"></div>
+    </section>
+
+    <details class="legend-guide">
+      <summary>图例与打分说明</summary>
+      <div class="legend-guide-body">
+        <section>
+          <h3>分子框</h3>
+          <ul>
+            <li><strong>绿框</strong>：路线起始原料（可购买 / 已知 leaf）</li>
+            <li><strong>紫框</strong>：反应训练库中出现过的分子</li>
+            <li><strong>青框</strong>：PubChem 语料中出现过的分子</li>
+            <li><strong>灰框</strong>：未标记为已知的分子</li>
+            <li><strong>淡红底</strong>：该面板独有反应的产物与全部直接反应物</li>
+          </ul>
+        </section>
+        <section>
+          <h3>连线</h3>
+          <ul>
+            <li><strong>加粗金线</strong>：已知反应</li>
+            <li><strong>细灰线</strong>：未知反应</li>
+          </ul>
+        </section>
+        <section>
+          <h3>反应打分标签</h3>
+          <p class="legend-guide-note" id="formulaNote">step = path-local E；unknown 时约为 0.8 × forward_eff × sim03，再经 SA、STR。</p>
+          <ul>
+            <li><strong>forward</strong>：正向模型对该步目标产物的 Teacher-forcing 置信度</li>
+            <li><strong>sim03</strong>：exp(−(1−Top5平均相似度)/0.03)</li>
+            <li><strong>SA</strong>：SynthScore 合成难度惩罚（在 STR 之前）</li>
+            <li><strong>STR</strong>：软终端奖励（强 ^0.5 / 弱 ^0.75）</li>
+            <li><strong>step</strong>：该步最终有效分 E</li>
+          </ul>
+        </section>
+        <section>
+          <h3>反应编号</h3>
+          <p class="legend-guide-note">连线交叉点上的步骤编号。点击可复制该步 rxn（reactants&gt;&gt;product）。d=0 为直接生成最终目标的那一步。</p>
+        </section>
+      </div>
+    </details>
+
+    <section id="comparisonGrid" class="comparison-grid" aria-label="路线展示"></section>
+
+    <section class="case-list-section">
+      <h2><span id="caseListCount">—</span> 个案例</h2>
+      <div id="caseList" class="case-list"></div>
+    </section>
+  </main>
+  <script src="data.js?v=compact-ltree-v1"></script>
+  <script src="app.js?v=compact-ltree-v1"></script>
+</body>
+</html>
