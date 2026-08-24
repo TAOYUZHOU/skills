@@ -166,6 +166,15 @@
       "skills": [
         "./skills/retro-synth-viewer"
       ]
+    },
+    {
+      "name": "pipeline-atomize-accelerate",
+      "description": "Resident IO, recursive atomization with continuous stream, and a FLOPS/RAM/VRAM preflight Pareto solver",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/pipeline-atomize-accelerate"
+      ]
     }
   ]
 }

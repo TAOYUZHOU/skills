@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pipeline atomize · unary stream · preflight Pareto</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,650&family=Source+Sans+3:wght@400;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <style>
+    :root {
+      --paper: #f3ece1;
+      --paper-2: #e8dfd0;
+      --ink: #231d16;
+      --muted: #6d6256;
+      --rule: #c9bba8;
+      --accent: #7a2e24;
+      --accent-2: #2f5a4a;
+      --warn: #8a5a12;
+      --card: rgba(255, 250, 242, 0.72);
+      --font-display: "Fraunces", "Source Serif 4", Georgia, serif;
+      --font-body: "Source Serif 4", Georgia, serif;
+      --font-ui: "Source Sans 3", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: var(--font-body);
+      font-size: 1.05rem;
+      line-height: 1.65;
+      background:
+        radial-gradient(900px 420px at 8% -8%, #fff7ea 0%, transparent 55%),
+        radial-gradient(800px 500px at 100% 0%, #e4d3c0 0%, transparent 50%),
+        linear-gradient(180deg, var(--paper), var(--paper-2));
+      min-height: 100vh;
+    }
+    .wrap { width: min(820px, calc(100% - 2.4rem)); margin: 0 auto; padding: 2.6rem 0 5rem; }
+    .brand {
+      font-family: var(--font-ui);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      color: var(--accent);
+      margin: 0 0 0.7rem;
+    }
+    h1 {
+      font-family: var(--font-display);
+      font-weight: 650;
+      font-size: clamp(2rem, 4.6vw, 2.9rem);
+      line-height: 1.12;
+      letter-spacing: -0.03em;
+      margin: 0 0 0.8rem;
+    }
+    .lede { font-size: 1.15rem; color: var(--muted); margin: 0 0 1.4rem; }
+    nav {
+      display: flex; flex-wrap: wrap; gap: 0.7rem 1.1rem;
+      font-family: var(--font-ui); font-size: 0.92rem;
+      padding: 0.7rem 0 1.4rem; border-bottom: 1px solid var(--rule);
+      margin-bottom: 1.8rem;
+    }
+    nav a { color: var(--accent-2); text-decoration: none; }
+    h2 { font-family: var(--font-display); font-size: 1.55rem; letter-spacing: -0.02em; margin: 2.2rem 0 0.6rem; }
+    h3 { font-family: var(--font-display); font-size: 1.15rem; margin: 1.4rem 0 0.4rem; }
+    p { margin: 0.65rem 0; }
+    .verdict {
+      background: var(--card);
+      border: 1px solid var(--rule);
+      border-left: 6px solid var(--accent-2);
+      padding: 1.05rem 1.15rem;
+      margin: 0 0 1.6rem;
+    }
+    .verdict strong { font-family: var(--font-ui); }
+    .verdict p { margin: 0.35rem 0 0; color: var(--muted); }
+    table {
+      width: 100%; border-collapse: collapse;
+      font-family: var(--font-ui); font-size: 0.92rem;
+      margin: 1rem 0 1.3rem; background: var(--card);
+    }
+    th, td { text-align: left; padding: 0.5rem 0.65rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+    th { font-weight: 600; color: var(--muted); }
+    .gantt-wrap {
+      background: var(--card); border: 1px solid var(--rule);
+      padding: 0.85rem 0.9rem 0.5rem; margin: 1rem 0 0.35rem;
+    }
+    .gantt-wrap svg { display: block; width: 100%; height: auto; }
+    .gantt-cap { font-family: var(--font-ui); font-size: 0.86rem; color: var(--muted); margin: 0 0 1.1rem; }
+    .katex-display { margin: 1rem 0 !important; overflow-x: auto; }
+    .note { font-family: var(--font-ui); font-size: 0.9rem; color: var(--muted); border-top: 1px solid var(--rule); margin-top: 2.6rem; padding-top: 1rem; }
+    code { font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <p class="brand">Skill · pipeline-atomize-accelerate · model</p>
+    <h1>拆到不能再拆，再在容量里取 Pareto</h1>
+    <p class="lede">
+      常驻消重复 IO。把复合阶段切成原子，在一元资源上连续 stream。
+      只拆当前瓶颈。瓶颈原子无法再拆时，程序在这组资源上理论效率最优。
+      硬件 FLOPS / 内存 / 显存决定哪些旋钮可行；可行集上的通量–墙钟前沿才是 Pareto。
+    </p>
+    <div class="verdict">
+      <strong>最优是一句停机条件，不是一种感觉</strong>
+      <p>
+        理论效率 ≠ 容量 Pareto ≠ 已落地调度。
+        把非 GPU 工作写进 \(T_{\mathrm{gpu}}\)、或把共享库上的两段活画成可并行，都会造出假前沿。
+      </p>
+    </div>
+    <nav>
+      <a href="#resident">常驻</a>
+      <a href="#atom">原子与 stream</a>
+      <a href="#halt">停机</a>
+      <a href="#gantt">Gantt</a>
+      <a href="#pareto">Preflight</a>
+    </nav>
+
+    <section id="resident">
+      <h2>1 · 常驻进程降低多次推理重复 IO</h2>
+      <p>
+        权重、分词器、CUDA context、HTTP session、索引：冷启动 \(T_{\mathrm{io}}^{\mathrm{cold}}\) 每个进程生命周期付一次。
+        热路径只该剩 \(T_{\mathrm{io}}^{\mathrm{hot}}\)（字节搬运）。\(N\) 次调用均摊
+      </p>
+      \[
+        \bar T_{\mathrm{io}}=\frac{T_{\mathrm{io}}^{\mathrm{cold}}}{N}+T_{\mathrm{io}}^{\mathrm{hot}}.
+      \]
+      <p>
+        常驻的接口是<strong>只传 IO 变量</strong>。单写者变异（图拷贝、锁内 expand）不要常驻成多线程互抢；
+        查找可以进 IO 队列，写入仍归一条 owner。
+      </p>
+    </section>
+
+    <section id="atom">
+      <h2>2 · 原子化、连续 stream、递归拆瓶颈</h2>
+      <p>
+        资源 \(\mathcal{R}\) 默认一元：同一资源上两段作业的开区间不相交。
+        共享主机核 + 共享库（GIL、BBL、图锁）是一条 \(\mathrm{CPU_{sh}}\)，不是两条 CPU。
+      </p>
+      \[
+        \mathrm{start}(j)=\max\Bigl(\max_{a\prec j}\mathrm{end}(a),\;\mathrm{free}(\rho(j))\Bigr),
+        \qquad
+        T=\max_r T_r.
+      \]
+      <p>
+        连续 stream：资源一空且先行满足，立刻发下一原子，不等整段 tile。
+        当前 \(\mathrm{bound}=\arg\max_r T_r\)。若该作业仍复合，切开再排。
+      </p>
+      <table>
+        <thead><tr><th>对象</th><th>原子？</th><th>再拆只会换 \(\rho\)</th></tr></thead>
+        <tbody>
+          <tr><td>一次 HTTP POST</td><td>对这条 HTTP 道：是</td><td>连接池不拆请求语义</td></tr>
+          <tr><td>一次锁内图写入</td><td>对 \(\mathrm{CPU_{sh}}\)：是</td><td>查找可先离道</td></tr>
+          <tr><td>generate+mat+score 整段 forward</td><td>否</td><td>必须拆，否则 GPU 空等</td></tr>
+          <tr><td>同库上的 mat \(\parallel\) expand</td><td>假原子化</td><td>测到的是干扰 \(\rho\gg 1\)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="halt">
+      <h2>3 · 停机 = 理论上效率最优</h2>
+      \[
+        J=\frac{n}{T}\le J^\star=\min_r\mu_r.
+      \]
+      <p>
+        当 \(\mathrm{bound}\) 作业不能再切（再切会改硬件/协议量子，或只制造 \(\rho\gg 1\)），
+        对这组 \(\mathcal{R}\) 就停。这不是旋钮 Pareto，也不是「算法不能再快」——换算法或换资源集合会重开递归。
+      </p>
+    </section>
+
+    <section id="gantt">
+      <h2>4 · STREAM 甘特（三道目标 vs 整段串行）</h2>
+      <p>同一横轴。红 = GPU generate，绿 = CPU-mat / expand，金 = HTTP。</p>
+      <div class="gantt-wrap">
+        <svg viewBox="0 0 720 150" role="img" aria-label="serial tile chain">
+          <text x="0" y="14" font-size="13" font-family="Source Sans 3,sans-serif" fill="#6d6256">A · 非法：下一刀 G 等整段 tile</text>
+          <rect x="70" y="32" width="18" height="14" fill="#7a2e24"/>
+          <rect x="88" y="32" width="70" height="14" fill="#ddd5c8"/>
+          <rect x="158" y="32" width="18" height="14" fill="#7a2e24"/>
+          <rect x="176" y="32" width="70" height="14" fill="#ddd5c8"/>
+          <rect x="246" y="32" width="18" height="14" fill="#7a2e24"/>
+          <rect x="88" y="62" width="70" height="14" fill="#4a6b3a"/>
+          <rect x="176" y="62" width="70" height="14" fill="#4a6b3a"/>
+          <rect x="264" y="62" width="70" height="14" fill="#4a6b3a"/>
+          <text x="0" y="44" font-size="11" font-family="Source Sans 3,sans-serif" fill="#6d6256">GPU</text>
+          <text x="0" y="74" font-size="11" font-family="Source Sans 3,sans-serif" fill="#6d6256">CPU</text>
+          <text x="70" y="110" font-size="11" font-family="Source Sans 3,sans-serif" fill="#6d6256">GPU 空转。活的链是 Σ tile。</text>
+        </svg>
+      </div>
+      <p class="gantt-cap">落地若仍等 <code>_run_forward_*</code> 整段，画的是 A，不能把 \(T_{\mathrm{gpu}}\) 写成 \(A\cdot t_{\mathrm{lane}}\)。</p>
+      <div class="gantt-wrap">
+        <svg viewBox="0 0 720 150" role="img" aria-label="three lane target">
+          <text x="0" y="14" font-size="13" font-family="Source Sans 3,sans-serif" fill="#6d6256">B · 目标：G 连续；CPU_sh 串行 mat 与 expand；HTTP 单独</text>
+          <rect x="70" y="32" width="22" height="14" fill="#7a2e24"/>
+          <rect x="92" y="32" width="22" height="14" fill="#7a2e24"/>
+          <rect x="114" y="32" width="22" height="14" fill="#7a2e24"/>
+          <rect x="136" y="32" width="22" height="14" fill="#7a2e24"/>
+          <rect x="70" y="62" width="80" height="14" fill="#4a6b3a"/>
+          <rect x="150" y="62" width="28" height="14" fill="#2f5a4a"/>
+          <rect x="178" y="62" width="36" height="14" fill="#4a6b3a"/>
+          <rect x="150" y="92" width="20" height="14" fill="#8a5a12"/>
+          <text x="0" y="44" font-size="11" font-family="Source Sans 3,sans-serif" fill="#6d6256">GPU</text>
+          <text x="0" y="74" font-size="11" font-family="Source Sans 3,sans-serif" fill="#6d6256">CPU</text>
+          <text x="0" y="104" font-size="11" font-family="Source Sans 3,sans-serif" fill="#6d6256">HTTP</text>
+          <text x="70" y="132" font-size="11" font-family="Source Sans 3,sans-serif" fill="#6d6256">bound 仍可能是 CPU_sh。0.478 那种「GPU 前沿」要 CPU 先短过 G 链。</text>
+        </svg>
+      </div>
+      <p class="gantt-cap">冷路只允许和 GPU 重叠，不和 mat 对打。</p>
+    </section>
+
+    <section id="pareto">
+      <h2>5 · Preflight：容量切可行集，再取前沿</h2>
+      <p>旋钮 \(\theta\)（batch、fill、cold、sched、workers）可行当且仅当</p>
+      \[
+        V(\theta)\le V_{\mathrm{cap}},\quad
+        M(\theta)\le M_{\mathrm{cap}},\quad
+        F(\theta)\le \Phi_{\mathrm{peak}}\,T(\theta).
+      \]
+      <p>
+        第三式是下界：实测 \(T\) 已经更长，说明绑在带宽 / 延迟 / 锁，不是峰值 FLOPS。
+        在可行且<strong>已落地</strong>的 \(\theta\) 上，对 \((J,-T)\)（可选再加质量）取非支配集，才叫容量 Pareto。
+        未落地调度画虚线，禁止写进要 apply 的 \(B^\star\)。
+      </p>
+      <p>求解器：<code>scripts/preflight_solver.py</code>。</p>
+    </section>
+
+    <p class="note">
+      本页是 skill <code>pipeline-atomize-accelerate</code> 的规范模型。
+      案例审计另写一页，必须引用停机条件，而不是只报一个测到的 flux。
+    </p>
+  </div>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
+</body>
+</html>

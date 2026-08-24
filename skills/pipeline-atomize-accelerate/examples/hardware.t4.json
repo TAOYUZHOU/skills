@@ -1,0 +1,9 @@
+{
+  "name": "tesla-t4-32c-124g",
+  "peak_flops": 8100000000000,
+  "flops_dtype": "fp32_peak",
+  "mem_gb": 124,
+  "vram_gb": 15.0,
+  "n_cpu": 32,
+  "notes": "T4 theoretical FP32 ~8.1 TFLOP/s. Inference is often memory-bound; treat FLOPS as a lower-bound check only."
+}

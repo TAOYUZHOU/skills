@@ -1,0 +1,39 @@
+{
+  "name": "retro-dual-stream",
+  "payload_name": "mols",
+  "lanes": ["gpu", "cpu_shared", "http"],
+  "knobs": {
+    "fill": [32],
+    "B": [4, 8, 16],
+    "cold": ["once", "every"],
+    "sched": ["serial", "three_lane", "illegal_two"]
+  },
+  "landed_schedules": ["serial"],
+  "dynamics": {
+    "K": 100,
+    "f_expanded": 0.92,
+    "rho_hot": 1.0,
+    "c0": 0.33,
+    "gamma": 0.08,
+    "t_mrp": 17.0
+  },
+  "tile_s": {
+    "4": {"G": 3.2, "M": 0.5, "S": 2.4},
+    "8": {"G": 3.1, "M": 0.76, "S": 2.6},
+    "16": {"G": 6.2, "M": 1.4, "S": 4.0}
+  },
+  "capacity": {
+    "vram_base_gb": 3.2,
+    "vram_per_batch_gb": 0.05,
+    "mem_base_gb": 10.0,
+    "mem_per_K_gb": 0.03,
+    "flops_per_mol": 0
+  },
+  "measured": {
+    "contract": "fill=32 B=8 mssr=20 mrp=100",
+    "serial_once_flux": 0.277,
+    "serial_every_flux": 0.185,
+    "overlap_once_flux": 0.198,
+    "whole_bag_flux": 0.286
+  }
+}
