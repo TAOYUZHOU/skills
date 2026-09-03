@@ -24,7 +24,7 @@ Open with four answers:
 
 Use a strong status sentence such as “The estimator is a standard conditional-density method adapted to this domain; the novelty is the application and calibration design.” Avoid novelty by implication.
 
-The first screen should then expose 3–6 milestone facts and define every project-specific name used there. A milestone is not a naked number: include its unit, denominator, split, or comparator. State the strongest limitation beside the strongest result so a skim does not become an overclaim.
+The first screen should then expose 3–6 milestone facts and define every project-specific name when it first appears. Prefer `plain-language full concept (standard abbreviation or project name)`, for example “平均绝对误差（MAE）.” For an internal label without a real expansion, describe its referent first—“119靶标内部基准面板（BH 119）”—rather than inventing a backronym. A nearby glossary may reinforce the definition but must not repair an unexplained earlier use. A milestone is not a naked number: include its unit, denominator, split, or comparator. State the strongest limitation beside the strongest result so a skim does not become an overclaim.
 
 ## 2. Causal timeline and branch architecture
 

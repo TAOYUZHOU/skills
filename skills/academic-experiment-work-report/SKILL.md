@@ -26,7 +26,7 @@ Even when the report is an internal experiment record, make it enterable by a te
 
 1. Open with the problem, exact task/output, information available and missing, and the current answer. State what the result changes operationally.
 2. Put 3–6 milestone cards or a compact summary table on the first screen. Every number needs a unit, denominator, split, baseline, or status label as applicable.
-3. Define project-specific names, abbreviations, datasets, and evaluation splits before using them in headline conclusions.
+3. Define project-specific names, abbreviations, datasets, and evaluation splits at first appearance. Prefer `plain-language full concept (standard abbreviation or project name)`, then use the short form consistently. For an internal label without a genuine expansion, explain what it denotes before placing the label in parentheses; never invent a backronym.
 4. Add a causal solution timeline for multi-stage work: `problem → intervention → evidence → next question`. Do not concatenate experiments in run order.
 5. Keep the main line limited to the evidence required for the current decision. Put implementation details, full diagnostics, historical variants, and exploratory branches in later sections, appendices, or accessible collapsible blocks.
 6. State negative results where they change the next decision; do not bury them in caveats.
@@ -184,7 +184,7 @@ Headless Chrome may print DBus warnings in server environments; if the PDF file 
 - All core claims link to a table, figure, or file path.
 - Mixed metrics are not the headline when split-domain metrics are available.
 - The next-step plan includes a concrete decision after the current matrix completes.
-- The first screen states the problem, task boundary, current answer, milestones, and unfamiliar terms.
+- The first screen states the problem, task boundary, current answer, milestones, and defines unfamiliar terms at first appearance as `full concept (short name)` where appropriate.
 - The solution timeline explains causality rather than merely listing dates or experiment IDs.
 - A reader can recover the main conclusion without opening appendices, details blocks, or slides.
 - External and generated visuals are labeled and have provenance; searched images have a usable license.

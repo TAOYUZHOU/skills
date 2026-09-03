@@ -43,9 +43,9 @@ The opening viewport must contain, or clearly begin, all of the following:
 - what information is available and missing, including whether labels are measured, expert, weak, or model-generated;
 - the current answer with its strongest quantitative support and its most decision-relevant limitation;
 - milestone cards whose numbers have units, denominators, evaluation split, or comparator where needed;
-- definitions for project-specific method names and acronyms used above the fold.
+- clear definitions for project-specific names at first appearance. Prefer `plain-language full concept (standard abbreviation or project name)`; after that, use the short form consistently.
 
-Do not open with history, architecture inventory, notation, or an abstract claim such as “we propose a framework.”
+Specialist terms are allowed on the first screen when they are genuinely needed. Do not make the reader wait for a later glossary: define the concept in the same sentence, card, caption, or immediately adjacent glossary before relying on the short name. Do not invent an English expansion for an internal label; describe what it denotes, then give the label in parentheses. Do not open with history, architecture inventory, notation, or an abstract claim such as “we propose a framework.”
 
 ## Mathematical writing contract
 
@@ -126,7 +126,7 @@ Then render or open the page and inspect at desktop and narrow widths. The valid
 Before delivery, confirm:
 
 - the title and first screen state the actual thesis;
-- the first screen defines the problem, task boundary, current answer, milestones, and specialist names;
+- the first screen defines the problem, task boundary, current answer, milestones, and every specialist name at first appearance using `full concept (short name)` where appropriate;
 - the timeline states why each major revision followed from the previous result;
 - the main conclusion is readable without opening optional branches or operating a carousel;
 - notation is defined at first use or in the nearby glossary;
