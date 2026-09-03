@@ -20,6 +20,17 @@ The report must separate evidence from interpretation.
 - Use static PNG figures and relative paths in Markdown/HTML so the report can be archived and exported.
 - Name missing experiments plainly. Do not describe pending work as completed.
 
+## Cold-reader narrative contract
+
+Even when the report is an internal experiment record, make it enterable by a technically literate reader who has not followed the project history.
+
+1. Open with the problem, exact task/output, information available and missing, and the current answer. State what the result changes operationally.
+2. Put 3–6 milestone cards or a compact summary table on the first screen. Every number needs a unit, denominator, split, baseline, or status label as applicable.
+3. Define project-specific names, abbreviations, datasets, and evaluation splits before using them in headline conclusions.
+4. Add a causal solution timeline for multi-stage work: `problem → intervention → evidence → next question`. Do not concatenate experiments in run order.
+5. Keep the main line limited to the evidence required for the current decision. Put implementation details, full diagnostics, historical variants, and exploratory branches in later sections, appendices, or accessible collapsible blocks.
+6. State negative results where they change the next decision; do not bury them in caveats.
+
 ## Mandatory Scientific Model Data Diagnostics Gate
 
 For ML, chemistry, bioinformatics, materials, reinforcement learning, or domain-transfer reports, the report is incomplete unless it either includes `scientific-model-data-diagnostics` output or explicitly states why diagnostics could not be run.
@@ -36,31 +47,39 @@ If diagnostics reveal that a headline metric is fragile, the report must downgra
 
 ## Required Sections
 
-1. **结论先行**
+1. **问题、任务边界与当前答案**
+   - Define the scientific/engineering decision, output, inputs, missing information, and label provenance.
+   - Give the current answer and the strongest limitation in the same opening block.
+2. **关键里程碑与术语**
+   - Show 3–6 quantitative cards or a compact summary table.
+   - Define domain-specific names, splits, acronyms, and status terms used above the fold.
+3. **方案演化时间线**
+   - For every major change, state the failure/gap that motivated it, what changed, what was observed, and why the next branch followed.
+4. **结论先行**
    - Answer the user's actual scientific questions.
    - Include quantitative values and the evidence boundary.
-2. **固定汇报规范**
+5. **固定汇报规范**
    - Define what must always be split, such as A-test/B-test/C-test, source groups, seeds, or domains.
    - Explain why mixed metrics are secondary.
-3. **本轮实验矩阵目标**
+6. **本轮实验矩阵目标**
    - Explain what the matrix is designed to decide: top architecture, fixed hyperparameters, data-volume effect, data noise, template/module validity, or calibration value.
-4. **关键图表**
+7. **关键图表**
    - Include trend plots, scatter plots, confusion matrices, PR/ROC curves, or domain diagnostics as appropriate.
-5. **分项结果表**
+8. **分项结果表**
    - Report per-domain metrics, model family, setting, seed, and selection rule.
-6. **Domain-Aware Diagnostics**
+9. **Domain-Aware Diagnostics**
    - For OOD/domain failures, stratify by available source/domain fields.
    - Prefer source, scaffold/cluster novelty, fingerprint similarity quantile, template family, label range, pH/protocol, size bins, and residual direction.
    - For ML reports, this section should be populated from `scientific-model-data-diagnostics` outputs when possible.
-7. **数据清洗策略**
+10. **数据清洗策略**
    - Source manifest and hashes when available.
    - Canonicalization/deduplication.
    - Split leakage checks.
    - Removed-row reasons.
    - Label mask rules and endpoint/unit/pH normalization.
-8. **当前训练进展与证据边界**
+11. **当前训练进展与证据边界**
    - Queue status, running/done/failed/pending counts, and resource throttling if relevant.
-9. **下一步计划**
+12. **下一步计划**
    - Make it executable: finish matrix, pick top model, run controlled calibration/ablation, then regenerate report.
 
 ## Scientific Reporting Rules
@@ -71,6 +90,14 @@ If diagnostics reveal that a headline metric is fragile, the report must downgra
 - For model selection, distinguish best-observed diagnostic tables from validation-selected final benchmark tables.
 - For data addition claims, compare fixed model settings across data fractions and seeds, not unrelated best runs.
 - For template/module claims, compare matched controls: same split, seed set, epochs, and model family when possible.
+
+## Visual explanation and optional slide stories
+
+- Prefer figures generated from the experiment artifacts. Use an explanatory SVG/HTML diagram for task boundaries, data flow, model evolution, or a failure mechanism when prose alone is costly.
+- A generated illustration may support an analogy, but must be labeled as conceptual and never presented as evidence.
+- Search for an external image only when a real apparatus, material, experimental setup, or domain object adds information. Prefer official, public-domain, or clearly licensed sources and record creator, source page, license, access date, and modifications. Do not use a search thumbnail as the asset or hotlink it.
+- Each figure must answer a question stated in the preceding text; captions say what to notice and what the figure does not establish.
+- A non-autoplay carousel or slide strip is appropriate for three or more sequential stages, matched model variants, or representative cases. Provide keyboard controls, slide count, alt text, reduced motion, and a printable/static fallback. Main conclusions and limitations must remain visible without interacting with it.
 
 ## Markdown Workflow
 
@@ -157,3 +184,7 @@ Headless Chrome may print DBus warnings in server environments; if the PDF file 
 - All core claims link to a table, figure, or file path.
 - Mixed metrics are not the headline when split-domain metrics are available.
 - The next-step plan includes a concrete decision after the current matrix completes.
+- The first screen states the problem, task boundary, current answer, milestones, and unfamiliar terms.
+- The solution timeline explains causality rather than merely listing dates or experiment IDs.
+- A reader can recover the main conclusion without opening appendices, details blocks, or slides.
+- External and generated visuals are labeled and have provenance; searched images have a usable license.

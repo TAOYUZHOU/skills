@@ -5,12 +5,13 @@ Use this reference when outlining a substantial theory-first blog or revising a 
 ## Contents
 
 1. Reader contract
-2. Four-layer explanation
-3. Symbol-table pattern
-4. Derivation pattern
-5. Evidence and applicability
-6. Transferability
-7. Editorial review
+2. Causal timeline and branch architecture
+3. Four-layer explanation
+4. Symbol-table pattern
+5. Derivation pattern
+6. Evidence and applicability
+7. Transferability
+8. Editorial review
 
 ## 1. Reader contract
 
@@ -23,7 +24,23 @@ Open with four answers:
 
 Use a strong status sentence such as “The estimator is a standard conditional-density method adapted to this domain; the novelty is the application and calibration design.” Avoid novelty by implication.
 
-## 2. Four-layer explanation
+The first screen should then expose 3–6 milestone facts and define every project-specific name used there. A milestone is not a naked number: include its unit, denominator, split, or comparator. State the strongest limitation beside the strongest result so a skim does not become an overclaim.
+
+## 2. Causal timeline and branch architecture
+
+Write each major step as:
+
+`problem or failed assumption → operation → observed evidence → why the next step became necessary`.
+
+Keep this timeline short enough to scan. The body then follows the same causal order rather than the order in which files were produced. Put material into one of three layers:
+
+- **Main line:** required to understand or act on the current conclusion.
+- **Engineering detail:** reproducibility, implementation, diagnostics, and operational constraints.
+- **Research branch:** alternatives, historical variants, full derivations, negative-result forensics, and speculative extensions.
+
+Summarize a branch's implication in the main line, then link or collapse the detail. A reader who never opens a branch must still receive the correct conclusion and limitations.
+
+## 3. Four-layer explanation
 
 Separate these layers whenever they coexist:
 
@@ -34,7 +51,7 @@ Separate these layers whenever they coexist:
 
 A system can be validated at one layer and unvalidated at another. High predictive accuracy does not validate semantic labels; stable clusters do not validate a decision policy.
 
-## 3. Symbol-table pattern
+## 4. Symbol-table pattern
 
 Place a glossary before readers have accumulated more than five unfamiliar symbols.
 
@@ -47,7 +64,7 @@ Place a glossary before readers have accumulated more than five unfamiliar symbo
 
 Also define a symbol in prose at first appearance. The table supports scanning; it does not excuse unexplained notation in the narrative.
 
-## 4. Derivation pattern
+## 5. Derivation pattern
 
 For each mathematical block, use this order:
 
@@ -61,7 +78,7 @@ For each mathematical block, use this order:
 
 For EM, show the complete-data log likelihood, posterior responsibilities, expected objective, constrained weight update, and weighted sufficient statistics. For conditional Gaussians, partition the covariance and derive the conditional mean and Schur-complement variance. For numerical integration, state the change of variables and quadrature nodes/weights.
 
-## 5. Evidence and applicability
+## 6. Evidence and applicability
 
 ### Posterior is not support
 
@@ -80,7 +97,7 @@ Describe a fitted component first as a density region or local expert. A mechani
 
 Identify whether the target is an experimental gold label, expert label, pseudo-label, soft cluster membership, or model-generated weak label. Never report agreement with a weak label as proof of real-world decision quality.
 
-## 6. Transferability
+## 7. Transferability
 
 Analyze transfer as a composition of mappings. Ask, for every mapping:
 
@@ -92,7 +109,7 @@ Analyze transfer as a composition of mappings. Ask, for every mapping:
 
 When invoking manifold learning, optimal transport, flow matching, foundation models, or another abstract framework, connect it to one specific replaceable layer. State its data requirement and the supervision gap it cannot repair.
 
-## 7. Editorial review
+## 8. Editorial review
 
 Read the article in three passes:
 

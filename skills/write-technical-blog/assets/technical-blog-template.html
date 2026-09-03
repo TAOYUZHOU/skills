@@ -27,6 +27,16 @@
     .dek { max-width:800px; margin:0; font-size:1.16rem; }
     .callout { margin:2rem 0; padding:1.25rem 1.4rem; background:var(--card);
       border-left:4px solid var(--accent); border-radius:0 10px 10px 0; box-shadow:var(--shadow); }
+    .milestones { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:1.5rem 0; }
+    .milestone { padding:16px; background:var(--card); border:1px solid var(--line); border-radius:10px; }
+    .milestone strong { display:block; color:var(--accent); font-size:1.35rem; }
+    .glossary { display:flex; flex-wrap:wrap; gap:8px; margin:1rem 0; }
+    .glossary span { padding:.35rem .65rem; border:1px solid var(--line); border-radius:999px; background:var(--card); }
+    .timeline { margin:1.5rem 0; padding-left:1.25rem; border-left:2px solid var(--line); }
+    .timeline article { margin:0 0 1.25rem; }.timeline b { display:block; }
+    details.branch { margin:2rem 0; border:1px solid var(--line); border-radius:12px; background:var(--card); }
+    details.branch summary { cursor:pointer; padding:1rem 1.2rem; font-weight:700; }
+    details.branch .branch-body { padding:0 1.2rem 1.2rem; }
     .table-wrap { width:100%; overflow-x:auto; margin:1.2rem 0 2rem; }
     table { width:100%; min-width:720px; border-collapse:collapse; background:var(--card); }
     th,td { padding:.72rem .8rem; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
@@ -43,7 +53,7 @@
       :root { --ink:#edf2f5; --muted:#aeb9c2; --paper:#111820; --card:#18222c;
         --line:#34414d; --accent:#75add8; --code:#24313c; --shadow:none; }
     }
-    @media (max-width:720px) { main{padding:34px 18px 64px} h2{font-size:1.65rem} }
+    @media (max-width:720px) { main{padding:34px 18px 64px} h2{font-size:1.65rem}.milestones{grid-template-columns:1fr} }
   </style>
 </head>
 <body>
@@ -54,10 +64,27 @@
     <p class="dek">{{SUBTITLE}}</p>
   </header>
 
-  <section>
-    <h2>{{THESIS_HEADING}}</h2>
-    <p>{{THESIS}}</p>
+  <section id="start">
+    <h2>Problem, boundary, and current answer</h2>
+    <p><strong>Problem:</strong> {{PROBLEM}}</p>
+    <p><strong>Task boundary:</strong> {{TASK_BOUNDARY}}</p>
+    <p><strong>Current answer:</strong> {{THESIS}}</p>
     <div class="callout"><strong>Evidence boundary:</strong> {{EVIDENCE_BOUNDARY}}</div>
+    <div class="glossary">
+      <span><strong>{{TERM}}</strong>: {{TERM_DEFINITION}}</span>
+    </div>
+    <div class="milestones">
+      <div class="milestone"><strong>{{MILESTONE_VALUE}}</strong>{{MILESTONE_CONTEXT}}</div>
+      <div class="milestone"><strong>{{MILESTONE_VALUE_2}}</strong>{{MILESTONE_CONTEXT_2}}</div>
+      <div class="milestone"><strong>{{MILESTONE_VALUE_3}}</strong>{{MILESTONE_CONTEXT_3}}</div>
+      <div class="milestone"><strong>{{MILESTONE_VALUE_4}}</strong>{{MILESTONE_CONTEXT_4}}</div>
+    </div>
+    <h3>How the solution evolved</h3>
+    <div class="timeline">
+      <article><b>{{TIMELINE_STEP}}</b>{{TIMELINE_CAUSAL_EXPLANATION}}</article>
+      <article><b>{{TIMELINE_STEP_2}}</b>{{TIMELINE_CAUSAL_EXPLANATION_2}}</article>
+      <article><b>{{TIMELINE_STEP_3}}</b>{{TIMELINE_CAUSAL_EXPLANATION_3}}</article>
+    </div>
   </section>
 
   <section>
@@ -96,6 +123,11 @@
     <h2>Failure modes and applicability</h2>
     <ul><li>{{FAILURE_MODE}}</li></ul>
   </section>
+
+  <details class="branch">
+    <summary>{{OPTIONAL_BRANCH_TITLE}}</summary>
+    <div class="branch-body">{{OPTIONAL_BRANCH_CONTENT}}</div>
+  </details>
 
   <section>
     <h2>Reproduction and references</h2>
