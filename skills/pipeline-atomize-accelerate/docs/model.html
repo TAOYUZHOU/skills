@@ -111,8 +111,10 @@
       <a href="#resident">常驻</a>
       <a href="#atom">原子与 stream</a>
       <a href="#halt">停机</a>
+      <a href="#fill">fill 预算</a>
       <a href="#gantt">Gantt</a>
       <a href="#pareto">Preflight</a>
+      <a href="#kappa">核比 \(\kappa\)</a>
     </nav>
 
     <section id="resident">
@@ -137,7 +139,7 @@
         共享主机核 + 共享库（GIL、BBL、图锁）是一条 \(\mathrm{CPU_{sh}}\)，不是两条 CPU。
       </p>
       \[
-        \mathrm{start}(j)=\max\Bigl(\max_{a\prec j}\mathrm{end}(a),\;\mathrm{free}(\rho(j))\Bigr),
+        \mathrm{start}(j)=\max\Bigl(\max_{a\prec j}\mathrm{end}(a),\;\mathrm{free}(r(j))\Bigr),
         \qquad
         T=\max_r T_r.
       \]
@@ -164,6 +166,48 @@
       <p>
         当 \(\mathrm{bound}\) 作业不能再切（再切会改硬件/协议量子，或只制造 \(\rho\gg 1\)），
         对这组 \(\mathcal{R}\) 就停。这不是旋钮 Pareto，也不是「算法不能再快」——换算法或换资源集合会重开递归。
+        挂边 \(t_H\) 进求解器：<code>tile_s[B].H</code> 加进每瓦 <code>hots[k]</code>（易分子约 0.06&nbsp;s/瓦；M101≈0.2；M089≈1.07）。
+        它不是 \(|P|\) 的函数，单表值只代表易分子。整树 \(T\) 对不准是正常的——\(n_{\mathrm{iter}}\) 预估不了。
+        该对的是一轮通量 \(J=n/T_{\mathrm{round}}\)（M098 一轮误差约 7–11%）。
+        按任务时钟 + 累计 score 改 fill 是后续算法，不写进当前求解器。
+      </p>
+      <h3>展开与 \(B\) · 2026-08-26</h3>
+      \[
+        t_E=n_{\mathrm{new}}\,\tau,\quad \tau\approx 3.03\,\mathrm{ms},\qquad
+        T=\max(T_G,T_S,T_{\mathrm{cpu}}),\qquad
+        J=\frac{n}{T}.
+      \]
+      <p>
+        占用 \(T_G^{\mathrm{occ}}=n/\mu_{\mathrm{gpu}}(B)\)。\(\mu_{\mathrm{gpu}}\) 随 \(B\) 升然后饱和。
+        打分对分子线性时，占用 \(T_S^{\mathrm{occ}}=n\cdot s\) <strong>不随 \(B\)</strong>。
+        求解器的 \(T_{\mathrm{http}}\) 是末次打分结束时刻，不是占用：
+        \(T_{\mathrm{http}}\approx t_G(B)+t_M(B)+n\cdot s\)（整瓦 mat 完才打分），
+        SCORE_AS_MAT 后近似 \(t_G(B)+t_M(B)/B+n\cdot s\)。
+        <code>ATTACH_AS_READY</code> 是这组 \(\mathcal{R}\) 上排班的最后一刀：第 1 个分子 score 完立刻挂边，
+        不再等整瓦。HF generate 仍是一次 kernel。再切只会改 5015 量子或制造 \(\rho\)。
+        当前 \(T_S^{\mathrm{occ}}>T_G^{\mathrm{occ}}\)，\(J(B)\) 随首瓦 \(t_G(B)\) <strong>弱下降</strong>，不是平坦，也不是全程单调升。
+        \(B\) 小到 \(T_G^{\mathrm{occ}}>T_S^{\mathrm{occ}}\) 时，\(J\) 才随 \(B\) 升到交叉点。
+      </p>
+    </section>
+
+    <section id="fill">
+      <h2>3b · fill 是硬预算，不是 GPU 批</h2>
+      <p>
+        \(B\) = 一次 HF kernel。fill = Dual 一轮最多收几个未问过的 unique INIT，然后 \(k\leftarrow k+1\)。
+        mssr 封的是轮数。两者一起给出工作量上界。
+      </p>
+      \[
+        n_k=\min(\mathrm{fill},|U_k|),\quad
+        n_{\mathrm{work}}\le \mathrm{mssr}\cdot\mathrm{fill},\quad
+        n_{\mathrm{iter}}=\min(\mathrm{mssr},\,\min\{k:|U_k|=0\}),\quad
+        T_{\mathrm{tree}}=n_{\mathrm{iter}}\,T_{\mathrm{round}}.
+      \]
+      <p>
+        <code>preflight_solver.py</code> 只报一轮 \(T_{\mathrm{round}}(B,\mathrm{fill})\)，\(A=\lceil\mathrm{fill}/B\rceil\)。
+        整树由 <code>compose_search_volume.py</code> 乘上 \(n_{\mathrm{iter}}\)。
+        \(n_{\mathrm{iter}}\) 内生：B=4/8 在 fill=32 上 10–11 轮抽干；B=16 跑到 19。
+        fill∈{16,64} 的 \(n_{\mathrm{iter}}\) 未测，只报一轮和上界 \(20\cdot\mathrm{fill}\)。
+        删掉 fill 会拆掉 Dual 合同（horizon / COLD_ONCE / mssr），GPU 空着不是理由。
       </p>
     </section>
 
@@ -220,7 +264,30 @@
         在可行且<strong>已落地</strong>的 \(\theta\) 上，对 \((J,-T)\)（可选再加质量）取非支配集，才叫容量 Pareto。
         未落地调度画虚线，禁止写进要 apply 的 \(B^\star\)。
       </p>
-      <p>求解器：<code>scripts/preflight_solver.py</code>。</p>
+      <p>求解器：<code>scripts/preflight_solver.py</code>（fill / B / sched）。核分配比另解，见下一节。</p>
+    </section>
+
+    <section id="kappa">
+      <h2>6 · 干扰 \(\rho\)、单 worker 原子、核分配比</h2>
+      <p>
+        资源映射写 \(r(j)\)。干扰因子是另一回事：
+      </p>
+      \[
+        \rho_{a\parallel b}=\frac{t_a^{\parallel b}}{t_a^{\perp}}.
+      \]
+      <p>
+        \(\rho=1\) 才许把 \(t_j\) 当常数做 Gantt。\(\rho\gg 1\) 是在抢隐藏资源。
+        GPU 作业也吃主机核：\(t_G=t_G^{\perp}\cdot\rho_G(\kappa_G)\)。
+        单 worker 原子 \(t_j^{(1)}\)，\(w\) 个 worker、串行比 \(\alpha\)：
+      </p>
+      \[
+        T_j(w)=n\,t_j^{(1)}\Bigl(\alpha+\frac{1-\alpha}{w}\Bigr),\qquad
+        \kappa_G+\kappa_M+\kappa_E+\kappa_{\mathrm{OS}}=K.
+      \]
+      <p>
+        \(\alpha=0\) 是线性外推，前提是核互斥且无锁。目标仍是 \(J=n/T\)。
+        枚举整数 \(\kappa,w\)，星标未测之前画虚线。
+      </p>
     </section>
 
     <p class="note">

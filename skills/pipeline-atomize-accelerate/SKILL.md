@@ -91,6 +91,7 @@ python scripts/preflight_solver.py \
 The solver enumerates knobs, drops infeasible (VRAM/RAM/optional FLOP-seconds), reports the Pareto front of \((\mathrm{flux},\,T,\,\mathrm{quality}?)\).
 
 Do not apply a `model_*` star that assumes an unlanded schedule. Quote `implemented_*` separately.
+One-round Gantt is the solver. Dual tree wall is `scripts/compose_search_volume.py` (fill budget × \(n_{\mathrm{iter}}\)); do not fold that into `preflight_solver.py`.
 
 ## Extra levers (after the three principles)
 

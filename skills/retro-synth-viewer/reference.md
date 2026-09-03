@@ -21,6 +21,8 @@ Emitted as `window.ROUTE_COMPARE_DATA` in `data.js`.
 
 `accent`: `new` (teal), `old` (gray), `alt` (blue).
 
+Panels always stack as **full-width rows**. Do not use `slots-2` / `slots-3` as multi-column layout.
+
 ## Manifest (`--manifest`)
 
 `path` is relative to the manifest file.
@@ -60,6 +62,8 @@ Emitted as `window.ROUTE_COMPARE_DATA` in `data.js`.
       "steps": 9,
       "known_steps": 2,
       "pills": ["dump i=0"],
+      "elapsed_sec": 208.45,
+      "elapsed_note": null,
       "tree": {}
     }
   }
@@ -90,7 +94,28 @@ Reaction (`kind: "reaction"`):
 | `molecule_existence` | `reaction-dataset` / `pubchem` / `none` |
 | `children` | reactant nodes (further reactions or leaves) |
 
-Leaf (`kind: "leaf"`): `smiles`, `svg`, `molecule_existence`. CSS paints all leaves green (buyable / search-stop).
+Route-level `elapsed_sec` is the search wall of that molecule×arm (not per top-k).
+Optional `elapsed_note` when there is no finite time (unbounded / stopped).
+The viewer pill is `推理 …s`.
+A first_solve slot should set `elapsed_sec` to the wall when the first solved route closed, not the full-run \(T\).
+Future Dual runs also write `{stem}_first_solve.txt` at first close (`RETRO_DUMP_FIRST_SOLVE=1`). The 2026-08-26 campaign only kept score-sorted `output_topk=100`, so vanished first-depth trees cannot be recovered.
+
+Leaf (`kind: "leaf"`): `smiles`, `svg`, `molecule_existence`, optional `buyable` / `open`.
+Green when the **search BBL** accepted it. Prefer dump `bbl_leaves` (HTTP stock /
+inorganic) over a second local catalog lookup — SMILES form and stock can differ.
+0-carbon inorganics stay green. Dashed orange only if that leaf is **not** in BBL.
+Membership ≠ purchasable. In CSS, `.leaf.buyable` green outranks purple/cyan/gray
+**and** `.open-leaf`.
+
+### Leftover reactants (required)
+
+`Formula` is often Kekulé; `OriFormula` / `main_material` / `bbl_leaves` are aromatic.
+`reactants_of` prefers `OriFormula`. After children are converted, leftover =
+reactants whose **RDKit canon** is not already a sibling (reaction product or leaf).
+Do not compare raw strings. Do not append a leftover of a molecule that this
+parent already expanded. Prefer the catalog SMILES form when it is in `bbl_leaves`.
+
+Same-layer duplicate canons are a converter bug. The builder prints them.
 
 ## Raw trees
 

@@ -159,6 +159,8 @@ def evaluate(spec: dict, hardware: dict, fill: int, B: int, cold: str, sched: st
     if cold == "every":
         hots = [h + k_cold * _c_at(dyn, k) for k, h in enumerate(hots)]
     t_mrp = float(dyn.get("t_mrp", 0.0))
+    t_H = float(tile.get("H", dyn.get("t_H", 0.0)))
+    hots = [h + t_H for h in hots]
     fn = SCHEDULERS[sched]
     gantt = fn(A, tile["G"], tile["M"], tile["S"], hots, t_C, t_mrp)
     wall = float(gantt["T_round"])

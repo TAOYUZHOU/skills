@@ -175,6 +175,24 @@
       "skills": [
         "./skills/pipeline-atomize-accelerate"
       ]
+    },
+    {
+      "name": "retro-experiment-matrix",
+      "description": "Run Retro Engine local prod∥reactseq experiment matrices with smoke gates and resume",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/retro-experiment-matrix"
+      ]
+    },
+    {
+      "name": "retro-progress-blog",
+      "description": "Write and update the Retro Engine /retro-progress/ reader site (changelog + glossary SSOT)",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/retro-progress-blog"
+      ]
     }
   ]
 }

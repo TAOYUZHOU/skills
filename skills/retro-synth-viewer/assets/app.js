@@ -220,8 +220,14 @@
       ? `soft-terminal-${node.soft_terminal_class}` : "";
     const coverageClass = node.kind === "reaction" && node.soft_coverage_class && node.soft_coverage_class !== "none"
       ? `soft-covered-${node.soft_coverage_class}` : "";
-    const existenceClass = `molecule-${node.molecule_existence || "none"}`;
-    card.className = `route-node ${existenceClass} ${node.kind === "leaf" ? "leaf" : ""} ${node.known ? "known" : ""} ${terminalClass} ${coverageClass} ${isRouteDifference ? "route-difference" : ""}`.trim();
+    const buyable = node.kind === "leaf" && node.buyable;
+    const existenceClass = buyable
+      ? "molecule-buyable"
+      : `molecule-${node.molecule_existence || "none"}`;
+    const leafState = node.kind === "leaf"
+      ? (buyable ? "leaf buyable" : node.open ? "leaf open-leaf" : "leaf")
+      : "";
+    card.className = `route-node ${existenceClass} ${leafState} ${node.known ? "known" : ""} ${terminalClass} ${coverageClass} ${isRouteDifference ? "route-difference" : ""}`.trim();
     const mol = document.createElement("div");
     mol.className = "mol-box";
     mol.innerHTML = node.svg || "";
@@ -394,18 +400,47 @@
     return highlightedMolecules;
   }
 
-  function renderTree(stage, route, differenceNodes) {
+  function resetStage(stage) {
     hideRxnPopover();
     stage.textContent = "";
+    stage.className = "route-stage";
+    stage.removeAttribute("style");
+    stage.removeAttribute("data-layout-width");
+    stage.removeAttribute("data-layout-height");
+    const canvas = stage.closest(".route-canvas");
+    if (canvas) {
+      canvas.scrollLeft = 0;
+      canvas.scrollTop = 0;
+    }
+  }
+
+  function renderEmpty(stage, route) {
+    resetStage(stage);
+    const box = document.createElement("div");
+    box.className = "empty-route";
+    const title = document.createElement("p");
+    title.className = "empty-route-title";
+    title.textContent = "没有可画的路线";
+    const note = document.createElement("p");
+    note.className = "empty-route-note";
+    note.textContent = route?.empty_reason || route?.note || "这个面板没有导出树。对照合同未跑或未解，不是画布坏了。";
+    box.append(title, note);
+    stage.appendChild(box);
+  }
+
+  function renderTree(stage, route, differenceNodes) {
     if (!route?.tree) {
-      stage.textContent = "无路线";
+      renderEmpty(stage, route);
       return;
     }
+    resetStage(stage);
     stage.classList.add("compact-layout");
     const layout = compactTreeLayout(route.tree);
     const stepLabels = assignReactionStepLabels(layout.placements);
     const width = Math.max(1450, layout.width);
     const height = Math.max(500, layout.height);
+    stage.dataset.layoutWidth = String(width);
+    stage.dataset.layoutHeight = String(height);
     stage.style.width = `${width}px`;
     stage.style.minWidth = `${width}px`;
     stage.style.height = `${height}px`;
@@ -465,16 +500,79 @@
     return span;
   }
 
-  function renderStats(container, route, primary) {
+  function applyZoom(panelId) {
+    const stage = byId(`${panelId}Stage`);
+    if (!stage) return;
+    const scale = state.scale[panelId] || 1;
+    stage.style.transform = `scale(${scale})`;
+    const width = Number(stage.dataset.layoutWidth || 0);
+    const height = Number(stage.dataset.layoutHeight || 0);
+    if (width && height) {
+      stage.style.marginRight = `${Math.max(0, width * (scale - 1))}px`;
+      stage.style.marginBottom = `${Math.max(0, height * (scale - 1))}px`;
+    } else {
+      stage.style.marginRight = "0";
+      stage.style.marginBottom = "0";
+    }
+  }
+
+  function wallLabel(route) {
+    if (!route) return null;
+    if (route.elapsed_note) return `推理 ${route.elapsed_note}`;
+    const sec = route.elapsed_sec;
+    if (sec == null || Number.isNaN(Number(sec))) return null;
+    const t = Number(sec);
+    if (t >= 3600) {
+      const h = Math.floor(t / 3600);
+      const m = Math.round((t % 3600) / 60);
+      return `推理 ${h}h${m}m`;
+    }
+    if (t >= 60) return `推理 ${Math.round(t)}s`;
+    return `推理 ${t.toFixed(1)}s`;
+  }
+
+  function reactionKeySet(route) {
+    const keys = new Set();
+    if (!route?.tree) return keys;
+    flattenTree(route.tree).forEach((node) => {
+      if (node.kind === "reaction" && node.reaction_id) keys.add(node.reaction_id);
+    });
+    return keys;
+  }
+
+  function samePathNotes(route, others) {
+    const mine = reactionKeySet(route);
+    if (!mine.size) return [];
+    const notes = [];
+    others.forEach(({ slot, route: other }) => {
+      const theirs = reactionKeySet(other);
+      if (!theirs.size || theirs.size !== mine.size) return;
+      let same = true;
+      mine.forEach((key) => {
+        if (!theirs.has(key)) same = false;
+      });
+      if (same) notes.push(`与 ${slot.title || slot.id} 同路，只是分数不同`);
+    });
+    return notes;
+  }
+
+  function renderStats(container, route, primary, sameNotes) {
     container.textContent = "";
     if (!route) return;
-    container.appendChild(statPill(`logS ${fixed(route.new_log_score, 3)}`, primary));
+    const wall = wallLabel(route);
+    if (wall) container.appendChild(statPill(wall, primary));
+    if (!route.tree) {
+      if (route.empty_reason) container.appendChild(statPill(route.empty_reason));
+      return;
+    }
+    container.appendChild(statPill(`logS ${fixed(route.new_log_score, 3)}`, primary && !wall));
     if (route.old_score0 !== undefined && route.old_score0 !== null) {
       container.appendChild(statPill(`score0 ${fixed(route.old_score0, 5)}`));
     }
     if (route.steps != null) container.appendChild(statPill(`${route.steps} steps`));
     if (route.known_steps != null) container.appendChild(statPill(`known ${route.known_steps}`));
     (route.pills || []).forEach((text) => container.appendChild(statPill(text)));
+    (sameNotes || []).forEach((text) => container.appendChild(statPill(text)));
   }
 
   function ensurePanels() {
@@ -498,9 +596,10 @@
           </div>
         </header>
         <div class="legend">
-          <span><i class="swatch purchasable"></i>绿框：已知/可购买原料</span>
-          <span><i class="swatch reaction-dataset"></i>紫框：反应库已知物</span>
-          <span><i class="swatch pubchem"></i>青框：PubChem 已知物</span>
+          <span><i class="swatch purchasable"></i>绿框：搜索 BBL 可买原料</span>
+          <span><i class="swatch open-leaf"></i>虚线橙框：不在搜索 BBL 的叶</span>
+          <span><i class="swatch reaction-dataset"></i>紫框：仅反应库出现过，≠ 可买</span>
+          <span><i class="swatch pubchem"></i>青框：仅 PubChem，≠ 可买</span>
           <span><i class="swatch route-difference"></i>淡红底：该面板独有反应</span>
           <span><i class="swatch known-line"></i>已知反应</span>
           <span><i class="swatch step-no"></i>反应编号：点击可复制 rxn</span>
@@ -510,6 +609,7 @@
       grid.appendChild(article);
       state.scale[slot.id] = 1;
     });
+    grid.classList.add(`slots-${slots().length}`);
     grid.dataset.ready = "1";
   }
 
@@ -567,14 +667,17 @@
 
     const present = slots().map((slot) => ({ slot, route: routeOf(item, slot.id) }));
     present.forEach(({ slot, route }) => {
+      const panel = byId(`${slot.id}Panel`);
+      panel.classList.toggle("is-empty", !route?.tree);
       const others = present.filter((row) => row.slot.id !== slot.id).map((row) => row.route);
       const diffs = reactionDifferenceMoleculeNodes(route, others);
-      renderStats(byId(`${slot.id}Stats`), route, slot.accent === "new");
+      const sameNotes = samePathNotes(route, others);
+      renderStats(byId(`${slot.id}Stats`), route, slot.accent === "new", sameNotes);
       const stage = byId(`${slot.id}Stage`);
       renderTree(stage, route, diffs);
       state.scale[slot.id] = 1;
-      stage.style.transform = "scale(1)";
-      revealRoot(stage);
+      applyZoom(slot.id);
+      if (route?.tree) revealRoot(stage);
     });
     renderCaseList();
   }
@@ -620,7 +723,7 @@
         if (action === "in") state.scale[panel] = Math.min(2.2, (state.scale[panel] || 1) + 0.12);
         if (action === "out") state.scale[panel] = Math.max(0.35, (state.scale[panel] || 1) - 0.12);
         if (action === "reset") state.scale[panel] = 1;
-        byId(`${panel}Stage`).style.transform = `scale(${state.scale[panel]})`;
+        applyZoom(panel);
       });
     });
     render();

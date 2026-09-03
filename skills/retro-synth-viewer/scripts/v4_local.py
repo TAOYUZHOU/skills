@@ -51,6 +51,63 @@ def try_path_local_str_audits(path: list, *, root: Optional[str], membership_by_
         return None, {}
 
 
+def carbon_count(smi: str) -> Optional[int]:
+    try:
+        from rdkit import Chem
+    except Exception:
+        return None
+    mol = Chem.MolFromSmiles(smi or "")
+    if mol is None:
+        return None
+    return sum(1 for atom in mol.GetAtoms() if atom.GetAtomicNum() == 6)
+
+
+def is_search_inorganic(smi: str) -> bool:
+    """Same gate as c12 Bbl.is_material: 0 carbons count as buyable."""
+    if not smi:
+        return True
+    n = carbon_count(smi)
+    return n == 0
+
+
+def try_bbl_buyable_fn(
+    bbl_pkl: Optional[str] = None,
+    max_price: float = 3000,
+) -> Optional[Any]:
+    """Return smiles → bool using search BBL. Inorganic always True."""
+    finder = None
+    if bbl_pkl:
+        try:
+            from c12_search.bbl_server.bbl_service import BblService
+
+            class _Cfg:
+                def get_bbl_config(self):
+                    return {"url": bbl_pkl, "debug": False}
+
+            svc = BblService(config0=_Cfg())
+
+            def finder(smi: str) -> bool:
+                hits = svc.find(
+                    smi,
+                    price_filter=lambda price: price <= max_price,
+                )
+                return bool(hits)
+        except Exception:
+            finder = None
+
+    def is_buyable(smi: str) -> bool:
+        if is_search_inorganic(smi):
+            return True
+        if finder is None:
+            return False
+        try:
+            return bool(finder(smi))
+        except Exception:
+            return False
+
+    return is_buyable
+
+
 def try_membership_batch(smiles: list[str]) -> dict[str, Any]:
     try:
         from c12_search.single_step.v4_score_apis import membership_batch

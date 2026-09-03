@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Route comparison</title>
-  <link rel="stylesheet" href="styles.css?v=compact-ltree-v1">
+  <link rel="stylesheet" href="styles.css?v=compact-ltree-v8">
 </head>
 <body>
   <main class="page-shell">
@@ -39,9 +39,10 @@
         <section>
           <h3>分子框</h3>
           <ul>
-            <li><strong>绿框</strong>：路线起始原料（可购买 / 已知 leaf）</li>
-            <li><strong>紫框</strong>：反应训练库中出现过的分子</li>
-            <li><strong>青框</strong>：PubChem 语料中出现过的分子</li>
+            <li><strong>绿框</strong>：搜索判定的 BBL 可买原料（完整解的叶）</li>
+            <li><strong>虚线橙框</strong>：这个分子不在搜索 BBL（价格上限内）。未闭合路上，HCl 等无机物仍应绿框</li>
+            <li><strong>紫框</strong>：反应训练库中出现过；不是 BBL，不能当成能买</li>
+            <li><strong>青框</strong>：PubChem 语料中出现过；同样不是可买</li>
             <li><strong>灰框</strong>：未标记为已知的分子</li>
             <li><strong>淡红底</strong>：该面板独有反应的产物与全部直接反应物</li>
           </ul>
@@ -68,6 +69,10 @@
           <h3>反应编号</h3>
           <p class="legend-guide-note">连线交叉点上的步骤编号。点击可复制该步 rxn（reactants&gt;&gt;product）。d=0 为直接生成最终目标的那一步。</p>
         </section>
+        <section>
+          <h3>同路不同分</h3>
+          <p class="legend-guide-note">淡红底只标该面板独有的反应。两条树反应集合相同（例如 score0 第 1 名和 logS 第 1 名是同一条化学路）时不会变红，药丸会写「同路，只是分数不同」。</p>
+        </section>
       </div>
     </details>
 
@@ -78,7 +83,7 @@
       <div id="caseList" class="case-list"></div>
     </section>
   </main>
-  <script src="data.js?v=compact-ltree-v1"></script>
-  <script src="app.js?v=compact-ltree-v1"></script>
+  <script src="data.js?v=compact-ltree-v8"></script>
+  <script src="app.js?v=compact-ltree-v8"></script>
 </body>
 </html>
