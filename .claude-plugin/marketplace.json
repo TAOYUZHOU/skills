@@ -193,6 +193,15 @@
       "skills": [
         "./skills/retro-progress-blog"
       ]
+    },
+    {
+      "name": "any2manim",
+      "description": "Run and drive the local Any2Manim app to turn a plain-language teaching idea (any subject) into a rendered Manim teaching-animation video, then revise, add narration/subtitles, and export",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/any2manim"
+      ]
     }
   ]
 }
