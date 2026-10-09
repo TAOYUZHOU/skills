@@ -12,8 +12,16 @@ description: >-
 
 The **public site is the SSOT**. Chat, this skill, `c12_search/CHANGELOG.md`, and satellite reports must not invent a newer “现状”. If they disagree with the site, **the site wins** — fix this skill in the same edit.
 
-Canonical: `http://161.189.194.243/retro-progress/`
+## Blog 文档入口
+
+- [Retro Progress 技术博客](http://161.189.194.243/retro-progress/)：正文与复现入口。
+- [当前数字与变更日志](http://161.189.194.243/retro-progress/history/changelog.html#current)：当前结论与下一步的来源。
+- [词表](http://161.189.194.243/retro-progress/history/glossary.html)：术语定义。
+- [历史索引](http://161.189.194.243/retro-progress/history/index.html)：带日期的论证与历史记录。
+
 Source: `retro-engine/artifacts/retro_progress_blog/`
+
+开始编辑前先读取上述正文、变更日志与词表；下方结论若与线上 `#current` 不一致，以线上内容为准，不把缓存数字当作当前事实。
 
 Publish + visual bar: `public-html-report`. No trycloudflare. Do not kill `/production/r3s`.
 
