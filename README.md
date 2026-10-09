@@ -26,6 +26,15 @@ Many skills in this repo are open source (Apache 2.0). We've also included the d
 - [./spec](./spec): The Agent Skills specification
 - [./template](./template): Skill template
 
+## Blog 文档 Skills
+
+| Skill | 用途 | 文档链接 |
+|---|---|---|
+| [retro-progress-blog](./skills/retro-progress-blog/SKILL.md) | 编写与维护 Retro Engine 技术博客，按站点的变更日志与词表约定更新正文和历史页。 | [Retro Progress 技术博客](http://161.189.194.243/retro-progress/) · [当前数字与变更日志](http://161.189.194.243/retro-progress/history/changelog.html#current) · [词表](http://161.189.194.243/retro-progress/history/glossary.html) · [历史索引](http://161.189.194.243/retro-progress/history/index.html) |
+| [write-technical-blog](./skills/write-technical-blog/SKILL.md) | 从代码、实验、论文或报告编写通用技术博客与 HTML 文章。 | [写作规范与资源](./skills/write-technical-blog/SKILL.md) |
+
+维护 `/retro-progress/` 时使用 `retro-progress-blog`；通用技术文章使用 `write-technical-blog`。`retro-progress-blog` 已登记在 [插件索引](./.claude-plugin/marketplace.json) 中。
+
 # Try in Claude Code, Claude.ai, and the API
 
 ## Claude Code
