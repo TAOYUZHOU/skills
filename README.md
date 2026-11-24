@@ -9,6 +9,12 @@ For more information, check out:
 - [How to create custom skills](https://support.claude.com/en/articles/12512198-creating-custom-skills)
 - [Equipping agents for the real world with Agent Skills](https://anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills)
 
+## HARP 长时行为轨迹分析
+
+[harp-run-atlas](skills/harp-run-atlas/SKILL.md) 用于**总结和分析 agent 的长时行为轨迹**。它将 HARP 的计划依赖（Plan DAG）、计划内策略尝试（Strategy Tree）与审阅、交付证据整理成离线交互图谱。读者可以逐步展开，了解 agent 为什么改换方法、一次重试解决了什么、哪些结果仍然待定。适用于 DOE、CV 等研究工作区的运行复盘与跨案例比较。
+
+在配置好 `WORK_DIR` 的 HARP 引擎目录运行 `bash skill/scripts/harp_skills.sh install TAOYUZHOU/skills --skill harp-run-atlas -y`，可为指定工作区安装。Codex 用户级安装可将本目录复制到 `~/.codex/skills/harp-run-atlas/`。技能目录内含只读采集和离线 HTML 渲染脚本。示例请求：“用 harp-run-atlas 复盘这两个 DOE 工作区，展开每次失败、修正和最终验收的证据。”
+
 # About This Repository
 
 This repository contains skills that demonstrate what's possible with Claude's skills system. These skills range from creative applications (art, music, design) to technical tasks (testing web apps, MCP server generation) to enterprise workflows (communications, branding, etc.).
