@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent 成本节约"
+  short_description: "约束长任务轮询、子代理模型和重复审查，降低等待与协调成本"
+  default_prompt: "使用 $agent-cost-control 执行这项长任务：先明确分工与等待策略，避免 Astra 子代理、无效轮询和重复审查。"

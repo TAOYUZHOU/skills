@@ -9,6 +9,14 @@ For more information, check out:
 - [How to create custom skills](https://support.claude.com/en/articles/12512198-creating-custom-skills)
 - [Equipping agents for the real world with Agent Skills](https://anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills)
 
+## Agent 成本节约
+
+[agent-cost-control](skills/agent-cost-control/SKILL.md) 约束长任务的模型轮询与子代理浪费：禁止 Astra 子代理、两次状态无变化后退出模型轮询、每个作业唯一监控者、执行层定时检查、可靠恢复回执，以及有明确边界的独立审查。
+
+在 Codex 中请求“从 `TAOYUZHOU/skills` 安装 `skills/agent-cost-control`”，安装后在后续轮次使用 `$agent-cost-control`。也可复制该目录到 `~/.codex/skills/agent-cost-control/`。如需个人默认，在现有全局协作入口引用其正文；仅安装不保证每个对话自动加载。技能不自动修改模型配置或安装后台服务，也不宣称具备硬拦截能力。
+
+示例：“使用 `$agent-cost-control` 执行本次长实验；未完成时由执行器等待，合格、失败或超时再返回主代理。”
+
 ## HARP 长时行为轨迹分析
 
 [harp-run-atlas](skills/harp-run-atlas/SKILL.md) 用于**总结和分析 agent 的长时行为轨迹**。它将 HARP 的计划依赖（Plan DAG）、计划内策略尝试（Strategy Tree）与审阅、交付证据整理成离线交互图谱。读者可以逐步展开，了解 agent 为什么改换方法、一次重试解决了什么、哪些结果仍然待定。适用于 DOE、CV 等研究工作区的运行复盘与跨案例比较。

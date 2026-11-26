@@ -211,6 +211,15 @@
       "skills": [
         "./skills/archify"
       ]
+    },
+    {
+      "name": "agent-cost-control",
+      "description": "Reduce long-running agent costs with non-Astra delegation, one monitor, bounded polling and distinct review scopes",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/agent-cost-control"
+      ]
     }
   ]
 }
